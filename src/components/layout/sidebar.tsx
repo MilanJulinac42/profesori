@@ -9,13 +9,19 @@ import {
   Banknote,
   Sparkles,
   Globe,
+  Inbox,
   Settings,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 
-type NavItem = { href: string; label: string; icon: LucideIcon };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  badgeKey?: "newBookings";
+};
 
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Pregled", icon: LayoutDashboard },
@@ -24,10 +30,20 @@ const NAV: NavItem[] = [
   { href: "/billing", label: "Naplata", icon: Banknote },
   { href: "/exercises", label: "Zadaci", icon: Sparkles },
   { href: "/profile", label: "Javni profil", icon: Globe },
+  {
+    href: "/profile/inbox",
+    label: "Upiti",
+    icon: Inbox,
+    badgeKey: "newBookings",
+  },
   { href: "/settings", label: "Podešavanja", icon: Settings },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  badges = {},
+}: {
+  badges?: { newBookings?: number };
+}) {
   const pathname = usePathname();
 
   return (
@@ -41,6 +57,7 @@ export function Sidebar() {
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
+          const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
           return (
             <Link
               key={item.href}
@@ -53,7 +70,12 @@ export function Sidebar() {
               )}
             >
               <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
-              <span>{item.label}</span>
+              <span className="flex-1">{item.label}</span>
+              {badge !== undefined && badge > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-foreground text-background text-[10px] font-medium px-1">
+                  {badge}
+                </span>
+              )}
             </Link>
           );
         })}
