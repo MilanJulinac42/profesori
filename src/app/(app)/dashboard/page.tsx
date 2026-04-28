@@ -18,8 +18,10 @@ import {
   type AnalyticsPeriod,
 } from "@/lib/analytics/queries";
 import { getOrgDebtors } from "@/lib/payments/queries";
+import { countLessonsMissingNotes } from "@/lib/lessons/queries";
 import { formatRsd } from "@/lib/money";
 import { AnalyticsSection } from "./_components/analytics-section";
+import { StickyNote } from "lucide-react";
 
 type Search = { period?: string };
 
@@ -45,6 +47,7 @@ export default async function DashboardPage({
     { data: upcoming },
     analytics,
     debtors,
+    missingNotesCount,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -61,6 +64,7 @@ export default async function DashboardPage({
       .limit(5),
     getLessonAnalytics(supabase, range),
     getOrgDebtors(supabase),
+    countLessonsMissingNotes(supabase),
   ]);
 
   const org = Array.isArray(profile.organizations)
@@ -176,8 +180,15 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* Debt callout (only visible if any) */}
-      {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
+      {/* Debt + missing-notes callouts */}
+      {(debtors.totalDebt > 0 || missingNotesCount > 0) && (
+        <section className="grid gap-3 lg:grid-cols-2">
+          {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
+          {missingNotesCount > 0 && (
+            <MissingNotesCallout count={missingNotesCount} />
+          )}
+        </section>
+      )}
 
       {/* Analytics */}
       <AnalyticsSection stats={analytics} period={period} />
@@ -255,6 +266,42 @@ function DebtCallout({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+/* ---------- missing notes callout ---------- */
+function MissingNotesCallout({ count }: { count: number }) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            Beleške
+          </p>
+          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
+            {count}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {count === 1
+              ? "održan čas bez beleški"
+              : count < 5
+                ? "održana časa bez beleški"
+                : "održanih časova bez beleški"}
+          </p>
+        </div>
+        <Link
+          href="/schedule"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          Otvori raspored
+          <ArrowRight className="size-3" strokeWidth={1.75} />
+        </Link>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
+        <StickyNote className="size-3" strokeWidth={1.75} />
+        Klikni na čas i popuni "Beleške posle časa" sekciju.
+      </p>
     </section>
   );
 }

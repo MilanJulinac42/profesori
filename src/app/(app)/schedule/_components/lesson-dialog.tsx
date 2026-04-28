@@ -34,6 +34,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { TopicInput } from "@/components/topic-input";
+import { StarRating } from "@/components/star-rating";
 import {
   LESSON_STATUS_LABELS,
   type LessonStatus,
@@ -61,15 +64,19 @@ type State =
   | { mode: "create"; defaultDate: string; defaultTime?: string }
   | { mode: "edit"; lesson: LessonWithStudent };
 
+export type DialogStudents = StudentOption[];
+
 const DURATION_PRESETS = [30, 45, 60, 90, 120];
 
 export function LessonDialog({
   state,
   students,
+  topicSuggestions,
   onClose,
 }: {
   state: State;
   students: StudentOption[];
+  topicSuggestions: string[];
   onClose: () => void;
 }) {
   const open = state.mode !== "closed";
@@ -80,7 +87,7 @@ export function LessonDialog({
         if (!o) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-lg p-0 gap-0">
+      <DialogContent className="sm:max-w-lg p-0 gap-0 max-h-[90vh] overflow-y-auto">
         {state.mode === "create" && (
           <CreateForm
             students={students}
@@ -90,7 +97,11 @@ export function LessonDialog({
           />
         )}
         {state.mode === "edit" && (
-          <EditForm lesson={state.lesson} onDone={onClose} />
+          <EditForm
+            lesson={state.lesson}
+            topicSuggestions={topicSuggestions}
+            onDone={onClose}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -341,9 +352,11 @@ function CreateForm({
 
 function EditForm({
   lesson,
+  topicSuggestions,
   onDone,
 }: {
   lesson: LessonWithStudent;
+  topicSuggestions: string[];
   onDone: () => void;
 }) {
   const dt = parseISO(lesson.scheduled_at);
@@ -353,6 +366,12 @@ function EditForm({
   const [priceText, setPriceText] = useState(
     lesson.price ? String(parasToRsd(lesson.price)) : "",
   );
+  // Notes state
+  const [notesAfter, setNotesAfter] = useState(lesson.notes_after_lesson ?? "");
+  const [topics, setTopics] = useState<string[]>(lesson.topics_covered ?? []);
+  const [rating, setRating] = useState<number | null>(lesson.lesson_rating);
+  const [nextPlan, setNextPlan] = useState(lesson.next_lesson_plan ?? "");
+
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
@@ -369,6 +388,10 @@ function EditForm({
     fd.set("time", time);
     fd.set("duration_minutes", String(duration));
     if (priceText) fd.set("price", priceText);
+    fd.set("notes_after_lesson", notesAfter);
+    fd.set("next_lesson_plan", nextPlan);
+    fd.set("topics_covered", JSON.stringify(topics));
+    if (rating !== null) fd.set("lesson_rating", String(rating));
 
     startTransition(async () => {
       setError(null);
@@ -518,6 +541,57 @@ function EditForm({
             {fieldErrors.time}
           </div>
         )}
+
+        {/* Notes section */}
+        <div className="space-y-3">
+          <Separator />
+          <div className="pt-1">
+            <p className="text-xs font-medium">Beleške posle časa</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              Privatno za tebe — učenik ne vidi.
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="notes_after_lesson" className="text-xs">
+              Šta je rađeno
+            </Label>
+            <Textarea
+              id="notes_after_lesson"
+              value={notesAfter}
+              onChange={(e) => setNotesAfter(e.target.value)}
+              rows={3}
+              placeholder="Kratko: o čemu ste pričali, šta ste vežbali..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Teme</Label>
+            <TopicInput
+              value={topics}
+              onChange={setTopics}
+              suggestions={topicSuggestions}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Kako je išlo</Label>
+            <StarRating value={rating} onChange={setRating} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="next_lesson_plan" className="text-xs">
+              Šta za sledeći put
+            </Label>
+            <Textarea
+              id="next_lesson_plan"
+              value={nextPlan}
+              onChange={(e) => setNextPlan(e.target.value)}
+              rows={2}
+              placeholder="Plan za sledeći čas..."
+            />
+          </div>
+        </div>
 
         {/* Status row */}
         <div>

@@ -154,6 +154,32 @@ export async function updateLesson(
   const durationStr = String(formData.get("duration_minutes") ?? "60").trim();
   const priceRaw = String(formData.get("price") ?? "").trim();
 
+  // Notes fields (all optional).
+  const notesAfter = String(formData.get("notes_after_lesson") ?? "").trim() || null;
+  const nextPlan = String(formData.get("next_lesson_plan") ?? "").trim() || null;
+  const ratingRaw = String(formData.get("lesson_rating") ?? "").trim();
+  const topicsJson = String(formData.get("topics_covered") ?? "").trim();
+
+  let rating: number | null = null;
+  if (ratingRaw) {
+    const r = Number(ratingRaw);
+    if (Number.isFinite(r) && r >= 1 && r <= 5) rating = Math.round(r);
+  }
+
+  let topics: string[] = [];
+  if (topicsJson) {
+    try {
+      const parsed = JSON.parse(topicsJson);
+      if (Array.isArray(parsed))
+        topics = parsed
+          .map((t) => String(t).trim())
+          .filter((t) => t.length > 0)
+          .slice(0, 30);
+    } catch {
+      // ignore
+    }
+  }
+
   const fieldErrors: Record<string, string> = {};
   if (!date) fieldErrors.date = "Datum je obavezan.";
   if (!time) fieldErrors.time = "Vreme je obavezno.";
@@ -181,7 +207,6 @@ export async function updateLesson(
     return { fieldErrors: { time: formatConflictMessage(conflict) } };
   }
 
-  // Look up student for revalidation before update.
   const { data: existing } = await supabase
     .from("lessons")
     .select("student_id")
@@ -191,6 +216,10 @@ export async function updateLesson(
   const update: Record<string, unknown> = {
     scheduled_at: scheduledAt.toISOString(),
     duration_minutes: duration,
+    notes_after_lesson: notesAfter,
+    next_lesson_plan: nextPlan,
+    lesson_rating: rating,
+    topics_covered: topics,
   };
   if (pricePara !== null) update.price = pricePara;
 

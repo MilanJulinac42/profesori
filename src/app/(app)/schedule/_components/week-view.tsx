@@ -52,10 +52,12 @@ export function WeekView({
   weekStartISO,
   lessons,
   students,
+  topicSuggestions,
 }: {
   weekStartISO: string;
   lessons: LessonWithStudent[];
   students: StudentOption[];
+  topicSuggestions: string[];
 }) {
   const router = useRouter();
   const weekStart = parseISO(weekStartISO);
@@ -226,6 +228,7 @@ export function WeekView({
       <LessonDialog
         state={dialog}
         students={students}
+        topicSuggestions={topicSuggestions}
         onClose={() => setDialog({ mode: "closed" })}
       />
     </>
@@ -396,6 +399,10 @@ function LessonBlock({
   const tone = STATUS_TONE[lesson.status];
   const time = format(dt, "HH:mm");
   const tight = height < 56;
+  const missingNotes =
+    lesson.status === "completed" &&
+    !lesson.notes_after_lesson &&
+    (!lesson.topics_covered || lesson.topics_covered.length === 0);
 
   return (
     <button
@@ -410,6 +417,12 @@ function LessonBlock({
       )}
       style={{ top: top + 1, height: height - 2 }}
     >
+      {missingNotes && (
+        <span
+          className="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-amber-500"
+          aria-label="Nema beleški"
+        />
+      )}
       {tight ? (
         <div className="flex items-baseline gap-1.5">
           <span className={cn("text-[11px] font-medium tabular-nums", tone.text)}>

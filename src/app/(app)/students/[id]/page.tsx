@@ -11,11 +11,13 @@ import {
   CalendarDays,
   StickyNote,
   Archive,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { formatRsd } from "@/lib/money";
 import {
   EDUCATION_LABELS,
@@ -212,12 +214,7 @@ export default async function StudentPage({
             reminders={reminders}
           />
           <LessonsList upcoming={upcomingLessons} past={pastLessons} />
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-medium">Beleške posle časova</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Posle svakog završenog časa, beleške ti dolaze ovde.
-            </p>
-          </div>
+          <NotesList lessons={lessons} />
         </div>
 
         {/* Side panel: details */}
@@ -351,6 +348,110 @@ function LessonsList({
         </div>
       )}
     </div>
+  );
+}
+
+function NotesList({ lessons }: { lessons: Lesson[] }) {
+  const withNotes = lessons.filter(
+    (l) =>
+      l.notes_after_lesson ||
+      (l.topics_covered && l.topics_covered.length > 0) ||
+      l.lesson_rating !== null ||
+      l.next_lesson_plan,
+  );
+
+  if (withNotes.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h2 className="text-sm font-medium">Beleške posle časova</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Posle svakog završenog časa, kad popuniš beleške u dialogu časa,
+          one će se pojaviti ovde.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border">
+        <h2 className="text-sm font-medium">Beleške posle časova</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          {withNotes.length}{" "}
+          {withNotes.length === 1
+            ? "beleška"
+            : withNotes.length < 5
+              ? "beleške"
+              : "beleški"}
+        </p>
+      </div>
+      <ul className="divide-y divide-border">
+        {withNotes.slice(0, 10).map((l) => (
+          <NoteRow key={l.id} lesson={l} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function NoteRow({ lesson }: { lesson: Lesson }) {
+  const dt = new Date(lesson.scheduled_at);
+  return (
+    <li className="px-5 py-4">
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {dt.toLocaleDateString("sr-Latn-RS", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "2-digit",
+          })}
+        </p>
+        {lesson.lesson_rating !== null && (
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Star
+                key={n}
+                className={cn(
+                  "size-3",
+                  n <= (lesson.lesson_rating ?? 0)
+                    ? "fill-foreground text-foreground"
+                    : "text-muted-foreground/30",
+                )}
+                strokeWidth={1.75}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+      {lesson.topics_covered && lesson.topics_covered.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {lesson.topics_covered.map((t) => (
+            <span
+              key={t}
+              className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground"
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+      {lesson.notes_after_lesson && (
+        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+          {lesson.notes_after_lesson}
+        </p>
+      )}
+      {lesson.next_lesson_plan && (
+        <div className="mt-2 pt-2 border-t border-border">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">
+            Za sledeći put
+          </p>
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+            {lesson.next_lesson_plan}
+          </p>
+        </div>
+      )}
+    </li>
   );
 }
 

@@ -9,6 +9,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { WeekView } from "./_components/week-view";
 import type { LessonWithStudent } from "@/lib/lessons/types";
+import { getRecentTopics } from "@/lib/lessons/queries";
 
 type Search = { week?: string };
 
@@ -26,7 +27,7 @@ export default async function SchedulePage({
 
   const supabase = await createClient();
 
-  const [{ data: lessons }, { data: students }] = await Promise.all([
+  const [{ data: lessons }, { data: students }, topicSuggestions] = await Promise.all([
     supabase
       .from("lessons")
       .select("*, students(id, full_name)")
@@ -41,6 +42,7 @@ export default async function SchedulePage({
       )
       .is("deleted_at", null)
       .order("full_name", { ascending: true }),
+    getRecentTopics(supabase),
   ]);
 
   return (
@@ -56,6 +58,7 @@ export default async function SchedulePage({
           status: string;
         }[] | null) ?? []
       }
+      topicSuggestions={topicSuggestions}
     />
   );
 }

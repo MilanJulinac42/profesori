@@ -15,9 +15,19 @@ export type Lesson = {
   price: number; // paras
   notes_after_lesson: string | null;
   topics_covered: string[];
+  lesson_rating: number | null; // 1..5 ili null
+  next_lesson_plan: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+};
+
+export const LESSON_RATING_LABELS: Record<number, string> = {
+  1: "Vrlo loše",
+  2: "Slabo",
+  3: "Solidno",
+  4: "Dobro",
+  5: "Odlično",
 };
 
 export type LessonWithStudent = Lesson & {
