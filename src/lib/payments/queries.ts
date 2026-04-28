@@ -1,6 +1,96 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { BILLABLE_STATUSES, type Payment } from "./types";
+import { BILLABLE_STATUSES, type Payment, type PaymentMethod } from "./types";
 import type { Lesson } from "@/lib/lessons/types";
+
+/* ---------------- Period analytics ---------------- */
+
+export type BillingAnalytics = {
+  revenueInPeriod: number; // paras: sum of billable lesson prices in period
+  collectedInPeriod: number; // paras: sum of payment amounts in period
+  heldLessonsInPeriod: number; // count of completed lessons
+  paymentsCountInPeriod: number;
+  collectionRate: number; // 0..100, collected / revenue
+};
+
+export async function getBillingAnalytics(
+  supabase: SupabaseClient,
+  range: { from: Date; to: Date },
+): Promise<BillingAnalytics> {
+  const [{ data: lessons }, { data: payments }] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("price, status")
+      .is("deleted_at", null)
+      .in("status", BILLABLE_STATUSES)
+      .gte("scheduled_at", range.from.toISOString())
+      .lte("scheduled_at", range.to.toISOString()),
+    supabase
+      .from("payments")
+      .select("amount")
+      .is("deleted_at", null)
+      .gte("paid_at", range.from.toISOString())
+      .lte("paid_at", range.to.toISOString()),
+  ]);
+
+  type LessonRow = { price: number; status: string };
+  const lessonList = (lessons as LessonRow[] | null) ?? [];
+  const paymentList = (payments as { amount: number }[] | null) ?? [];
+
+  const revenue = lessonList.reduce((s, l) => s + l.price, 0);
+  const collected = paymentList.reduce((s, p) => s + p.amount, 0);
+  const heldCount = lessonList.filter((l) => l.status === "completed").length;
+
+  return {
+    revenueInPeriod: revenue,
+    collectedInPeriod: collected,
+    heldLessonsInPeriod: heldCount,
+    paymentsCountInPeriod: paymentList.length,
+    collectionRate: revenue > 0 ? (collected / revenue) * 100 : 0,
+  };
+}
+
+/* ---------------- Recent payments ---------------- */
+
+export type RecentPayment = {
+  id: string;
+  amount: number;
+  paid_at: string;
+  method: PaymentMethod;
+  note: string | null;
+  student: { id: string; full_name: string } | null;
+};
+
+export async function getRecentPayments(
+  supabase: SupabaseClient,
+  limit = 10,
+): Promise<RecentPayment[]> {
+  const { data } = await supabase
+    .from("payments")
+    .select("id, amount, paid_at, method, note, students(id, full_name)")
+    .is("deleted_at", null)
+    .order("paid_at", { ascending: false })
+    .limit(limit);
+
+  return (
+    (data as
+      | {
+          id: string;
+          amount: number;
+          paid_at: string;
+          method: PaymentMethod;
+          note: string | null;
+          students: { id: string; full_name: string } | null;
+        }[]
+      | null) ?? []
+  ).map((p) => ({
+    id: p.id,
+    amount: p.amount,
+    paid_at: p.paid_at,
+    method: p.method,
+    note: p.note,
+    student: p.students,
+  }));
+}
 
 /**
  * Aggregate billing summary for a single student.
