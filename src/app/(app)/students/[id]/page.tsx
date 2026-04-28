@@ -29,6 +29,8 @@ import {
   type Lesson,
   type LessonStatus,
 } from "@/lib/lessons/types";
+import { getStudentBilling } from "@/lib/payments/queries";
+import { BillingSection } from "./_components/billing-section";
 
 export default async function StudentPage({
   params,
@@ -67,6 +69,9 @@ export default async function StudentPage({
     (l) => l.status === "completed",
   ).length;
   const nextLesson = upcomingLessons[upcomingLessons.length - 1];
+
+  // Billing.
+  const billing = await getStudentBilling(supabase, s.id);
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-6xl mx-auto w-full">
@@ -124,7 +129,24 @@ export default async function StudentPage({
 
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Stat label="Dug" value="0 RSD" icon={Banknote} hint="—" />
+        <Stat
+          label={billing.debt < 0 ? "Pretplata" : "Dug"}
+          value={
+            billing.debt < 0
+              ? formatRsd(-billing.debt)
+              : formatRsd(billing.debt)
+          }
+          icon={Banknote}
+          hint={
+            billing.debt > 0
+              ? `${billing.unpaidLessons.length} neplaćenih`
+              : billing.debt < 0
+                ? "Učenik je preplatio"
+                : billing.billableLessonsCount > 0
+                  ? "Sve plaćeno"
+                  : "Nema naplata"
+          }
+        />
         <Stat
           label="Časova održano"
           value={String(totalLessonsHeld)}
@@ -166,20 +188,20 @@ export default async function StudentPage({
       {/* Body grid */}
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-6 min-w-0">
-          <LessonsList
-            upcoming={upcomingLessons}
-            past={pastLessons}
+          <BillingSection
+            studentId={s.id}
+            studentName={s.full_name}
+            debt={billing.debt}
+            paidTotal={billing.paidTotal}
+            billableTotal={billing.billableTotal}
+            unpaidLessons={billing.unpaidLessons}
+            payments={billing.payments}
           />
+          <LessonsList upcoming={upcomingLessons} past={pastLessons} />
           <div className="rounded-xl border border-border bg-card p-6">
             <h2 className="text-sm font-medium">Beleške posle časova</h2>
             <p className="text-sm text-muted-foreground mt-1">
               Posle svakog završenog časa, beleške ti dolaze ovde.
-            </p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-6">
-            <h2 className="text-sm font-medium">Uplate</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              Evidencija svih uplata će biti ovde.
             </p>
           </div>
         </div>

@@ -17,6 +17,8 @@ import {
   getRangeForPeriod,
   type AnalyticsPeriod,
 } from "@/lib/analytics/queries";
+import { getOrgDebtors } from "@/lib/payments/queries";
+import { formatRsd } from "@/lib/money";
 import { AnalyticsSection } from "./_components/analytics-section";
 
 type Search = { period?: string };
@@ -42,6 +44,7 @@ export default async function DashboardPage({
     { count: activeStudents },
     { data: upcoming },
     analytics,
+    debtors,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -57,6 +60,7 @@ export default async function DashboardPage({
       .order("scheduled_at", { ascending: true })
       .limit(5),
     getLessonAnalytics(supabase, range),
+    getOrgDebtors(supabase),
   ]);
 
   const org = Array.isArray(profile.organizations)
@@ -172,6 +176,9 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {/* Debt callout (only visible if any) */}
+      {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
+
       {/* Analytics */}
       <AnalyticsSection stats={analytics} period={period} />
 
@@ -198,6 +205,57 @@ export default async function DashboardPage({
         />
       </section>
     </div>
+  );
+}
+
+/* ---------- debt callout ---------- */
+function DebtCallout({
+  debtors,
+}: {
+  debtors: Awaited<ReturnType<typeof getOrgDebtors>>;
+}) {
+  const top = debtors.debtors.slice(0, 3);
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            Naplata
+          </p>
+          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
+            {formatRsd(debtors.totalDebt)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {debtors.debtors.length}{" "}
+            {debtors.debtors.length === 1
+              ? "učenik duguje"
+              : "učenika duguju"}
+          </p>
+        </div>
+        <Link
+          href="/billing"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+        >
+          Otvori naplatu
+          <ArrowRight className="size-3" strokeWidth={1.75} />
+        </Link>
+      </div>
+      <ul className="grid sm:grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
+        {top.map((d) => (
+          <li key={d.student_id}>
+            <Link
+              href={`/students/${d.student_id}`}
+              className="flex items-center justify-between gap-2 rounded-md hover:bg-secondary/40 px-2 py-1.5 transition-colors"
+            >
+              <span className="text-xs truncate">{d.full_name}</span>
+              <span className="text-xs font-medium tabular-nums">
+                {formatRsd(d.debt)}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
