@@ -1,8 +1,20 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { sr } from "date-fns/locale";
+import {
+  Trash2,
+  CalendarDays,
+  Clock,
+  Banknote,
+  ExternalLink,
+  Check,
+  X,
+  XCircle,
+  HelpCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +36,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import {
   LESSON_STATUS_LABELS,
-  LESSON_STATUS_OPTIONS,
   type LessonStatus,
   type LessonWithStudent,
 } from "@/lib/lessons/types";
@@ -41,6 +52,7 @@ type StudentOption = {
   id: string;
   full_name: string;
   default_price_per_lesson: number;
+  default_lesson_duration_minutes: number;
   status: string;
 };
 
@@ -48,6 +60,8 @@ type State =
   | { mode: "closed" }
   | { mode: "create"; defaultDate: string; defaultTime?: string }
   | { mode: "edit"; lesson: LessonWithStudent };
+
+const DURATION_PRESETS = [30, 45, 60, 90, 120];
 
 export function LessonDialog({
   state,
@@ -66,7 +80,7 @@ export function LessonDialog({
         if (!o) onClose();
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg p-0 gap-0">
         {state.mode === "create" && (
           <CreateForm
             students={students}
@@ -83,6 +97,8 @@ export function LessonDialog({
   );
 }
 
+/* ---------------- CREATE ---------------- */
+
 function CreateForm({
   students,
   defaultDate,
@@ -94,37 +110,61 @@ function CreateForm({
   defaultTime?: string;
   onDone: () => void;
 }) {
-  const [studentId, setStudentId] = useState<string>(
-    students.find((s) => s.status === "active")?.id ?? students[0]?.id ?? "",
+  const initialStudent =
+    students.find((s) => s.status === "active") ?? students[0];
+
+  const [studentId, setStudentId] = useState<string>(initialStudent?.id ?? "");
+  const [duration, setDuration] = useState<number>(
+    initialStudent?.default_lesson_duration_minutes ?? 60,
   );
+  const [date, setDate] = useState(defaultDate);
+  const [time, setTime] = useState(defaultTime ?? "16:00");
+  const [priceText, setPriceText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
 
   const selectedStudent = students.find((s) => s.id === studentId);
 
-  function onSubmit(formData: FormData) {
-    formData.set("student_id", studentId);
+  // Auto-update duration when student changes if user hasn't manually set a non-default
+  useEffect(() => {
+    if (selectedStudent) {
+      setDuration(selectedStudent.default_lesson_duration_minutes ?? 60);
+    }
+  }, [studentId, selectedStudent]);
+
+  function onSubmit() {
+    const fd = new FormData();
+    fd.set("student_id", studentId);
+    fd.set("date", date);
+    fd.set("time", time);
+    fd.set("duration_minutes", String(duration));
+    if (priceText) fd.set("price", priceText);
+
     startTransition(async () => {
       setError(null);
       setFieldErrors({});
-      const res = await createLesson(undefined, formData);
+      const res = await createLesson(undefined, fd);
       if (res?.error) setError(res.error);
-      else if (res?.fieldErrors) setFieldErrors(res.fieldErrors as Record<string, string>);
+      else if (res?.fieldErrors)
+        setFieldErrors(res.fieldErrors as Record<string, string>);
       else onDone();
     });
   }
 
   return (
-    <form action={onSubmit} className="space-y-5">
-      <DialogHeader>
-        <DialogTitle>Novi čas</DialogTitle>
-        <DialogDescription>
-          Izaberi učenika i termin. Cena se prepisuje iz profila učenika.
-        </DialogDescription>
-      </DialogHeader>
+    <div>
+      <div className="px-5 pt-5 pb-4 border-b border-border">
+        <DialogHeader>
+          <DialogTitle>Zakaži čas</DialogTitle>
+          <DialogDescription>
+            Cena i trajanje se prepisuju iz profila učenika.
+          </DialogDescription>
+        </DialogHeader>
+      </div>
 
-      <div className="space-y-4">
+      <div className="px-5 py-5 space-y-5">
+        {/* Student picker */}
         <div className="space-y-1.5">
           <Label className="text-xs">Učenik</Label>
           <Select
@@ -133,7 +173,7 @@ function CreateForm({
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Izaberi učenika">
-                {(value: string) =>
+                {(value: string | null) =>
                   students.find((s) => s.id === value)?.full_name ??
                   "Izaberi učenika"
                 }
@@ -147,74 +187,157 @@ function CreateForm({
               ))}
             </SelectContent>
           </Select>
+          {selectedStudent && (
+            <p className="text-[11px] text-muted-foreground">
+              Default: {selectedStudent.default_lesson_duration_minutes} min
+              {selectedStudent.default_price_per_lesson > 0 &&
+                ` · ${parasToRsd(selectedStudent.default_price_per_lesson)} RSD/čas`}
+            </p>
+          )}
         </div>
 
+        {/* Date + Time */}
         <div className="grid grid-cols-2 gap-3">
-          <FormField
-            label="Datum"
-            name="date"
-            type="date"
-            defaultValue={defaultDate}
-            required
-            error={fieldErrors.date}
-          />
-          <FormField
-            label="Vreme"
-            name="time"
-            type="time"
-            defaultValue={defaultTime ?? "16:00"}
-            required
-            error={fieldErrors.time}
-          />
+          <div className="space-y-1.5">
+            <Label htmlFor="date" className="text-xs">
+              <CalendarDays
+                className="size-3 inline -mt-0.5 mr-1"
+                strokeWidth={1.75}
+              />
+              Datum
+            </Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              aria-invalid={!!fieldErrors.date}
+            />
+            {fieldErrors.date && (
+              <p className="text-xs text-destructive">{fieldErrors.date}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="time" className="text-xs">
+              <Clock
+                className="size-3 inline -mt-0.5 mr-1"
+                strokeWidth={1.75}
+              />
+              Vreme
+            </Label>
+            <Input
+              id="time"
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              required
+              aria-invalid={!!fieldErrors.time}
+            />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
-            label="Trajanje (min)"
-            name="duration_minutes"
-            type="number"
-            defaultValue="60"
-            inputMode="numeric"
-            required
-            error={fieldErrors.duration_minutes}
-          />
-          <FormField
-            label="Cena (RSD)"
-            name="price"
+        {/* Duration chips */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Trajanje</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {DURATION_PRESETS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDuration(d)}
+                className={cn(
+                  "rounded-md border px-2.5 py-1 text-xs transition-colors tabular-nums",
+                  duration === d
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-card hover:bg-secondary",
+                )}
+              >
+                {d} min
+              </button>
+            ))}
+            <Input
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value) || 0)}
+              min={1}
+              max={480}
+              className="w-16 h-7 text-xs px-2"
+              aria-label="Custom trajanje u minutima"
+            />
+          </div>
+          {fieldErrors.duration_minutes && (
+            <p className="text-xs text-destructive">
+              {fieldErrors.duration_minutes}
+            </p>
+          )}
+        </div>
+
+        {/* Price */}
+        <div className="space-y-1.5">
+          <Label htmlFor="price" className="text-xs">
+            <Banknote
+              className="size-3 inline -mt-0.5 mr-1"
+              strokeWidth={1.75}
+            />
+            Cena (RSD)
+          </Label>
+          <Input
+            id="price"
             type="text"
             inputMode="numeric"
+            value={priceText}
+            onChange={(e) => setPriceText(e.target.value)}
             placeholder={
               selectedStudent && selectedStudent.default_price_per_lesson > 0
                 ? String(parasToRsd(selectedStudent.default_price_per_lesson))
                 : "1500"
             }
-            error={fieldErrors.price}
-            hint={
-              selectedStudent && selectedStudent.default_price_per_lesson > 0
-                ? "Default iz profila ako ne uneseš"
-                : undefined
-            }
+            aria-invalid={!!fieldErrors.price}
           />
+          {fieldErrors.price && (
+            <p className="text-xs text-destructive">{fieldErrors.price}</p>
+          )}
+          {!fieldErrors.price &&
+            selectedStudent &&
+            selectedStudent.default_price_per_lesson > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Default iz profila ako ostaviš prazno.
+              </p>
+            )}
         </div>
+
+        {/* Conflict / generic error */}
+        {fieldErrors.time && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {fieldErrors.time}
+          </div>
+        )}
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-
-      <DialogFooter>
+      <DialogFooter className="!mx-0 !mb-0">
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Otkaži
         </Button>
-        <Button type="submit" size="sm" disabled={pending || !studentId}>
+        <Button
+          type="button"
+          size="sm"
+          disabled={pending || !studentId}
+          onClick={onSubmit}
+        >
           {pending ? "Čuvanje..." : "Zakaži"}
         </Button>
       </DialogFooter>
-    </form>
+    </div>
   );
 }
+
+/* ---------------- EDIT ---------------- */
 
 function EditForm({
   lesson,
@@ -224,24 +347,36 @@ function EditForm({
   onDone: () => void;
 }) {
   const dt = parseISO(lesson.scheduled_at);
+  const [date, setDate] = useState(format(dt, "yyyy-MM-dd"));
+  const [time, setTime] = useState(format(dt, "HH:mm"));
+  const [duration, setDuration] = useState(lesson.duration_minutes);
+  const [priceText, setPriceText] = useState(
+    lesson.price ? String(parasToRsd(lesson.price)) : "",
+  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
   const [statusPending, startStatusTransition] = useTransition();
 
-  // Allow user to clear errors when reopening
   useEffect(() => {
     setError(null);
     setFieldErrors({});
   }, [lesson.id]);
 
-  function onSubmit(formData: FormData) {
+  function onSubmit() {
+    const fd = new FormData();
+    fd.set("date", date);
+    fd.set("time", time);
+    fd.set("duration_minutes", String(duration));
+    if (priceText) fd.set("price", priceText);
+
     startTransition(async () => {
       setError(null);
       setFieldErrors({});
-      const res = await updateLesson(lesson.id, undefined, formData);
+      const res = await updateLesson(lesson.id, undefined, fd);
       if (res?.error) setError(res.error);
-      else if (res?.fieldErrors) setFieldErrors(res.fieldErrors as Record<string, string>);
+      else if (res?.fieldErrors)
+        setFieldErrors(res.fieldErrors as Record<string, string>);
       else onDone();
     });
   }
@@ -269,105 +404,186 @@ function EditForm({
     });
   }
 
-  return (
-    <form action={onSubmit} className="space-y-5">
-      <DialogHeader>
-        <DialogTitle>{lesson.students?.full_name ?? "Čas"}</DialogTitle>
-        <DialogDescription>
-          {format(dt, "d. MMMM yyyy., HH:mm")} ·{" "}
-          {LESSON_STATUS_LABELS[lesson.status]}
-        </DialogDescription>
-      </DialogHeader>
+  const dtLabel = format(dt, "EEEE, d. MMMM", { locale: sr });
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
-            label="Datum"
-            name="date"
-            type="date"
-            defaultValue={format(dt, "yyyy-MM-dd")}
-            required
-            error={fieldErrors.date}
-          />
-          <FormField
-            label="Vreme"
-            name="time"
-            type="time"
-            defaultValue={format(dt, "HH:mm")}
-            required
-            error={fieldErrors.time}
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField
-            label="Trajanje (min)"
-            name="duration_minutes"
-            type="number"
-            defaultValue={String(lesson.duration_minutes)}
-            inputMode="numeric"
-            required
-            error={fieldErrors.duration_minutes}
-          />
-          <FormField
-            label="Cena (RSD)"
-            name="price"
-            type="text"
-            inputMode="numeric"
-            defaultValue={
-              lesson.price ? String(parasToRsd(lesson.price)) : ""
-            }
-            error={fieldErrors.price}
-          />
-        </div>
+  return (
+    <div>
+      <div className="px-5 pt-5 pb-4 border-b border-border">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {lesson.students?.full_name ?? "Čas"}
+            {lesson.students?.id && (
+              <Link
+                href={`/students/${lesson.students.id}`}
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Otvori profil učenika"
+              >
+                <ExternalLink className="size-3.5" strokeWidth={1.75} />
+              </Link>
+            )}
+          </DialogTitle>
+          <DialogDescription>
+            {dtLabel} ·{" "}
+            <span
+              className={cn(
+                lesson.status !== "scheduled" && "font-medium",
+                lesson.status === "completed" && "text-foreground",
+                lesson.status === "no_show" && "text-destructive",
+              )}
+            >
+              {LESSON_STATUS_LABELS[lesson.status]}
+            </span>
+          </DialogDescription>
+        </DialogHeader>
       </div>
 
-      {/* Status actions */}
-      <div className="space-y-2">
-        <Separator />
-        <p className="text-xs text-muted-foreground">Obeleži status</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {LESSON_STATUS_OPTIONS.map((opt) => (
-            <Button
-              key={opt.value}
-              type="button"
-              variant={lesson.status === opt.value ? "default" : "outline"}
-              size="sm"
-              disabled={statusPending}
-              onClick={() => changeStatus(opt.value)}
-              className="justify-start text-xs"
-            >
-              {opt.label}
-            </Button>
-          ))}
+      <div className="px-5 py-5 space-y-5">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="date-edit" className="text-xs">
+              Datum
+            </Label>
+            <Input
+              id="date-edit"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              aria-invalid={!!fieldErrors.date}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="time-edit" className="text-xs">
+              Vreme
+            </Label>
+            <Input
+              id="time-edit"
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              required
+              aria-invalid={!!fieldErrors.time}
+            />
+          </div>
         </div>
-        {lesson.status !== "scheduled" && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={statusPending}
-            onClick={() => changeStatus("scheduled")}
-            className="text-xs text-muted-foreground"
-          >
-            Vrati na "zakazan"
-          </Button>
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Trajanje</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {DURATION_PRESETS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDuration(d)}
+                className={cn(
+                  "rounded-md border px-2.5 py-1 text-xs transition-colors tabular-nums",
+                  duration === d
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border bg-card hover:bg-secondary",
+                )}
+              >
+                {d} min
+              </button>
+            ))}
+            <Input
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value) || 0)}
+              min={1}
+              max={480}
+              className="w-16 h-7 text-xs px-2"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="price-edit" className="text-xs">
+            Cena (RSD)
+          </Label>
+          <Input
+            id="price-edit"
+            type="text"
+            inputMode="numeric"
+            value={priceText}
+            onChange={(e) => setPriceText(e.target.value)}
+            aria-invalid={!!fieldErrors.price}
+          />
+          {fieldErrors.price && (
+            <p className="text-xs text-destructive">{fieldErrors.price}</p>
+          )}
+        </div>
+
+        {fieldErrors.time && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {fieldErrors.time}
+          </div>
+        )}
+
+        {/* Status row */}
+        <div>
+          <Separator />
+          <div className="pt-4 space-y-2">
+            <p className="text-xs text-muted-foreground">Obeleži status</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              <StatusButton
+                active={lesson.status === "completed"}
+                onClick={() => changeStatus("completed")}
+                disabled={statusPending}
+                icon={Check}
+                label="Održan"
+              />
+              <StatusButton
+                active={lesson.status === "cancelled_by_student"}
+                onClick={() => changeStatus("cancelled_by_student")}
+                disabled={statusPending}
+                icon={X}
+                label="Otkazao učenik"
+              />
+              <StatusButton
+                active={lesson.status === "cancelled_by_teacher"}
+                onClick={() => changeStatus("cancelled_by_teacher")}
+                disabled={statusPending}
+                icon={X}
+                label="Otkazao profesor"
+              />
+              <StatusButton
+                active={lesson.status === "no_show"}
+                onClick={() => changeStatus("no_show")}
+                disabled={statusPending}
+                icon={XCircle}
+                label="Nije se pojavio"
+                tone="danger"
+              />
+            </div>
+            {lesson.status !== "scheduled" && (
+              <button
+                type="button"
+                onClick={() => changeStatus("scheduled")}
+                disabled={statusPending}
+                className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-1"
+              >
+                <HelpCircle className="size-3" strokeWidth={1.75} />
+                Vrati na zakazan
+              </button>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
         )}
       </div>
 
-      {error && (
-        <p className="text-sm text-destructive" role="alert">
-          {error}
-        </p>
-      )}
-
-      <DialogFooter className="flex sm:flex-row sm:justify-between gap-2">
+      <DialogFooter className="!mx-0 !mb-0 flex flex-row !justify-between">
         <Button
           type="button"
           variant="ghost"
           size="sm"
           onClick={onDelete}
           disabled={statusPending}
-          className={cn("text-destructive hover:text-destructive")}
+          className="text-destructive hover:text-destructive"
         >
           <Trash2 className="size-3.5" strokeWidth={1.75} />
           Obriši
@@ -376,53 +592,47 @@ function EditForm({
           <Button type="button" variant="ghost" size="sm" onClick={onDone}>
             Otkaži
           </Button>
-          <Button type="submit" size="sm" disabled={pending}>
+          <Button type="button" size="sm" disabled={pending} onClick={onSubmit}>
             {pending ? "Čuvanje..." : "Sačuvaj"}
           </Button>
         </div>
       </DialogFooter>
-    </form>
+    </div>
   );
 }
 
-function FormField({
+function StatusButton({
+  active,
+  onClick,
+  disabled,
+  icon: Icon,
   label,
-  name,
-  type,
-  defaultValue,
-  placeholder,
-  required,
-  inputMode,
-  error,
-  hint,
+  tone = "default",
 }: {
+  active: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+  icon: typeof Check;
   label: string;
-  name: string;
-  type: string;
-  defaultValue?: string;
-  placeholder?: string;
-  required?: boolean;
-  inputMode?: "numeric";
-  error?: string;
-  hint?: string;
+  tone?: "default" | "danger";
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name} className="text-xs">
-        {label}
-      </Label>
-      <Input
-        id={name}
-        name={name}
-        type={type}
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        required={required}
-        inputMode={inputMode}
-        aria-invalid={!!error}
-      />
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      {!error && hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        "flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors text-left",
+        active
+          ? tone === "danger"
+            ? "border-destructive bg-destructive/10 text-destructive"
+            : "border-foreground bg-foreground text-background"
+          : "border-border bg-card hover:bg-secondary",
+        disabled && "opacity-50 cursor-not-allowed",
+      )}
+    >
+      <Icon className="size-3.5 shrink-0" strokeWidth={1.75} />
+      <span className="truncate">{label}</span>
+    </button>
   );
 }

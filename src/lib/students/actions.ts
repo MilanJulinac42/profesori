@@ -19,6 +19,7 @@ function readFormPayload(formData: FormData) {
   const parentPhone = String(formData.get("parent_phone") ?? "").trim() || null;
   const parentEmail = String(formData.get("parent_email") ?? "").trim() || null;
   const priceRaw = String(formData.get("default_price_per_lesson") ?? "").trim();
+  const durationRaw = String(formData.get("default_lesson_duration_minutes") ?? "60").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const tagsRaw = String(formData.get("tags") ?? "").trim();
   const status = String(formData.get("status") ?? "active") as StudentStatus;
@@ -35,6 +36,15 @@ function readFormPayload(formData: FormData) {
     else pricePara = parsed;
   }
 
+  const duration = Number(durationRaw);
+  let durationError: string | undefined;
+  let durationMinutes = 60;
+  if (!Number.isFinite(duration) || duration <= 0 || duration > 480) {
+    durationError = "Trajanje mora biti broj između 1 i 480 minuta.";
+  } else {
+    durationMinutes = Math.round(duration);
+  }
+
   return {
     fullName,
     grade,
@@ -44,6 +54,8 @@ function readFormPayload(formData: FormData) {
     parentEmail,
     pricePara,
     priceError,
+    durationMinutes,
+    durationError,
     notes,
     tags,
     status,
@@ -59,6 +71,8 @@ export async function createStudent(
   const fieldErrors: Record<string, string> = {};
   if (!data.fullName) fieldErrors.full_name = "Ime je obavezno.";
   if (data.priceError) fieldErrors.default_price_per_lesson = data.priceError;
+  if (data.durationError)
+    fieldErrors.default_lesson_duration_minutes = data.durationError;
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   const supabase = await createClient();
@@ -85,6 +99,7 @@ export async function createStudent(
       parent_phone: data.parentPhone,
       parent_email: data.parentEmail,
       default_price_per_lesson: data.pricePara,
+      default_lesson_duration_minutes: data.durationMinutes,
       notes: data.notes,
       tags: data.tags,
       status: data.status,
@@ -109,6 +124,8 @@ export async function updateStudent(
   const fieldErrors: Record<string, string> = {};
   if (!data.fullName) fieldErrors.full_name = "Ime je obavezno.";
   if (data.priceError) fieldErrors.default_price_per_lesson = data.priceError;
+  if (data.durationError)
+    fieldErrors.default_lesson_duration_minutes = data.durationError;
   if (Object.keys(fieldErrors).length) return { fieldErrors };
 
   const supabase = await createClient();
@@ -122,6 +139,7 @@ export async function updateStudent(
       parent_phone: data.parentPhone,
       parent_email: data.parentEmail,
       default_price_per_lesson: data.pricePara,
+      default_lesson_duration_minutes: data.durationMinutes,
       notes: data.notes,
       tags: data.tags,
       status: data.status,

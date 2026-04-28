@@ -159,7 +159,7 @@ export default async function StudentPage({
               : "—"
           }
           icon={Banknote}
-          hint="Default"
+          hint={`${s.default_lesson_duration_minutes} min default`}
         />
       </div>
 

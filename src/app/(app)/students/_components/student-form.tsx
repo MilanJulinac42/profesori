@@ -152,21 +152,33 @@ export function StudentForm(props: Props) {
         </div>
       </Section>
 
-      <Section title="Naplata">
-        <Field
-          label="Cena po času (RSD)"
-          name="default_price_per_lesson"
-          type="text"
-          inputMode="numeric"
-          placeholder="1500"
-          defaultValue={
-            s?.default_price_per_lesson
-              ? String(parasToRsd(s.default_price_per_lesson))
-              : ""
-          }
-          error={state?.fieldErrors?.default_price_per_lesson}
-          hint="Default cena za nove časove. Možeš je promeniti pojedinačno."
-        />
+      <Section title="Naplata i časovi">
+        <div className="grid sm:grid-cols-2 gap-4">
+          <Field
+            label="Cena po času (RSD)"
+            name="default_price_per_lesson"
+            type="text"
+            inputMode="numeric"
+            placeholder="1500"
+            defaultValue={
+              s?.default_price_per_lesson
+                ? String(parasToRsd(s.default_price_per_lesson))
+                : ""
+            }
+            error={state?.fieldErrors?.default_price_per_lesson}
+            hint="Default za nove časove."
+          />
+          <Field
+            label="Default trajanje (min)"
+            name="default_lesson_duration_minutes"
+            type="number"
+            inputMode="numeric"
+            placeholder="60"
+            defaultValue={String(s?.default_lesson_duration_minutes ?? 60)}
+            error={state?.fieldErrors?.default_lesson_duration_minutes}
+            hint="Standardno trajanje časa za ovog učenika."
+          />
+        </div>
       </Section>
 
       <Section title="Dodatno">

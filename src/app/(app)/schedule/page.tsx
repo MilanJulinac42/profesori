@@ -36,7 +36,9 @@ export default async function SchedulePage({
       .order("scheduled_at", { ascending: true }),
     supabase
       .from("students")
-      .select("id, full_name, default_price_per_lesson, status")
+      .select(
+        "id, full_name, default_price_per_lesson, default_lesson_duration_minutes, status",
+      )
       .is("deleted_at", null)
       .order("full_name", { ascending: true }),
   ]);
@@ -50,6 +52,7 @@ export default async function SchedulePage({
           id: string;
           full_name: string;
           default_price_per_lesson: number;
+          default_lesson_duration_minutes: number;
           status: string;
         }[] | null) ?? []
       }

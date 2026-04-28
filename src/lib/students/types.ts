@@ -10,6 +10,7 @@ export type Student = {
   parent_phone: string | null;
   parent_email: string | null;
   default_price_per_lesson: number; // paras
+  default_lesson_duration_minutes: number;
   notes: string | null;
   tags: string[];
   status: StudentStatus;
