@@ -23,3 +23,17 @@ export const STATUS_LABELS: Record<StudentStatus, string> = {
   paused: "Pauziran",
   inactive: "Neaktivan",
 };
+
+export type EducationLevel = "osnovna" | "srednja" | "fakultet";
+
+export const EDUCATION_LABELS: Record<EducationLevel, string> = {
+  osnovna: "Osnovna škola",
+  srednja: "Srednja škola",
+  fakultet: "Fakultet",
+};
+
+export const EDUCATION_OPTIONS: { value: EducationLevel; label: string }[] = [
+  { value: "osnovna", label: "Osnovna škola" },
+  { value: "srednja", label: "Srednja škola" },
+  { value: "fakultet", label: "Fakultet" },
+];

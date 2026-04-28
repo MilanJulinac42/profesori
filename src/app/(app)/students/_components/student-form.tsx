@@ -13,13 +13,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Student } from "@/lib/students/types";
+import {
+  EDUCATION_LABELS,
+  EDUCATION_OPTIONS,
+  STATUS_LABELS,
+  type Student,
+  type StudentStatus,
+} from "@/lib/students/types";
 import { parasToRsd } from "@/lib/money";
 import { createStudent, updateStudent, type StudentFormState } from "@/lib/students/actions";
 
 type Props =
   | { mode: "create"; student?: undefined }
   | { mode: "edit"; student: Student };
+
+const STATUS_OPTIONS: { value: StudentStatus; label: string }[] = [
+  { value: "active", label: STATUS_LABELS.active },
+  { value: "paused", label: STATUS_LABELS.paused },
+  { value: "inactive", label: STATUS_LABELS.inactive },
+];
+
+/** Translate native browser validation messages into Serbian. */
+function localizeValidation(input: HTMLInputElement, customMessage?: string) {
+  const v = input.validity;
+  if (v.valid) {
+    input.setCustomValidity("");
+    return;
+  }
+  if (v.valueMissing) input.setCustomValidity("Ovo polje je obavezno.");
+  else if (v.typeMismatch && input.type === "email")
+    input.setCustomValidity("Unesi ispravan email (mora sadržati @).");
+  else if (v.typeMismatch) input.setCustomValidity("Unesi ispravan format.");
+  else if (v.patternMismatch) input.setCustomValidity(customMessage ?? "Format nije ispravan.");
+  else if (v.tooShort)
+    input.setCustomValidity(`Najmanje ${input.minLength} karaktera.`);
+  else if (v.tooLong)
+    input.setCustomValidity(`Najviše ${input.maxLength} karaktera.`);
+  else if (v.rangeUnderflow) input.setCustomValidity(`Najmanje ${input.min}.`);
+  else if (v.rangeOverflow) input.setCustomValidity(`Najviše ${input.max}.`);
+  else input.setCustomValidity("Vrednost nije ispravna.");
+}
 
 export function StudentForm(props: Props) {
   const action =
@@ -54,7 +87,28 @@ export function StudentForm(props: Props) {
             placeholder="npr. 8. razred OŠ"
             defaultValue={s?.grade ?? ""}
           />
-          <Field label="Škola" name="school" defaultValue={s?.school ?? ""} />
+          <div className="space-y-1.5">
+            <Label htmlFor="school" className="text-xs">
+              Obrazovanje
+            </Label>
+            <Select name="school" defaultValue={s?.school ?? undefined}>
+              <SelectTrigger id="school" className="w-full">
+                <SelectValue placeholder="Izaberi nivo">
+                  {(value: string) =>
+                    EDUCATION_LABELS[value as keyof typeof EDUCATION_LABELS] ??
+                    "Izaberi nivo"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {EDUCATION_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="space-y-1.5">
@@ -62,13 +116,19 @@ export function StudentForm(props: Props) {
             Status
           </Label>
           <Select name="status" defaultValue={s?.status ?? "active"}>
-            <SelectTrigger id="status">
-              <SelectValue />
+            <SelectTrigger id="status" className="w-full">
+              <SelectValue>
+                {(value: string) =>
+                  STATUS_LABELS[value as StudentStatus] ?? "Status"
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="active">Aktivan</SelectItem>
-              <SelectItem value="paused">Pauziran</SelectItem>
-              <SelectItem value="inactive">Neaktivan</SelectItem>
+              {STATUS_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -207,6 +267,8 @@ function Field({
         autoFocus={autoFocus}
         inputMode={inputMode}
         aria-invalid={!!error}
+        onInvalid={(e) => localizeValidation(e.currentTarget)}
+        onInput={(e) => e.currentTarget.setCustomValidity("")}
       />
       {error && <p className="text-xs text-destructive">{error}</p>}
       {!error && hint && <p className="text-xs text-muted-foreground">{hint}</p>}

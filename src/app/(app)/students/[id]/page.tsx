@@ -17,7 +17,12 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { formatRsd } from "@/lib/money";
-import { STATUS_LABELS, type Student } from "@/lib/students/types";
+import {
+  EDUCATION_LABELS,
+  STATUS_LABELS,
+  type EducationLevel,
+  type Student,
+} from "@/lib/students/types";
 import { archiveStudent } from "@/lib/students/actions";
 
 export default async function StudentPage({
@@ -134,9 +139,17 @@ export default async function StudentPage({
 
         {/* Side panel: details */}
         <aside className="space-y-6">
-          <Panel title="Škola">
+          <Panel title="Obrazovanje">
             <Row icon={GraduationCap} label="Razred" value={s.grade} />
-            <Row icon={School} label="Škola" value={s.school} />
+            <Row
+              icon={School}
+              label="Nivo"
+              value={
+                s.school
+                  ? (EDUCATION_LABELS[s.school as EducationLevel] ?? s.school)
+                  : null
+              }
+            />
           </Panel>
           <Panel title="Roditelj">
             <Row label="Ime" value={s.parent_name} />
