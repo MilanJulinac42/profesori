@@ -41,16 +41,16 @@ export function TopicInput({
     .slice(0, 8);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div
         className={cn(
-          "flex flex-wrap items-center gap-1.5 rounded-md border border-input bg-transparent p-1.5 min-h-9 dark:bg-input/30",
+          "flex flex-wrap items-center gap-2 rounded-md border border-input bg-transparent p-2 min-h-11 dark:bg-input/30",
         )}
       >
         {value.map((tag) => (
           <span
             key={tag}
-            className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs"
+            className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1 text-sm"
           >
             {tag}
             <button
@@ -59,7 +59,7 @@ export function TopicInput({
               aria-label={`Ukloni ${tag}`}
               className="text-muted-foreground hover:text-foreground"
             >
-              <X className="size-3" strokeWidth={2} />
+              <X className="size-3.5" strokeWidth={2} />
             </button>
           </span>
         ))}
@@ -76,20 +76,18 @@ export function TopicInput({
           }}
           onBlur={() => addTag(text)}
           placeholder={value.length === 0 ? placeholder : ""}
-          className="flex-1 min-w-[120px] border-0 bg-transparent shadow-none h-6 px-1 focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
+          className="flex-1 min-w-[140px] border-0 bg-transparent shadow-none h-8 px-1 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 dark:bg-transparent"
         />
       </div>
       {filteredSuggestions.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          <span className="text-[11px] text-muted-foreground self-center mr-1">
-            Predlozi:
-          </span>
+        <div className="flex flex-wrap gap-1.5 items-center">
+          <span className="text-xs text-muted-foreground mr-1">Predlozi:</span>
           {filteredSuggestions.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => addTag(s)}
-              className="rounded-md border border-border bg-card hover:bg-secondary px-2 py-0.5 text-[11px] transition-colors"
+              className="rounded-md border border-border bg-card hover:bg-secondary px-2.5 py-1 text-xs transition-colors"
             >
               + {s}
             </button>

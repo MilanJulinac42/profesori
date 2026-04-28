@@ -82,27 +82,28 @@ export default async function PublicProfilePage() {
         <ProfileForm initial={initial} organizationId={org!.id} />
 
         <aside className="space-y-3 lg:sticky lg:top-20 self-start">
-          <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card p-5 space-y-2">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Tvoj javni link
             </p>
             <p className="text-sm font-mono break-all">/p/{initial.slug}</p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {profile?.published
                 ? "Aktiviran — vidljiv svima sa linkom."
                 : "Nije aktiviran. Uključi ‘Objavi profil’ da bi link radio."}
             </p>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card p-5 space-y-2.5">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
               Šta uneti
             </p>
-            <ul className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+            <ul className="text-sm text-muted-foreground space-y-1.5 leading-relaxed">
               <li>· Predmete koje predaješ</li>
-              <li>· Kratku biografiju (ko si, koliko godina iskustva)</li>
+              <li>· Nivoe i specijalnosti (priprema za maturu, ...)</li>
+              <li>· Kratku biografiju i iskustvo</li>
               <li>· Cenovni raspon (npr. „od 1500 RSD/čas“)</li>
-              <li>· Foto (URL slike koju si negde okačio)</li>
+              <li>· Fotografiju</li>
             </ul>
           </div>
         </aside>

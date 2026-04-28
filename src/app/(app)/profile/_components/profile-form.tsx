@@ -100,17 +100,18 @@ export function ProfileForm({
           required
           error={state?.fieldErrors?.display_name}
         />
-        <div className="space-y-1.5">
-          <Label htmlFor="bio" className="text-xs">
+        <div className="space-y-2">
+          <Label htmlFor="bio" className="text-sm font-medium">
             Kratka biografija
           </Label>
           <Textarea
             id="bio"
             name="bio"
-            rows={4}
+            rows={5}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
             placeholder="Ko si, koliko godina iskustva, čime se baviš..."
+            className="text-sm"
           />
         </div>
         <Field
@@ -121,8 +122,8 @@ export function ProfileForm({
           placeholder="npr. 5+ godina iskustva, profesor matematike u OŠ"
           hint="Kratka linija koja se prikazuje uz tvoje ime."
         />
-        <div className="space-y-1.5">
-          <Label className="text-xs">Fotografija</Label>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Fotografija</Label>
           <PhotoUpload
             orgId={organizationId}
             value={photoUrl}
@@ -275,9 +276,9 @@ function TagSection({
 }) {
   const a = ACCENT_CLASSES[accent];
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs inline-flex items-center gap-1.5">
-        <Icon className={cn("size-3.5", a.icon)} strokeWidth={1.75} />
+    <div className="space-y-2">
+      <Label className="text-sm font-medium inline-flex items-center gap-2">
+        <Icon className={cn("size-4", a.icon)} strokeWidth={1.75} />
         {label}
       </Label>
       <TopicInput
@@ -288,11 +289,11 @@ function TagSection({
       />
       <input type="hidden" name={name} value={JSON.stringify(value)} />
       {value.length > 0 && (
-        <p className="text-[11px] text-muted-foreground">
-          Pregled na javnom profilu:{" "}
+        <p className="text-xs text-muted-foreground inline-flex items-center gap-2">
+          Pregled na javnom profilu:
           <span
             className={cn(
-              "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ml-1",
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
               a.chipPreview,
             )}
           >
@@ -316,9 +317,9 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="space-y-4">
-      <legend className="text-xs uppercase tracking-wider text-muted-foreground mb-3 inline-flex items-center gap-1.5">
-        {Icon && <Icon className="size-3" strokeWidth={2} />}
+    <fieldset className="space-y-5 pt-2">
+      <legend className="text-base font-medium inline-flex items-center gap-2 mb-2">
+        {Icon && <Icon className="size-4" strokeWidth={1.75} />}
         {title}
       </legend>
       {children}
@@ -348,8 +349,8 @@ function Field({
   hint?: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={name} className="text-xs">
+    <div className="space-y-2">
+      <Label htmlFor={name} className="text-sm font-medium">
         {label} {required && <span className="text-destructive">*</span>}
       </Label>
       <Input
@@ -361,10 +362,11 @@ function Field({
         placeholder={placeholder}
         required={required}
         aria-invalid={!!error}
+        className="h-10 text-sm"
       />
       {error && <p className="text-xs text-destructive">{error}</p>}
       {!error && hint && (
-        <p className="text-[11px] text-muted-foreground">{hint}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
       )}
     </div>
   );
@@ -392,21 +394,21 @@ function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={cn(
-          "mt-0.5 inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+          "mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors",
           checked ? "bg-foreground" : "bg-secondary",
         )}
       >
         <span
           className={cn(
-            "inline-block size-4 rounded-full bg-background transition-transform",
-            checked ? "translate-x-[18px]" : "translate-x-0.5",
+            "inline-block size-5 rounded-full bg-background transition-transform",
+            checked ? "translate-x-[22px]" : "translate-x-0.5",
           )}
         />
       </button>
       <div className="flex-1">
-        <p className="text-sm">{label}</p>
+        <p className="text-sm font-medium">{label}</p>
         {hint && (
-          <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
         )}
       </div>
     </label>
