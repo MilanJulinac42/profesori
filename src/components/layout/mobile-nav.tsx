@@ -79,13 +79,13 @@ export function MobileNav() {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                      "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] transition-colors",
                       active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                        : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60",
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60",
                     )}
                   >
-                    <Icon className="size-4 shrink-0" strokeWidth={1.75} />
+                    <Icon className="size-[18px] shrink-0" strokeWidth={1.75} />
                     <span>{item.label}</span>
                   </Link>
                 );
