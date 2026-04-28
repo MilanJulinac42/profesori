@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { formatDistanceToNowStrict } from "date-fns";
+import { sr } from "date-fns/locale";
 import {
   Banknote,
   AlertCircle,
@@ -11,6 +13,7 @@ import {
   Plus,
   CheckCircle2,
   Receipt,
+  BellRing,
   type LucideIcon,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -33,6 +36,15 @@ import {
   RecordPaymentDialog,
   type StudentForPicker,
 } from "./record-payment-dialog";
+import { ReminderDialog } from "@/components/reminder-dialog";
+
+type DebtorWithReminder = OrgDebtor & { lastReminderAt: string | null };
+
+type PickerStudentExtended = StudentForPicker & {
+  parent_name: string | null;
+  parent_phone: string | null;
+  parent_email: string | null;
+};
 
 export function BillingClient({
   period,
@@ -43,24 +55,40 @@ export function BillingClient({
   debtors,
   recentPayments,
   pickerStudents,
+  teacherName,
 }: {
   period: AnalyticsPeriod;
   periodLabel: string;
   analytics: BillingAnalytics;
   totalDebt: number;
   totalCredit: number;
-  debtors: OrgDebtor[];
+  debtors: DebtorWithReminder[];
   recentPayments: RecentPayment[];
-  pickerStudents: StudentForPicker[];
+  pickerStudents: PickerStudentExtended[];
+  teacherName: string;
 }) {
   const [dialogState, setDialogState] = useState<{
     open: boolean;
     studentId?: string;
   }>({ open: false });
 
+  const [reminderState, setReminderState] = useState<{
+    open: boolean;
+    debtor: DebtorWithReminder | null;
+  }>({ open: false, debtor: null });
+
   const openDialog = (studentId?: string) =>
     setDialogState({ open: true, studentId });
   const closeDialog = () => setDialogState({ open: false });
+
+  const openReminder = (debtor: DebtorWithReminder) =>
+    setReminderState({ open: true, debtor });
+  const closeReminder = () =>
+    setReminderState({ open: false, debtor: null });
+
+  const reminderStudent = reminderState.debtor
+    ? pickerStudents.find((s) => s.id === reminderState.debtor!.student_id)
+    : null;
 
   const now = Date.now();
   const overThirtyDays = debtors.filter((d) => {
@@ -179,7 +207,11 @@ export function BillingClient({
 
         {/* Two-column body */}
         <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-          <DebtorsList debtors={debtors} onRecordPayment={openDialog} />
+          <DebtorsList
+            debtors={debtors}
+            onRecordPayment={openDialog}
+            onSendReminder={openReminder}
+          />
           <RecentPaymentsList payments={recentPayments} />
         </section>
       </div>
@@ -191,6 +223,24 @@ export function BillingClient({
         defaultStudentId={dialogState.studentId}
         onClose={closeDialog}
       />
+
+      {reminderState.debtor && reminderStudent && (
+        <ReminderDialog
+          open={reminderState.open}
+          onClose={closeReminder}
+          studentId={reminderState.debtor.student_id}
+          parentPhone={reminderStudent.parent_phone}
+          parentEmail={reminderStudent.parent_email}
+          context={{
+            teacherName,
+            studentName: reminderState.debtor.full_name,
+            parentName: reminderStudent.parent_name,
+            debt: reminderState.debtor.debt,
+            unpaidLessonsCount: reminderState.debtor.unpaidLessonsCount,
+            oldestUnpaidAt: reminderState.debtor.oldestUnpaidAt,
+          }}
+        />
+      )}
     </>
   );
 }
@@ -274,9 +324,11 @@ function Stat({
 function DebtorsList({
   debtors,
   onRecordPayment,
+  onSendReminder,
 }: {
-  debtors: OrgDebtor[];
+  debtors: DebtorWithReminder[];
   onRecordPayment: (studentId?: string) => void;
+  onSendReminder: (debtor: DebtorWithReminder) => void;
 }) {
   const now = Date.now();
 
@@ -350,9 +402,18 @@ function DebtorsList({
                         </>
                       )}
                     </p>
+                    {d.lastReminderAt && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Opomena{" "}
+                        {formatDistanceToNowStrict(new Date(d.lastReminderAt), {
+                          locale: sr,
+                          addSuffix: true,
+                        })}
+                      </p>
+                    )}
                   </div>
                 </Link>
-                <div className="text-right shrink-0">
+                <div className="flex items-center gap-3 shrink-0">
                   <p
                     className={cn(
                       "text-base font-medium tabular-nums",
@@ -361,14 +422,24 @@ function DebtorsList({
                   >
                     {formatRsd(d.debt)}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => onRecordPayment(d.student_id)}
-                    className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1 mt-0.5"
-                  >
-                    Evidentiraj uplatu
-                    <ArrowRight className="size-3" strokeWidth={1.75} />
-                  </button>
+                  <div className="flex flex-col items-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => onSendReminder(d)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    >
+                      <BellRing className="size-3" strokeWidth={1.75} />
+                      Opomena
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onRecordPayment(d.student_id)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                    >
+                      Uplata
+                      <ArrowRight className="size-3" strokeWidth={1.75} />
+                    </button>
+                  </div>
                 </div>
               </li>
             );

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Banknote, Plus, Trash2 } from "lucide-react";
+import {
+  Banknote,
+  Plus,
+  Trash2,
+  BellRing,
+} from "lucide-react";
+import { formatDistanceToNowStrict } from "date-fns";
+import { sr } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { formatRsd } from "@/lib/money";
 import { PAYMENT_METHOD_LABELS, type Payment } from "@/lib/payments/types";
@@ -9,28 +16,49 @@ import { deletePayment } from "@/lib/payments/actions";
 import type { Lesson } from "@/lib/lessons/types";
 import { cn } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
+import { ReminderDialog } from "@/components/reminder-dialog";
+import {
+  REMINDER_CHANNEL_LABELS,
+  type ReminderLog,
+} from "@/lib/reminders/types";
 
 export function BillingSection({
   studentId,
   studentName,
+  parentName,
+  parentPhone,
+  parentEmail,
+  teacherName,
   debt,
   paidTotal,
   billableTotal,
   unpaidLessons,
+  unpaidLessonsCount,
+  oldestUnpaidAt,
   payments,
+  reminders,
 }: {
   studentId: string;
   studentName: string;
+  parentName: string | null;
+  parentPhone: string | null;
+  parentEmail: string | null;
+  teacherName: string;
   debt: number;
   paidTotal: number;
   billableTotal: number;
   unpaidLessons: Lesson[];
+  unpaidLessonsCount: number;
+  oldestUnpaidAt: string | null;
   payments: Payment[];
+  reminders: ReminderLog[];
 }) {
   const [open, setOpen] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
 
   const hasCredit = debt < 0;
   const isClean = debt === 0 && billableTotal > 0;
+  const lastReminder = reminders[0];
 
   return (
     <>
@@ -46,10 +74,22 @@ export function BillingSection({
                   : "Još nema naplativih časova."}
               </p>
             </div>
-            <Button size="sm" onClick={() => setOpen(true)}>
-              <Plus className="size-3.5" strokeWidth={2} />
-              Uplata
-            </Button>
+            <div className="flex items-center gap-2">
+              {debt > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReminderOpen(true)}
+                >
+                  <BellRing className="size-3.5" strokeWidth={2} />
+                  Opomena
+                </Button>
+              )}
+              <Button size="sm" onClick={() => setOpen(true)}>
+                <Plus className="size-3.5" strokeWidth={2} />
+                Uplata
+              </Button>
+            </div>
           </div>
 
           {/* Debt amount visualization */}
@@ -88,6 +128,18 @@ export function BillingSection({
             {isClean && (
               <p className="text-[11px] text-muted-foreground">
                 Sve čisto.
+              </p>
+            )}
+            {debt > 0 && lastReminder && (
+              <p className="text-[11px] text-muted-foreground">
+                Poslednja opomena:{" "}
+                <span className="text-foreground">
+                  {formatDistanceToNowStrict(new Date(lastReminder.sent_at), {
+                    locale: sr,
+                    addSuffix: true,
+                  })}
+                </span>{" "}
+                · {REMINDER_CHANNEL_LABELS[lastReminder.channel]}
               </p>
             )}
           </div>
@@ -166,12 +218,64 @@ export function BillingSection({
         </div>
       </div>
 
+      {/* Reminder history */}
+      {reminders.length > 0 && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-3 border-b border-border flex items-baseline justify-between">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Poslate opomene ({reminders.length})
+            </p>
+          </div>
+          <ul className="divide-y divide-border">
+            {reminders.slice(0, 5).map((r) => (
+              <li
+                key={r.id}
+                className="px-5 py-2.5 flex items-center justify-between gap-3"
+              >
+                <div>
+                  <p className="text-xs">
+                    {new Date(r.sent_at).toLocaleDateString("sr-Latn-RS", {
+                      day: "numeric",
+                      month: "short",
+                      year: "2-digit",
+                    })}
+                    <span className="text-muted-foreground/60 mx-1.5">·</span>
+                    <span className="text-muted-foreground">
+                      {REMINDER_CHANNEL_LABELS[r.channel]}
+                    </span>
+                  </p>
+                </div>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {formatRsd(r.amount_at_send)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <PaymentDialog
         studentId={studentId}
         studentName={studentName}
         suggestedAmount={debt > 0 ? debt : undefined}
         open={open}
         onClose={() => setOpen(false)}
+      />
+
+      <ReminderDialog
+        open={reminderOpen}
+        onClose={() => setReminderOpen(false)}
+        studentId={studentId}
+        parentPhone={parentPhone}
+        parentEmail={parentEmail}
+        context={{
+          teacherName,
+          studentName,
+          parentName,
+          debt,
+          unpaidLessonsCount,
+          oldestUnpaidAt,
+        }}
       />
     </>
   );

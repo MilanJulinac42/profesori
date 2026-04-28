@@ -30,6 +30,8 @@ import {
   type LessonStatus,
 } from "@/lib/lessons/types";
 import { getStudentBilling } from "@/lib/payments/queries";
+import { getRemindersForStudent } from "@/lib/reminders/queries";
+import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
 
 export default async function StudentPage({
@@ -70,8 +72,13 @@ export default async function StudentPage({
   ).length;
   const nextLesson = upcomingLessons[upcomingLessons.length - 1];
 
-  // Billing.
-  const billing = await getStudentBilling(supabase, s.id);
+  // Billing + reminders + teacher profile (for opomena template).
+  const [billing, reminders, { profile: teacherProfile }] = await Promise.all([
+    getStudentBilling(supabase, s.id),
+    getRemindersForStudent(supabase, s.id, 20),
+    requireUser(),
+  ]);
+  const teacherName = teacherProfile.full_name ?? "Profesor";
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-6xl mx-auto w-full">
@@ -191,11 +198,18 @@ export default async function StudentPage({
           <BillingSection
             studentId={s.id}
             studentName={s.full_name}
+            parentName={s.parent_name}
+            parentPhone={s.parent_phone}
+            parentEmail={s.parent_email}
+            teacherName={teacherName}
             debt={billing.debt}
             paidTotal={billing.paidTotal}
             billableTotal={billing.billableTotal}
             unpaidLessons={billing.unpaidLessons}
+            unpaidLessonsCount={billing.unpaidLessons.length}
+            oldestUnpaidAt={billing.oldestUnpaidAt}
             payments={billing.payments}
+            reminders={reminders}
           />
           <LessonsList upcoming={upcomingLessons} past={pastLessons} />
           <div className="rounded-xl border border-border bg-card p-6">
