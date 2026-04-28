@@ -13,6 +13,7 @@ import {
   Languages,
   MessageCircle,
   Play,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -21,9 +22,11 @@ import {
   extractYouTubeId,
   SOCIAL_LINK_LABELS,
   type SocialLink,
+  type Testimonial,
 } from "@/lib/public-profile/types";
 import { SocialIcon } from "@/components/social-icon";
 import { BookingForm } from "./_components/booking-form";
+import { StickyCta } from "./_components/sticky-cta";
 import { cn } from "@/lib/utils";
 
 export default async function PublicProfilePage({
@@ -40,20 +43,46 @@ export default async function PublicProfilePage({
     ? extractYouTubeId(profile.intro_video_url)
     : null;
 
-  const stats = [
-    { label: "predmet", labelMany: "predmeta", count: profile.subjects.length },
-    { label: "nivo", labelMany: "nivoa", count: profile.levels.length },
-    {
-      label: "specijalnost",
-      labelMany: "specijalnosti",
-      count: profile.specialties.length,
-    },
-    { label: "format", labelMany: "formata", count: profile.formats.length },
-  ].filter((s) => s.count > 0);
+  // Trust-signal stats: years experience, subjects count, qualifications count, testimonials count.
+  const yearsValue = extractYearsToken(profile.years_experience);
+  const stats: { value: string; label: string; icon: LucideIcon }[] = [];
+  if (yearsValue) {
+    stats.push({ value: yearsValue, label: "godina iskustva", icon: Briefcase });
+  }
+  if (profile.subjects.length > 0) {
+    stats.push({
+      value: String(profile.subjects.length),
+      label: pluralSr(profile.subjects.length, "predmet", "predmeta", "predmeta"),
+      icon: BookOpen,
+    });
+  }
+  if (profile.qualifications.length > 0) {
+    stats.push({
+      value: String(profile.qualifications.length),
+      label: pluralSr(
+        profile.qualifications.length,
+        "diploma",
+        "diplome",
+        "diploma",
+      ),
+      icon: GraduationCap,
+    });
+  }
+  if (profile.testimonials.length > 0) {
+    stats.push({
+      value: String(profile.testimonials.length),
+      label: pluralSr(
+        profile.testimonials.length,
+        "preporuka",
+        "preporuke",
+        "preporuka",
+      ),
+      icon: MessageCircle,
+    });
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-background">
-      {/* Top nav */}
       <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="inline-flex items-center gap-2 text-sm">
@@ -93,7 +122,6 @@ export default async function PublicProfilePage({
 
         <div className="relative max-w-5xl mx-auto px-6 py-16 sm:py-24">
           <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 items-center sm:items-start">
-            {/* Avatar */}
             <div className="relative shrink-0">
               <div
                 className="absolute -inset-2 rounded-full opacity-50 blur-xl"
@@ -109,7 +137,6 @@ export default async function PublicProfilePage({
               />
             </div>
 
-            {/* Identity */}
             <div className="flex-1 space-y-5 min-w-0 text-center sm:text-left">
               <div className="space-y-3">
                 <h1 className="text-4xl sm:text-6xl font-medium tracking-tighter leading-[0.95]">
@@ -128,7 +155,6 @@ export default async function PublicProfilePage({
                 )}
               </div>
 
-              {/* Status row */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 {profile.available_for_new_students ? (
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 px-4 py-1.5 text-sm font-medium">
@@ -152,7 +178,6 @@ export default async function PublicProfilePage({
                 )}
               </div>
 
-              {/* Social links */}
               {profile.links.length > 0 && (
                 <SocialLinksRow links={profile.links} />
               )}
@@ -173,20 +198,30 @@ export default async function PublicProfilePage({
         </div>
       </section>
 
-      {/* Stats strip */}
+      {/* Stats with trust signals */}
       {stats.length > 0 && (
         <section className="border-y border-border bg-secondary/30">
-          <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-            {stats.map((s) => (
-              <div key={s.label}>
-                <p className="text-3xl sm:text-4xl font-medium tracking-tight tabular-nums">
-                  {s.count}
-                </p>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                  {s.count === 1 ? s.label : s.labelMany}
-                </p>
-              </div>
-            ))}
+          <div className="max-w-5xl mx-auto px-6 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6">
+            {stats.map((s, i) => {
+              const Icon = s.icon;
+              return (
+                <div
+                  key={i}
+                  className="flex flex-col items-center text-center sm:items-start sm:text-left"
+                >
+                  <Icon
+                    className="size-4 text-muted-foreground mb-2"
+                    strokeWidth={1.75}
+                  />
+                  <p className="text-3xl sm:text-4xl font-medium tracking-tight tabular-nums">
+                    {s.value}
+                  </p>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                    {s.label}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -202,6 +237,10 @@ export default async function PublicProfilePage({
             <p className="relative text-xl sm:text-2xl leading-relaxed font-light tracking-tight pl-6">
               {profile.bio}
             </p>
+            {/* Decorative separator */}
+            <div className="flex justify-center pt-10">
+              <div className="h-px w-24 bg-gradient-to-r from-transparent via-border to-transparent" />
+            </div>
           </section>
         )}
 
@@ -227,7 +266,7 @@ export default async function PublicProfilePage({
           </section>
         )}
 
-        {/* What I teach (categorized tags) */}
+        {/* Tag categories */}
         <section className="space-y-6">
           <div>
             <h2 className="text-2xl font-medium tracking-tight">
@@ -290,10 +329,10 @@ export default async function PublicProfilePage({
                 Iskustvo
               </h2>
             </div>
-            <ol className="relative border-l-2 border-border ml-2 space-y-6 pl-6">
+            <ol className="relative border-l-2 border-border ml-2 space-y-7 pl-6">
               {profile.experiences.map((exp, i) => (
                 <li key={i} className="relative">
-                  <span className="absolute -left-[35px] top-1 flex size-4 items-center justify-center rounded-full bg-background border-2 border-foreground" />
+                  <span className="absolute -left-[31px] top-1.5 flex size-3.5 items-center justify-center rounded-full bg-foreground ring-4 ring-background" />
                   <div className="space-y-1">
                     <p className="text-base font-medium">{exp.title}</p>
                     <p className="text-sm text-muted-foreground">
@@ -353,7 +392,7 @@ export default async function PublicProfilePage({
           </section>
         )}
 
-        {/* Testimonials */}
+        {/* Testimonials — featured + grid */}
         {profile.testimonials.length > 0 && (
           <section className="space-y-6">
             <div>
@@ -362,35 +401,16 @@ export default async function PublicProfilePage({
                 Šta kažu
               </h2>
             </div>
-            <div className="grid sm:grid-cols-2 gap-4">
-              {profile.testimonials.map((t, i) => (
-                <figure
-                  key={i}
-                  className="rounded-xl border border-border bg-card p-6 relative"
-                >
-                  <Quote
-                    className="absolute top-4 right-4 size-5 text-muted-foreground/20"
-                    strokeWidth={1.75}
-                  />
-                  <blockquote className="text-sm leading-relaxed pr-6">
-                    {t.quote}
-                  </blockquote>
-                  <figcaption className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border">
-                    <span className="font-medium text-foreground">
-                      — {t.author}
-                    </span>
-                    {t.relation && (
-                      <>
-                        <span className="mx-1.5 text-muted-foreground/50">
-                          ·
-                        </span>
-                        {t.relation}
-                      </>
-                    )}
-                  </figcaption>
-                </figure>
-              ))}
-            </div>
+
+            <FeaturedTestimonial t={profile.testimonials[0]} />
+
+            {profile.testimonials.length > 1 && (
+              <div className="grid sm:grid-cols-2 gap-4">
+                {profile.testimonials.slice(1).map((t, i) => (
+                  <TestimonialCard key={i} t={t} />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -406,7 +426,6 @@ export default async function PublicProfilePage({
                 "radial-gradient(ellipse 60% 80% at 100% 0%, oklch(0.85 0.16 70 / 0.10) 0%, transparent 60%), radial-gradient(ellipse 50% 70% at 0% 100%, oklch(0.7 0.18 145 / 0.10) 0%, transparent 60%)",
             }}
           />
-
           <div className="relative space-y-6 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-3xl sm:text-4xl font-medium tracking-tight">
@@ -427,7 +446,6 @@ export default async function PublicProfilePage({
           </div>
         </section>
 
-        {/* Direct contact */}
         {profile.contact_email && (
           <section className="text-center">
             <p className="text-sm text-muted-foreground">Više voliš email?</p>
@@ -453,6 +471,111 @@ export default async function PublicProfilePage({
           </p>
         </div>
       </footer>
+
+      {profile.available_for_new_students && <StickyCta />}
+    </div>
+  );
+}
+
+/* ---------------- helpers ---------------- */
+
+function extractYearsToken(text: string | null): string | null {
+  if (!text) return null;
+  const match = text.match(/(\d+\+?)\s*godin/i);
+  return match ? match[1] : null;
+}
+
+function pluralSr(
+  count: number,
+  one: string,
+  few: string,
+  many: string,
+): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+/* ---------------- testimonials ---------------- */
+
+function FeaturedTestimonial({ t }: { t: Testimonial }) {
+  return (
+    <figure className="relative overflow-hidden rounded-3xl border border-border bg-card p-7 sm:p-10">
+      <div
+        className="absolute inset-0 pointer-events-none opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(ellipse 50% 60% at 100% 0%, oklch(0.85 0.16 70 / 0.12) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 0% 100%, oklch(0.7 0.18 145 / 0.10) 0%, transparent 60%)",
+        }}
+      />
+      <Quote
+        className="absolute top-6 right-6 size-10 text-muted-foreground/15"
+        strokeWidth={1.5}
+      />
+      <div className="relative space-y-5">
+        <Stars />
+        <blockquote className="text-xl sm:text-2xl leading-relaxed font-light tracking-tight pr-12">
+          „{t.quote}"
+        </blockquote>
+        <figcaption className="flex items-center gap-3 pt-4 border-t border-border">
+          <Avatar
+            name={t.author}
+            photoUrl={null}
+            className="size-11 text-sm"
+          />
+          <div>
+            <div className="text-sm font-medium">{t.author}</div>
+            {t.relation && (
+              <div className="text-xs text-muted-foreground mt-0.5">
+                {t.relation}
+              </div>
+            )}
+          </div>
+        </figcaption>
+      </div>
+    </figure>
+  );
+}
+
+function TestimonialCard({ t }: { t: Testimonial }) {
+  return (
+    <figure className="rounded-xl border border-border bg-card p-5 space-y-4 relative">
+      <Quote
+        className="absolute top-4 right-4 size-5 text-muted-foreground/20"
+        strokeWidth={1.75}
+      />
+      <Stars size="sm" />
+      <blockquote className="text-sm leading-relaxed pr-6">
+        {t.quote}
+      </blockquote>
+      <figcaption className="flex items-center gap-2.5 pt-3 border-t border-border">
+        <Avatar name={t.author} photoUrl={null} className="size-9 text-xs" />
+        <div className="min-w-0">
+          <div className="text-sm font-medium truncate">{t.author}</div>
+          {t.relation && (
+            <div className="text-xs text-muted-foreground truncate">
+              {t.relation}
+            </div>
+          )}
+        </div>
+      </figcaption>
+    </figure>
+  );
+}
+
+function Stars({ size = "md" }: { size?: "sm" | "md" }) {
+  const cls = size === "sm" ? "size-3.5" : "size-4";
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star
+          key={n}
+          className={cn(cls, "fill-amber-500 text-amber-500")}
+          strokeWidth={1.5}
+        />
+      ))}
     </div>
   );
 }
