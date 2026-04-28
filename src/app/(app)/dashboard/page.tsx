@@ -2,62 +2,66 @@ import Link from "next/link";
 import {
   Users,
   CalendarDays,
-  Banknote,
-  AlertCircle,
   ArrowRight,
-  ArrowUpRight,
   Plus,
   Sparkles,
   Check,
   Clock,
-  TrendingUp,
-  type LucideIcon,
 } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import {
+  getLessonAnalytics,
+  getRangeForPeriod,
+  type AnalyticsPeriod,
+} from "@/lib/analytics/queries";
+import { AnalyticsSection } from "./_components/analytics-section";
 
-export default async function DashboardPage() {
+type Search = { period?: string };
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<Search>;
+}) {
   const { profile } = await requireUser();
   const supabase = await createClient();
 
-  // Active students count.
-  const { count: activeStudents } = await supabase
-    .from("students")
-    .select("*", { count: "exact", head: true })
-    .is("deleted_at", null)
-    .eq("status", "active");
+  const params = await searchParams;
+  const period: AnalyticsPeriod = (
+    ["week", "month", "30d", "all"].includes(params.period ?? "")
+      ? params.period
+      : "month"
+  ) as AnalyticsPeriod;
 
-  // Upcoming lessons (next 5 from now).
-  const { data: upcoming } = await supabase
-    .from("lessons")
-    .select("id, scheduled_at, duration_minutes, status, students(full_name)")
-    .is("deleted_at", null)
-    .eq("status", "scheduled")
-    .gte("scheduled_at", new Date().toISOString())
-    .order("scheduled_at", { ascending: true })
-    .limit(5);
+  // Concurrent queries.
+  const range = getRangeForPeriod(period);
+  const [
+    { count: activeStudents },
+    { data: upcoming },
+    analytics,
+  ] = await Promise.all([
+    supabase
+      .from("students")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .eq("status", "active"),
+    supabase
+      .from("lessons")
+      .select("id, scheduled_at, duration_minutes, status, students(full_name)")
+      .is("deleted_at", null)
+      .eq("status", "scheduled")
+      .gte("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: true })
+      .limit(5),
+    getLessonAnalytics(supabase, range),
+  ]);
 
-  // Lessons this week (Mon-Sun).
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7; // 0 = Monday
-  const weekStart = new Date(now);
-  weekStart.setHours(0, 0, 0, 0);
-  weekStart.setDate(now.getDate() - day);
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 7);
-
-  const { count: weekLessons } = await supabase
-    .from("lessons")
-    .select("*", { count: "exact", head: true })
-    .is("deleted_at", null)
-    .gte("scheduled_at", weekStart.toISOString())
-    .lt("scheduled_at", weekEnd.toISOString());
   const org = Array.isArray(profile.organizations)
     ? profile.organizations[0]
     : profile.organizations;
-
   const firstName = profile.full_name?.split(" ")[0] ?? "profesore";
 
   // Trial countdown.
@@ -65,9 +69,7 @@ export default async function DashboardPage() {
   const daysLeft = trialEnd
     ? Math.max(
         0,
-        Math.ceil(
-          (trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-        ),
+        Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
       )
     : 14;
   const trialProgress = Math.min(100, Math.max(0, ((14 - daysLeft) / 14) * 100));
@@ -78,11 +80,13 @@ export default async function DashboardPage() {
   const dayNum = today.getDate();
   const monthName = today.toLocaleDateString("sr-Latn-RS", { month: "long" });
 
+  // Show onboarding only if user has no students and no lessons.
+  const showOnboarding = (activeStudents ?? 0) === 0;
+
   return (
     <div className="px-4 sm:px-8 py-6 space-y-6 max-w-6xl mx-auto w-full">
       {/* Welcome hero */}
       <section className="relative overflow-hidden rounded-2xl border border-border bg-card">
-        {/* Decorative gradient + grid (theme-aware) */}
         <div
           className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_60%_at_100%_0%,var(--secondary)_0%,transparent_60%),radial-gradient(ellipse_50%_40%_at_0%_100%,var(--secondary)_0%,transparent_50%)]"
         />
@@ -100,11 +104,12 @@ export default async function DashboardPage() {
                 Dobar dan, {firstName}.
               </h1>
               <p className="text-sm text-muted-foreground">
-                Spremno je za nedelju koja dolazi.
+                {(activeStudents ?? 0) > 0
+                  ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih časova u periodu`
+                  : "Spremno je za nedelju koja dolazi."}
               </p>
             </div>
 
-            {/* Trial countdown */}
             <div className="max-w-sm space-y-2">
               <div className="flex items-baseline justify-between text-xs">
                 <span className="text-muted-foreground inline-flex items-center gap-1.5">
@@ -122,7 +127,10 @@ export default async function DashboardPage() {
                 />
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Plan: <span className="font-medium text-foreground">{org?.subscription_tier}</span>
+                Plan:{" "}
+                <span className="font-medium text-foreground">
+                  {org?.subscription_tier}
+                </span>
                 {" · "}
                 <Link href="/settings" className="underline underline-offset-2">
                   Nadogradi
@@ -131,7 +139,10 @@ export default async function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Link href="/students/new" className={buttonVariants({ size: "sm" })}>
+              <Link
+                href="/students/new"
+                className={buttonVariants({ size: "sm" })}
+              >
                 <Plus className="size-3.5" strokeWidth={2} />
                 Dodaj učenika
               </Link>
@@ -144,7 +155,6 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          {/* Date block */}
           <div className="hidden lg:flex flex-col items-end justify-between text-right">
             <div className="rounded-xl border border-border bg-background/60 backdrop-blur-sm p-4 w-32">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -157,45 +167,22 @@ export default async function DashboardPage() {
                 {monthName}
               </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-4">
-              {org?.name}
-            </p>
+            <p className="text-xs text-muted-foreground mt-4">{org?.name}</p>
           </div>
         </div>
       </section>
 
-      {/* Stats — bento with one large + three small */}
-      <section className="grid gap-3 lg:grid-cols-4">
-        <BigStat
-          label="Aktivni učenici"
-          value={String(activeStudents ?? 0)}
-          icon={Users}
-          href="/students"
-          trend={
-            activeStudents && activeStudents > 0
-              ? `${activeStudents} ${activeStudents === 1 ? "učenik" : activeStudents < 5 ? "učenika" : "učenika"}`
-              : "Nema učenika"
-          }
-          className="lg:col-span-2 lg:row-span-2"
-        />
-        <Stat
-          label="Ovonedeljnih časova"
-          value={String(weekLessons ?? 0)}
-          icon={CalendarDays}
-        />
-        <Stat label="Opomene 30d" value="0" icon={AlertCircle} />
-        <Stat
-          label="Ukupan dug"
-          value="0"
-          unit="RSD"
-          icon={Banknote}
-          className="lg:col-span-2"
-        />
-      </section>
+      {/* Analytics */}
+      <AnalyticsSection stats={analytics} period={period} />
 
-      {/* Bottom row */}
-      <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-        <NextStepsCard />
+      {/* Bottom row: onboarding (only when not done) + upcoming */}
+      <section
+        className={cn(
+          "grid gap-3",
+          showOnboarding ? "lg:grid-cols-[1.4fr_1fr]" : "lg:grid-cols-1",
+        )}
+      >
+        {showOnboarding && <NextStepsCard />}
         <UpcomingCard
           lessons={
             (upcoming as
@@ -211,123 +198,6 @@ export default async function DashboardPage() {
         />
       </section>
     </div>
-  );
-}
-
-/* ---------- big stat (with sparkline placeholder) ---------- */
-function BigStat({
-  label,
-  value,
-  icon: Icon,
-  href,
-  trend,
-  className,
-}: {
-  label: string;
-  value: string;
-  icon: LucideIcon;
-  href: string;
-  trend?: string;
-  className?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group relative overflow-hidden rounded-xl border border-border bg-card p-5 flex flex-col justify-between min-h-[180px] transition-colors hover:bg-secondary/30",
-        className,
-      )}
-    >
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Icon className="size-3.5" strokeWidth={1.75} />
-          <span className="text-xs">{label}</span>
-        </div>
-        <ArrowUpRight
-          className="size-3.5 text-muted-foreground/40 group-hover:text-foreground transition-colors"
-          strokeWidth={1.75}
-        />
-      </div>
-      <div className="space-y-2 mt-auto">
-        <div className="text-5xl font-medium tracking-tight tabular-nums">
-          {value}
-        </div>
-        {trend && (
-          <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
-            <TrendingUp className="size-3" strokeWidth={2} />
-            {trend}
-          </p>
-        )}
-      </div>
-      {/* Sparkline placeholder */}
-      <SparklinePlaceholder className="absolute inset-x-5 bottom-16 lg:bottom-20 h-12 opacity-50" />
-    </Link>
-  );
-}
-
-/* ---------- compact stat ---------- */
-function Stat({
-  label,
-  value,
-  unit,
-  icon: Icon,
-  className,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  icon: LucideIcon;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border border-border bg-card p-4 flex flex-col gap-3",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="size-3.5" strokeWidth={1.75} />
-        <span className="text-xs">{label}</span>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-medium tracking-tight tabular-nums">
-          {value}
-        </span>
-        {unit && (
-          <span className="text-xs text-muted-foreground">{unit}</span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- sparkline placeholder ---------- */
-function SparklinePlaceholder({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 200 40"
-      className={className}
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id="sparkfade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.06" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <line
-        x1="0"
-        y1="30"
-        x2="200"
-        y2="30"
-        stroke="currentColor"
-        strokeOpacity="0.18"
-        strokeWidth="1"
-        strokeDasharray="2 4"
-      />
-    </svg>
   );
 }
 
@@ -441,7 +311,7 @@ function UpcomingCard({
           href="/schedule"
           className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
         >
-          Otvori
+          Otvori raspored
           <ArrowRight className="size-3" strokeWidth={1.75} />
         </Link>
       </div>
@@ -450,9 +320,9 @@ function UpcomingCard({
           <div className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
             <CalendarDays className="size-4" strokeWidth={1.75} />
           </div>
-          <p className="text-sm font-medium mt-3">Raspored je prazan</p>
-          <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
-            Kad zakažeš prvi čas, on će se pojaviti ovde.
+          <p className="text-sm font-medium mt-3">Nema zakazanih časova</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[260px]">
+            Kad zakažeš čas u rasporedu, pojaviće se ovde.
           </p>
         </div>
       ) : (
@@ -490,3 +360,4 @@ function UpcomingCard({
     </div>
   );
 }
+
