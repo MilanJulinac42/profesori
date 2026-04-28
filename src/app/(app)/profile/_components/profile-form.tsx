@@ -6,6 +6,12 @@ import {
   GraduationCap,
   Trophy,
   Monitor,
+  Link as LinkIcon,
+  Briefcase,
+  MessageCircle,
+  Globe,
+  Video,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,13 +25,22 @@ import {
   COMMON_LEVELS,
   COMMON_SPECIALTIES,
   COMMON_FORMATS,
+  COMMON_LANGUAGES,
   type PublicProfile,
+  type SocialLink,
+  type Qualification,
+  type Experience,
+  type Testimonial,
 } from "@/lib/public-profile/types";
 import {
   savePublicProfile,
   type ProfileFormState,
 } from "@/lib/public-profile/actions";
 import { cn } from "@/lib/utils";
+import { LinksEditor } from "./links-editor";
+import { QualificationsEditor } from "./qualifications-editor";
+import { ExperiencesEditor } from "./experiences-editor";
+import { TestimonialsEditor } from "./testimonials-editor";
 
 type InitialProfile = {
   slug: string;
@@ -35,12 +50,19 @@ type InitialProfile = {
   levels: string[];
   specialties: string[];
   formats: string[];
+  languages: string[];
   years_experience: string | null;
   price_range_text: string | null;
   available_for_new_students: boolean;
   contact_email: string | null;
   photo_url: string | null;
   published: boolean;
+  links: SocialLink[];
+  qualifications: Qualification[];
+  experiences: Experience[];
+  testimonials: Testimonial[];
+  intro_video_url: string | null;
+  location: string | null;
 };
 
 export function ProfileForm({
@@ -64,6 +86,9 @@ export function ProfileForm({
     initial.specialties ?? [],
   );
   const [formats, setFormats] = useState<string[]>(initial.formats ?? []);
+  const [languages, setLanguages] = useState<string[]>(
+    initial.languages ?? [],
+  );
   const [yearsExperience, setYearsExperience] = useState(
     initial.years_experience ?? "",
   );
@@ -76,13 +101,27 @@ export function ProfileForm({
     initial.available_for_new_students,
   );
   const [published, setPublished] = useState(initial.published);
+  const [links, setLinks] = useState<SocialLink[]>(initial.links ?? []);
+  const [qualifications, setQualifications] = useState<Qualification[]>(
+    initial.qualifications ?? [],
+  );
+  const [experiences, setExperiences] = useState<Experience[]>(
+    initial.experiences ?? [],
+  );
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(
+    initial.testimonials ?? [],
+  );
+  const [introVideoUrl, setIntroVideoUrl] = useState(
+    initial.intro_video_url ?? "",
+  );
+  const [location, setLocation] = useState(initial.location ?? "");
 
   const saved =
     !pending && state !== undefined && !state.error && !state.fieldErrors;
 
   return (
-    <form action={action} className="space-y-8">
-      <Section title="Osnovno">
+    <form action={action} className="space-y-10">
+      <Section title="Osnovno" icon={Globe}>
         <Field
           label="Slug (URL)"
           name="slug"
@@ -100,6 +139,21 @@ export function ProfileForm({
           required
           error={state?.fieldErrors?.display_name}
         />
+        <Field
+          label="Iskustvo"
+          name="years_experience"
+          value={yearsExperience}
+          onChange={setYearsExperience}
+          placeholder="npr. 5+ godina iskustva, profesor matematike u OŠ"
+          hint="Kratka linija koja se prikazuje uz tvoje ime."
+        />
+        <Field
+          label="Lokacija (opciono)"
+          name="location"
+          value={location}
+          onChange={setLocation}
+          placeholder="npr. Beograd / Online"
+        />
         <div className="space-y-2">
           <Label htmlFor="bio" className="text-sm font-medium">
             Kratka biografija
@@ -110,18 +164,10 @@ export function ProfileForm({
             rows={5}
             value={bio}
             onChange={(e) => setBio(e.target.value)}
-            placeholder="Ko si, koliko godina iskustva, čime se baviš..."
+            placeholder="Ko si, kako predaješ, šta te razlikuje..."
             className="text-sm"
           />
         </div>
-        <Field
-          label="Iskustvo"
-          name="years_experience"
-          value={yearsExperience}
-          onChange={setYearsExperience}
-          placeholder="npr. 5+ godina iskustva, profesor matematike u OŠ"
-          hint="Kratka linija koja se prikazuje uz tvoje ime."
-        />
         <div className="space-y-2">
           <Label className="text-sm font-medium">Fotografija</Label>
           <PhotoUpload
@@ -134,7 +180,7 @@ export function ProfileForm({
         </div>
       </Section>
 
-      <Section title="Šta predaješ" icon={BookOpen} accent="primary">
+      <Section title="Šta predaješ" icon={BookOpen}>
         <TagSection
           label="Predmeti"
           icon={BookOpen}
@@ -175,9 +221,19 @@ export function ProfileForm({
           placeholder="npr. Online"
           name="formats"
         />
+        <TagSection
+          label="Jezici"
+          icon={MessageCircle}
+          accent="primary"
+          value={languages}
+          onChange={setLanguages}
+          suggestions={COMMON_LANGUAGES}
+          placeholder="Dodaj jezik na kome predaješ"
+          name="languages"
+        />
       </Section>
 
-      <Section title="Cena i kontakt">
+      <Section title="Cena i kontakt" icon={MapPin}>
         <Field
           label="Cenovni raspon (slobodan tekst)"
           name="price_range_text"
@@ -191,6 +247,39 @@ export function ProfileForm({
           type="email"
           value={contactEmail}
           onChange={setContactEmail}
+        />
+      </Section>
+
+      <Section title="Društvene mreže i linkovi" icon={LinkIcon}>
+        <LinksEditor value={links} onChange={setLinks} />
+      </Section>
+
+      <Section title="Obrazovanje i kvalifikacije" icon={GraduationCap}>
+        <QualificationsEditor
+          value={qualifications}
+          onChange={setQualifications}
+        />
+      </Section>
+
+      <Section title="Profesionalno iskustvo" icon={Briefcase}>
+        <ExperiencesEditor value={experiences} onChange={setExperiences} />
+      </Section>
+
+      <Section title="Preporuke" icon={MessageCircle}>
+        <TestimonialsEditor
+          value={testimonials}
+          onChange={setTestimonials}
+        />
+      </Section>
+
+      <Section title="Video predstavljanje" icon={Video}>
+        <Field
+          label="YouTube link"
+          name="intro_video_url"
+          value={introVideoUrl}
+          onChange={setIntroVideoUrl}
+          placeholder="https://youtube.com/watch?v=..."
+          hint="Kratak video u kome se predstavljaš (do 2 min preporuka)."
         />
       </Section>
 
@@ -217,7 +306,7 @@ export function ProfileForm({
         </p>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 pt-2 sticky bottom-0 -mx-4 sm:-mx-0 px-4 sm:px-0 py-3 bg-background/80 backdrop-blur-md border-t border-border">
         <Button type="submit" disabled={pending}>
           {pending ? "Čuvanje..." : "Sačuvaj"}
         </Button>
@@ -235,8 +324,7 @@ const ACCENT_CLASSES: Record<
 > = {
   primary: {
     icon: "text-foreground",
-    chipPreview:
-      "bg-foreground text-background",
+    chipPreview: "bg-foreground text-background",
   },
   emerald: {
     icon: "text-emerald-600 dark:text-emerald-400",
@@ -288,19 +376,6 @@ function TagSection({
         placeholder={placeholder}
       />
       <input type="hidden" name={name} value={JSON.stringify(value)} />
-      {value.length > 0 && (
-        <p className="text-xs text-muted-foreground inline-flex items-center gap-2">
-          Pregled na javnom profilu:
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              a.chipPreview,
-            )}
-          >
-            {value[0]}
-          </span>
-        </p>
-      )}
     </div>
   );
 }
@@ -308,12 +383,10 @@ function TagSection({
 function Section({
   title,
   icon: Icon,
-  accent: _accent,
   children,
 }: {
   title: string;
   icon?: LucideIcon;
-  accent?: "primary" | "emerald" | "amber" | "indigo";
   children: React.ReactNode;
 }) {
   return (

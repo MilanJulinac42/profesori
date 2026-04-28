@@ -8,10 +8,21 @@ import {
   Sparkles,
   Quote,
   ArrowRight,
+  Briefcase,
+  MapPin,
+  Languages,
+  MessageCircle,
+  Play,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPublishedProfileBySlug } from "@/lib/public-profile/queries";
+import {
+  extractYouTubeId,
+  SOCIAL_LINK_LABELS,
+  type SocialLink,
+} from "@/lib/public-profile/types";
+import { SocialIcon } from "@/components/social-icon";
 import { BookingForm } from "./_components/booking-form";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +36,18 @@ export default async function PublicProfilePage({
   const profile = await getPublishedProfileBySlug(supabase, slug);
   if (!profile) notFound();
 
+  const ytId = profile.intro_video_url
+    ? extractYouTubeId(profile.intro_video_url)
+    : null;
+
   const stats = [
     { label: "predmet", labelMany: "predmeta", count: profile.subjects.length },
     { label: "nivo", labelMany: "nivoa", count: profile.levels.length },
-    { label: "specijalnost", labelMany: "specijalnosti", count: profile.specialties.length },
+    {
+      label: "specijalnost",
+      labelMany: "specijalnosti",
+      count: profile.specialties.length,
+    },
     { label: "format", labelMany: "formata", count: profile.formats.length },
   ].filter((s) => s.count > 0);
 
@@ -54,7 +73,6 @@ export default async function PublicProfilePage({
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        {/* Aurora gradient */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -62,7 +80,6 @@ export default async function PublicProfilePage({
               "radial-gradient(ellipse 70% 90% at 100% 0%, oklch(0.85 0.16 70 / 0.18) 0%, transparent 60%), radial-gradient(ellipse 60% 80% at 0% 50%, oklch(0.7 0.18 145 / 0.14) 0%, transparent 60%), radial-gradient(ellipse 60% 70% at 50% 100%, oklch(0.7 0.18 250 / 0.12) 0%, transparent 60%)",
           }}
         />
-        {/* Soft grid */}
         <div
           className="absolute inset-0 opacity-[0.35] pointer-events-none"
           style={{
@@ -76,7 +93,7 @@ export default async function PublicProfilePage({
 
         <div className="relative max-w-5xl mx-auto px-6 py-16 sm:py-24">
           <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 items-center sm:items-start">
-            {/* Avatar with gradient ring */}
+            {/* Avatar */}
             <div className="relative shrink-0">
               <div
                 className="absolute -inset-2 rounded-full opacity-50 blur-xl"
@@ -101,6 +118,12 @@ export default async function PublicProfilePage({
                 {profile.years_experience && (
                   <p className="text-base sm:text-lg text-muted-foreground max-w-xl">
                     {profile.years_experience}
+                  </p>
+                )}
+                {profile.location && (
+                  <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <MapPin className="size-3.5" strokeWidth={1.75} />
+                    {profile.location}
                   </p>
                 )}
               </div>
@@ -129,7 +152,11 @@ export default async function PublicProfilePage({
                 )}
               </div>
 
-              {/* Hero CTA */}
+              {/* Social links */}
+              {profile.links.length > 0 && (
+                <SocialLinksRow links={profile.links} />
+              )}
+
               {profile.available_for_new_students && (
                 <div className="pt-2">
                   <a
@@ -164,7 +191,7 @@ export default async function PublicProfilePage({
         </section>
       )}
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 sm:py-16 space-y-14">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 sm:py-16 space-y-16">
         {/* Bio */}
         {profile.bio && (
           <section className="relative max-w-3xl">
@@ -178,10 +205,34 @@ export default async function PublicProfilePage({
           </section>
         )}
 
-        {/* Tag categories */}
+        {/* Intro video */}
+        {ytId && (
+          <section className="space-y-4 max-w-4xl">
+            <div className="flex items-center gap-2">
+              <Play
+                className="size-4 text-muted-foreground"
+                strokeWidth={1.75}
+              />
+              <h2 className="text-base font-medium">Video predstavljanje</h2>
+            </div>
+            <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-card aspect-video">
+              <iframe
+                src={`https://www.youtube.com/embed/${ytId}`}
+                title="Video predstavljanje"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="absolute inset-0 w-full h-full"
+              />
+            </div>
+          </section>
+        )}
+
+        {/* What I teach (categorized tags) */}
         <section className="space-y-6">
           <div>
-            <h2 className="text-2xl font-medium tracking-tight">Šta predajem</h2>
+            <h2 className="text-2xl font-medium tracking-tight">
+              Šta predajem
+            </h2>
             <p className="text-sm text-muted-foreground mt-1">
               Predmeti, nivoi i specijalnosti.
             </p>
@@ -219,8 +270,129 @@ export default async function PublicProfilePage({
                 items={profile.formats}
               />
             )}
+            {profile.languages.length > 0 && (
+              <TagRow
+                title="Jezici"
+                icon={Languages}
+                variant="primary"
+                items={profile.languages}
+              />
+            )}
           </div>
         </section>
+
+        {/* Experience timeline */}
+        {profile.experiences.length > 0 && (
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
+                <Briefcase className="size-5" strokeWidth={1.75} />
+                Iskustvo
+              </h2>
+            </div>
+            <ol className="relative border-l-2 border-border ml-2 space-y-6 pl-6">
+              {profile.experiences.map((exp, i) => (
+                <li key={i} className="relative">
+                  <span className="absolute -left-[35px] top-1 flex size-4 items-center justify-center rounded-full bg-background border-2 border-foreground" />
+                  <div className="space-y-1">
+                    <p className="text-base font-medium">{exp.title}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {exp.organization}
+                      {exp.period && (
+                        <>
+                          <span className="mx-2 text-muted-foreground/40">
+                            ·
+                          </span>
+                          {exp.period}
+                        </>
+                      )}
+                    </p>
+                    {exp.description && (
+                      <p className="text-sm leading-relaxed mt-2">
+                        {exp.description}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {/* Qualifications */}
+        {profile.qualifications.length > 0 && (
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
+                <GraduationCap className="size-5" strokeWidth={1.75} />
+                Obrazovanje i sertifikati
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {profile.qualifications.map((q, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border bg-card p-5"
+                >
+                  <p className="text-base font-medium">
+                    {q.title || q.institution}
+                  </p>
+                  {q.institution && q.title && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {q.institution}
+                    </p>
+                  )}
+                  {q.year && (
+                    <p className="text-xs text-muted-foreground mt-2 tabular-nums">
+                      {q.year}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Testimonials */}
+        {profile.testimonials.length > 0 && (
+          <section className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
+                <MessageCircle className="size-5" strokeWidth={1.75} />
+                Šta kažu
+              </h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {profile.testimonials.map((t, i) => (
+                <figure
+                  key={i}
+                  className="rounded-xl border border-border bg-card p-6 relative"
+                >
+                  <Quote
+                    className="absolute top-4 right-4 size-5 text-muted-foreground/20"
+                    strokeWidth={1.75}
+                  />
+                  <blockquote className="text-sm leading-relaxed pr-6">
+                    {t.quote}
+                  </blockquote>
+                  <figcaption className="text-xs text-muted-foreground mt-4 pt-4 border-t border-border">
+                    <span className="font-medium text-foreground">
+                      — {t.author}
+                    </span>
+                    {t.relation && (
+                      <>
+                        <span className="mx-1.5 text-muted-foreground/50">
+                          ·
+                        </span>
+                        {t.relation}
+                      </>
+                    )}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Booking form */}
         <section
@@ -248,7 +420,6 @@ export default async function PublicProfilePage({
                   : "Profesor trenutno ne prima nove učenike, ali možeš poslati upit."}
               </p>
             </div>
-
             <BookingForm
               organizationId={profile.organization_id}
               defaultSubjects={profile.subjects}
@@ -282,6 +453,26 @@ export default async function PublicProfilePage({
           </p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function SocialLinksRow({ links }: { links: SocialLink[] }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+      {links.map((l, i) => (
+        <a
+          key={i}
+          href={l.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={SOCIAL_LINK_LABELS[l.type]}
+          title={SOCIAL_LINK_LABELS[l.type]}
+          className="flex size-9 items-center justify-center rounded-full border border-border bg-card hover:bg-secondary hover:border-foreground/30 transition-colors"
+        >
+          <SocialIcon type={l.type} className="size-4 text-foreground" />
+        </a>
+      ))}
     </div>
   );
 }

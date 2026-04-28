@@ -1,3 +1,35 @@
+export type SocialLinkType =
+  | "website"
+  | "linkedin"
+  | "instagram"
+  | "facebook"
+  | "youtube"
+  | "tiktok"
+  | "twitter"
+  | "github"
+  | "other";
+
+export type SocialLink = { type: SocialLinkType; url: string };
+
+export type Qualification = {
+  title: string;
+  institution: string;
+  year?: string | null;
+};
+
+export type Experience = {
+  title: string;
+  organization: string;
+  period?: string | null;
+  description?: string | null;
+};
+
+export type Testimonial = {
+  quote: string;
+  author: string;
+  relation?: string | null;
+};
+
 export type PublicProfile = {
   id: string;
   organization_id: string;
@@ -14,9 +46,40 @@ export type PublicProfile = {
   contact_email: string | null;
   photo_url: string | null;
   published: boolean;
+  links: SocialLink[];
+  languages: string[];
+  intro_video_url: string | null;
+  qualifications: Qualification[];
+  experiences: Experience[];
+  testimonials: Testimonial[];
+  location: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export const SOCIAL_LINK_LABELS: Record<SocialLinkType, string> = {
+  website: "Web sajt",
+  linkedin: "LinkedIn",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  youtube: "YouTube",
+  tiktok: "TikTok",
+  twitter: "X (Twitter)",
+  github: "GitHub",
+  other: "Drugo",
+};
+
+export const SOCIAL_LINK_OPTIONS: SocialLinkType[] = [
+  "website",
+  "linkedin",
+  "instagram",
+  "facebook",
+  "youtube",
+  "tiktok",
+  "twitter",
+  "github",
+  "other",
+];
 
 export const COMMON_SUBJECTS = [
   "Matematika",
@@ -78,3 +141,29 @@ export const COMMON_FORMATS = [
   "Grupni časovi",
   "Individualni časovi",
 ];
+
+export const COMMON_LANGUAGES = [
+  "Srpski",
+  "Engleski",
+  "Nemački",
+  "Francuski",
+  "Italijanski",
+  "Ruski",
+  "Španski",
+];
+
+/** Best-effort YouTube ID extraction. Returns null if no match. */
+export function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?v=([\w-]{11})/,
+    /youtu\.be\/([\w-]{11})/,
+    /youtube\.com\/embed\/([\w-]{11})/,
+    /youtube\.com\/shorts\/([\w-]{11})/,
+  ];
+  for (const re of patterns) {
+    const match = url.match(re);
+    if (match) return match[1];
+  }
+  return null;
+}

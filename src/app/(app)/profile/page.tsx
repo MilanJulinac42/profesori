@@ -30,12 +30,19 @@ export default async function PublicProfilePage() {
     levels: [],
     specialties: [],
     formats: [],
+    languages: [],
     years_experience: null,
     price_range_text: null,
     available_for_new_students: true,
     contact_email: teacher.email,
     photo_url: null,
     published: false,
+    links: [],
+    qualifications: [],
+    experiences: [],
+    testimonials: [],
+    intro_video_url: null,
+    location: null,
   };
 
   const publicUrl = profile?.published

@@ -60,10 +60,69 @@ export async function savePublicProfile(
     }
     return [];
   }
+  function parseJsonArray<T>(field: string, sanitize: (item: unknown) => T | null): T[] {
+    const raw = String(formData.get(field) ?? "[]").trim();
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(sanitize)
+          .filter((x): x is T => x !== null)
+          .slice(0, 50);
+      }
+    } catch {
+      // keep empty
+    }
+    return [];
+  }
+
   const subjects = parseTagArray("subjects");
   const levels = parseTagArray("levels");
   const specialties = parseTagArray("specialties");
   const formats = parseTagArray("formats");
+  const languages = parseTagArray("languages");
+
+  type ItemRecord = Record<string, unknown>;
+  const links = parseJsonArray("links", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const t = String(item.type ?? "").trim();
+    const url = String(item.url ?? "").trim();
+    if (!t || !url) return null;
+    return { type: t, url };
+  });
+  const qualifications = parseJsonArray("qualifications", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const title = String(item.title ?? "").trim();
+    const institution = String(item.institution ?? "").trim();
+    const year = String(item.year ?? "").trim() || null;
+    if (!title && !institution) return null;
+    return { title, institution, year };
+  });
+  const experiences = parseJsonArray("experiences", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const title = String(item.title ?? "").trim();
+    const organization = String(item.organization ?? "").trim();
+    const period = String(item.period ?? "").trim() || null;
+    const description = String(item.description ?? "").trim() || null;
+    if (!title && !organization) return null;
+    return { title, organization, period, description };
+  });
+  const testimonials = parseJsonArray("testimonials", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const quote = String(item.quote ?? "").trim();
+    const author = String(item.author ?? "").trim();
+    const relation = String(item.relation ?? "").trim() || null;
+    if (!quote || !author) return null;
+    return { quote, author, relation };
+  });
+
+  const introVideoUrl =
+    String(formData.get("intro_video_url") ?? "").trim() || null;
+  const location = String(formData.get("location") ?? "").trim() || null;
 
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = "Ime je obavezno.";
@@ -98,12 +157,19 @@ export async function savePublicProfile(
     levels,
     specialties,
     formats,
+    languages,
     years_experience: yearsExperience,
     price_range_text: priceRange,
     available_for_new_students: available,
     contact_email: contactEmail,
     photo_url: photoUrl,
     published,
+    links,
+    qualifications,
+    experiences,
+    testimonials,
+    intro_video_url: introVideoUrl,
+    location,
   };
 
   // Upsert by organization_id.
