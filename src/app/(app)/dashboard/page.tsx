@@ -21,11 +21,39 @@ import { cn } from "@/lib/utils";
 export default async function DashboardPage() {
   const { profile } = await requireUser();
   const supabase = await createClient();
+
+  // Active students count.
   const { count: activeStudents } = await supabase
     .from("students")
     .select("*", { count: "exact", head: true })
     .is("deleted_at", null)
     .eq("status", "active");
+
+  // Upcoming lessons (next 5 from now).
+  const { data: upcoming } = await supabase
+    .from("lessons")
+    .select("id, scheduled_at, duration_minutes, status, students(full_name)")
+    .is("deleted_at", null)
+    .eq("status", "scheduled")
+    .gte("scheduled_at", new Date().toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(5);
+
+  // Lessons this week (Mon-Sun).
+  const now = new Date();
+  const day = (now.getDay() + 6) % 7; // 0 = Monday
+  const weekStart = new Date(now);
+  weekStart.setHours(0, 0, 0, 0);
+  weekStart.setDate(now.getDate() - day);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+
+  const { count: weekLessons } = await supabase
+    .from("lessons")
+    .select("*", { count: "exact", head: true })
+    .is("deleted_at", null)
+    .gte("scheduled_at", weekStart.toISOString())
+    .lt("scheduled_at", weekEnd.toISOString());
   const org = Array.isArray(profile.organizations)
     ? profile.organizations[0]
     : profile.organizations;
@@ -150,7 +178,11 @@ export default async function DashboardPage() {
           }
           className="lg:col-span-2 lg:row-span-2"
         />
-        <Stat label="Ovonedeljnih časova" value="0" icon={CalendarDays} />
+        <Stat
+          label="Ovonedeljnih časova"
+          value={String(weekLessons ?? 0)}
+          icon={CalendarDays}
+        />
         <Stat label="Opomene 30d" value="0" icon={AlertCircle} />
         <Stat
           label="Ukupan dug"
@@ -164,7 +196,19 @@ export default async function DashboardPage() {
       {/* Bottom row */}
       <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
         <NextStepsCard />
-        <UpcomingCard />
+        <UpcomingCard
+          lessons={
+            (upcoming as
+              | {
+                  id: string;
+                  scheduled_at: string;
+                  duration_minutes: number;
+                  status: string;
+                  students: { full_name: string } | null;
+                }[]
+              | null) ?? []
+          }
+        />
       </section>
     </div>
   );
@@ -378,7 +422,17 @@ function NextStepsCard() {
 }
 
 /* ---------- upcoming card ---------- */
-function UpcomingCard() {
+function UpcomingCard({
+  lessons,
+}: {
+  lessons: {
+    id: string;
+    scheduled_at: string;
+    duration_minutes: number;
+    status: string;
+    students: { full_name: string } | null;
+  }[];
+}) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -391,15 +445,48 @@ function UpcomingCard() {
           <ArrowRight className="size-3" strokeWidth={1.75} />
         </Link>
       </div>
-      <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
-        <div className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-          <CalendarDays className="size-4" strokeWidth={1.75} />
+      {lessons.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
+          <div className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+            <CalendarDays className="size-4" strokeWidth={1.75} />
+          </div>
+          <p className="text-sm font-medium mt-3">Raspored je prazan</p>
+          <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
+            Kad zakažeš prvi čas, on će se pojaviti ovde.
+          </p>
         </div>
-        <p className="text-sm font-medium mt-3">Raspored je prazan</p>
-        <p className="text-xs text-muted-foreground mt-1 max-w-[220px]">
-          Kad zakažeš prvi čas, on će se pojaviti ovde.
-        </p>
-      </div>
+      ) : (
+        <ul className="divide-y divide-border">
+          {lessons.map((l) => {
+            const dt = new Date(l.scheduled_at);
+            const dateLabel = dt.toLocaleDateString("sr-Latn-RS", {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            });
+            const timeLabel = dt.toLocaleTimeString("sr-Latn-RS", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            return (
+              <li key={l.id} className="px-5 py-3 flex items-center gap-3">
+                <div className="text-xs tabular-nums text-muted-foreground w-20 shrink-0">
+                  <div>{dateLabel}</div>
+                  <div className="text-foreground font-medium">{timeLabel}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {l.students?.full_name ?? "Učenik"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {l.duration_minutes} min
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
