@@ -1,6 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import {
+  BookOpen,
+  GraduationCap,
+  Trophy,
+  Monitor,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +16,9 @@ import { TopicInput } from "@/components/topic-input";
 import { PhotoUpload } from "@/components/photo-upload";
 import {
   COMMON_SUBJECTS,
+  COMMON_LEVELS,
+  COMMON_SPECIALTIES,
+  COMMON_FORMATS,
   type PublicProfile,
 } from "@/lib/public-profile/types";
 import {
@@ -22,6 +32,10 @@ type InitialProfile = {
   display_name: string;
   bio: string | null;
   subjects: string[];
+  levels: string[];
+  specialties: string[];
+  formats: string[];
+  years_experience: string | null;
   price_range_text: string | null;
   available_for_new_students: boolean;
   contact_email: string | null;
@@ -45,6 +59,14 @@ export function ProfileForm({
   const [displayName, setDisplayName] = useState(initial.display_name);
   const [bio, setBio] = useState(initial.bio ?? "");
   const [subjects, setSubjects] = useState<string[]>(initial.subjects ?? []);
+  const [levels, setLevels] = useState<string[]>(initial.levels ?? []);
+  const [specialties, setSpecialties] = useState<string[]>(
+    initial.specialties ?? [],
+  );
+  const [formats, setFormats] = useState<string[]>(initial.formats ?? []);
+  const [yearsExperience, setYearsExperience] = useState(
+    initial.years_experience ?? "",
+  );
   const [priceRange, setPriceRange] = useState(initial.price_range_text ?? "");
   const [contactEmail, setContactEmail] = useState(
     initial.contact_email ?? "",
@@ -91,7 +113,14 @@ export function ProfileForm({
             placeholder="Ko si, koliko godina iskustva, čime se baviš..."
           />
         </div>
-
+        <Field
+          label="Iskustvo"
+          name="years_experience"
+          value={yearsExperience}
+          onChange={setYearsExperience}
+          placeholder="npr. 5+ godina iskustva, profesor matematike u OŠ"
+          hint="Kratka linija koja se prikazuje uz tvoje ime."
+        />
         <div className="space-y-1.5">
           <Label className="text-xs">Fotografija</Label>
           <PhotoUpload
@@ -104,21 +133,50 @@ export function ProfileForm({
         </div>
       </Section>
 
-      <Section title="Predmeti i cena">
-        <div className="space-y-1.5">
-          <Label className="text-xs">Predmeti koje predaješ</Label>
-          <TopicInput
-            value={subjects}
-            onChange={setSubjects}
-            suggestions={COMMON_SUBJECTS}
-            placeholder="Dodaj predmet, pa Enter"
-          />
-          <input
-            type="hidden"
-            name="subjects"
-            value={JSON.stringify(subjects)}
-          />
-        </div>
+      <Section title="Šta predaješ" icon={BookOpen} accent="primary">
+        <TagSection
+          label="Predmeti"
+          icon={BookOpen}
+          accent="primary"
+          value={subjects}
+          onChange={setSubjects}
+          suggestions={COMMON_SUBJECTS}
+          placeholder="Dodaj predmet, pa Enter"
+          name="subjects"
+        />
+        <TagSection
+          label="Nivoi obrazovanja"
+          icon={GraduationCap}
+          accent="emerald"
+          value={levels}
+          onChange={setLevels}
+          suggestions={COMMON_LEVELS}
+          placeholder="Dodaj nivo (npr. Srednja)"
+          name="levels"
+        />
+        <TagSection
+          label="Specijalnosti / pripreme"
+          icon={Trophy}
+          accent="amber"
+          value={specialties}
+          onChange={setSpecialties}
+          suggestions={COMMON_SPECIALTIES}
+          placeholder="npr. Priprema za maturu"
+          name="specialties"
+        />
+        <TagSection
+          label="Format časova"
+          icon={Monitor}
+          accent="indigo"
+          value={formats}
+          onChange={setFormats}
+          suggestions={COMMON_FORMATS}
+          placeholder="npr. Online"
+          name="formats"
+        />
+      </Section>
+
+      <Section title="Cena i kontakt">
         <Field
           label="Cenovni raspon (slobodan tekst)"
           name="price_range_text"
@@ -170,16 +228,97 @@ export function ProfileForm({
   );
 }
 
+const ACCENT_CLASSES: Record<
+  "primary" | "emerald" | "amber" | "indigo",
+  { icon: string; chipPreview: string }
+> = {
+  primary: {
+    icon: "text-foreground",
+    chipPreview:
+      "bg-foreground text-background",
+  },
+  emerald: {
+    icon: "text-emerald-600 dark:text-emerald-400",
+    chipPreview:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  },
+  amber: {
+    icon: "text-amber-600 dark:text-amber-400",
+    chipPreview:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  },
+  indigo: {
+    icon: "text-indigo-600 dark:text-indigo-400",
+    chipPreview:
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  },
+};
+
+function TagSection({
+  label,
+  icon: Icon,
+  accent,
+  value,
+  onChange,
+  suggestions,
+  placeholder,
+  name,
+}: {
+  label: string;
+  icon: LucideIcon;
+  accent: "primary" | "emerald" | "amber" | "indigo";
+  value: string[];
+  onChange: (next: string[]) => void;
+  suggestions: string[];
+  placeholder: string;
+  name: string;
+}) {
+  const a = ACCENT_CLASSES[accent];
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs inline-flex items-center gap-1.5">
+        <Icon className={cn("size-3.5", a.icon)} strokeWidth={1.75} />
+        {label}
+      </Label>
+      <TopicInput
+        value={value}
+        onChange={onChange}
+        suggestions={suggestions}
+        placeholder={placeholder}
+      />
+      <input type="hidden" name={name} value={JSON.stringify(value)} />
+      {value.length > 0 && (
+        <p className="text-[11px] text-muted-foreground">
+          Pregled na javnom profilu:{" "}
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ml-1",
+              a.chipPreview,
+            )}
+          >
+            {value[0]}
+          </span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function Section({
   title,
+  icon: Icon,
+  accent: _accent,
   children,
 }: {
   title: string;
+  icon?: LucideIcon;
+  accent?: "primary" | "emerald" | "amber" | "indigo";
   children: React.ReactNode;
 }) {
   return (
     <fieldset className="space-y-4">
-      <legend className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+      <legend className="text-xs uppercase tracking-wider text-muted-foreground mb-3 inline-flex items-center gap-1.5">
+        {Icon && <Icon className="size-3" strokeWidth={2} />}
         {title}
       </legend>
       {children}

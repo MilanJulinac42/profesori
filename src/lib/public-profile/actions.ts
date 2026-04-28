@@ -33,7 +33,8 @@ export async function savePublicProfile(
   const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
   const displayName = String(formData.get("display_name") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim() || null;
-  const subjectsJson = String(formData.get("subjects") ?? "[]").trim();
+  const yearsExperience =
+    String(formData.get("years_experience") ?? "").trim() || null;
   const priceRange =
     String(formData.get("price_range_text") ?? "").trim() || null;
   const availableRaw = String(formData.get("available_for_new_students") ?? "");
@@ -44,18 +45,25 @@ export async function savePublicProfile(
   const publishedRaw = String(formData.get("published") ?? "");
   const published = publishedRaw === "on" || publishedRaw === "true";
 
-  let subjects: string[] = [];
-  try {
-    const parsed = JSON.parse(subjectsJson);
-    if (Array.isArray(parsed)) {
-      subjects = parsed
-        .map((s) => String(s).trim())
-        .filter((s) => s.length > 0)
-        .slice(0, 20);
+  function parseTagArray(field: string): string[] {
+    const raw = String(formData.get(field) ?? "[]").trim();
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((s) => String(s).trim())
+          .filter((s) => s.length > 0)
+          .slice(0, 30);
+      }
+    } catch {
+      // keep empty
     }
-  } catch {
-    // keep empty
+    return [];
   }
+  const subjects = parseTagArray("subjects");
+  const levels = parseTagArray("levels");
+  const specialties = parseTagArray("specialties");
+  const formats = parseTagArray("formats");
 
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = "Ime je obavezno.";
@@ -87,6 +95,10 @@ export async function savePublicProfile(
     display_name: displayName,
     bio,
     subjects,
+    levels,
+    specialties,
+    formats,
+    years_experience: yearsExperience,
     price_range_text: priceRange,
     available_for_new_students: available,
     contact_email: contactEmail,
