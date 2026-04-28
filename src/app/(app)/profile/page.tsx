@@ -75,7 +75,7 @@ export default async function PublicProfilePage() {
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
-        <ProfileForm initial={initial} />
+        <ProfileForm initial={initial} organizationId={org!.id} />
 
         <aside className="space-y-3 lg:sticky lg:top-20 self-start">
           <div className="rounded-xl border border-border bg-card p-4 space-y-2">

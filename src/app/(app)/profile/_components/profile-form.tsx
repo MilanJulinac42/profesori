@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { TopicInput } from "@/components/topic-input";
+import { PhotoUpload } from "@/components/photo-upload";
 import {
   COMMON_SUBJECTS,
   type PublicProfile,
@@ -30,19 +31,32 @@ type InitialProfile = {
 
 export function ProfileForm({
   initial,
+  organizationId,
 }: {
   initial: InitialProfile | PublicProfile;
+  organizationId: string;
 }) {
   const [state, action, pending] = useActionState<ProfileFormState, FormData>(
     savePublicProfile,
     undefined,
   );
 
+  const [slug, setSlug] = useState(initial.slug);
+  const [displayName, setDisplayName] = useState(initial.display_name);
+  const [bio, setBio] = useState(initial.bio ?? "");
   const [subjects, setSubjects] = useState<string[]>(initial.subjects ?? []);
+  const [priceRange, setPriceRange] = useState(initial.price_range_text ?? "");
+  const [contactEmail, setContactEmail] = useState(
+    initial.contact_email ?? "",
+  );
+  const [photoUrl, setPhotoUrl] = useState(initial.photo_url ?? "");
   const [available, setAvailable] = useState(
     initial.available_for_new_students,
   );
   const [published, setPublished] = useState(initial.published);
+
+  const saved =
+    !pending && state !== undefined && !state.error && !state.fieldErrors;
 
   return (
     <form action={action} className="space-y-8">
@@ -50,7 +64,8 @@ export function ProfileForm({
         <Field
           label="Slug (URL)"
           name="slug"
-          defaultValue={initial.slug}
+          value={slug}
+          onChange={setSlug}
           required
           hint="Tvoj javni link je /p/{slug}. Mala slova, brojevi, crtice."
           error={state?.fieldErrors?.slug}
@@ -58,7 +73,8 @@ export function ProfileForm({
         <Field
           label="Ime za prikaz"
           name="display_name"
-          defaultValue={initial.display_name}
+          value={displayName}
+          onChange={setDisplayName}
           required
           error={state?.fieldErrors?.display_name}
         />
@@ -70,18 +86,22 @@ export function ProfileForm({
             id="bio"
             name="bio"
             rows={4}
-            defaultValue={initial.bio ?? ""}
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
             placeholder="Ko si, koliko godina iskustva, čime se baviš..."
           />
         </div>
-        <Field
-          label="URL slike"
-          name="photo_url"
-          type="url"
-          defaultValue={initial.photo_url ?? ""}
-          placeholder="https://..."
-          hint="Direktan link do tvoje fotografije (npr. iz Google Drive-a sa public sharing-om)."
-        />
+
+        <div className="space-y-1.5">
+          <Label className="text-xs">Fotografija</Label>
+          <PhotoUpload
+            orgId={organizationId}
+            value={photoUrl}
+            onChange={setPhotoUrl}
+            fallbackName={displayName || "?"}
+          />
+          <input type="hidden" name="photo_url" value={photoUrl} />
+        </div>
       </Section>
 
       <Section title="Predmeti i cena">
@@ -102,14 +122,16 @@ export function ProfileForm({
         <Field
           label="Cenovni raspon (slobodan tekst)"
           name="price_range_text"
-          defaultValue={initial.price_range_text ?? ""}
+          value={priceRange}
+          onChange={setPriceRange}
           placeholder="npr. od 1500 RSD/čas"
         />
         <Field
           label="Email za kontakt (vidljiv na javnoj stranici)"
           name="contact_email"
           type="email"
-          defaultValue={initial.contact_email ?? ""}
+          value={contactEmail}
+          onChange={setContactEmail}
         />
       </Section>
 
@@ -140,7 +162,7 @@ export function ProfileForm({
         <Button type="submit" disabled={pending}>
           {pending ? "Čuvanje..." : "Sačuvaj"}
         </Button>
-        {!pending && state && !state.error && !state.fieldErrors && (
+        {saved && (
           <span className="text-xs text-muted-foreground">Sačuvano.</span>
         )}
       </div>
@@ -169,7 +191,8 @@ function Field({
   label,
   name,
   type = "text",
-  defaultValue,
+  value,
+  onChange,
   placeholder,
   required,
   error,
@@ -178,7 +201,8 @@ function Field({
   label: string;
   name: string;
   type?: string;
-  defaultValue?: string;
+  value: string;
+  onChange: (next: string) => void;
   placeholder?: string;
   required?: boolean;
   error?: string;
@@ -193,7 +217,8 @@ function Field({
         id={name}
         name={name}
         type={type}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         required={required}
         aria-invalid={!!error}
@@ -221,11 +246,7 @@ function Toggle({
 }) {
   return (
     <label className="flex items-start gap-3 cursor-pointer">
-      <input
-        type="hidden"
-        name={name}
-        value={checked ? "on" : "off"}
-      />
+      <input type="hidden" name={name} value={checked ? "on" : "off"} />
       <button
         type="button"
         role="switch"
@@ -245,7 +266,9 @@ function Toggle({
       </button>
       <div className="flex-1">
         <p className="text-sm">{label}</p>
-        {hint && <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>}
+        {hint && (
+          <p className="text-[11px] text-muted-foreground mt-0.5">{hint}</p>
+        )}
       </div>
     </label>
   );
