@@ -9,11 +9,9 @@ export default function BillingPage() {
         title="Naplata"
         description="Pregled dugovanja, evidentiranje uplata i opomene."
       />
-      <div className="rounded-xl border border-accent/40 bg-accent/15 p-4 text-sm">
-        <p className="font-medium text-accent-foreground">
-          Ovo je samo evidencija.
-        </p>
-        <p className="text-muted-foreground mt-1">
+      <div className="rounded-lg border border-border bg-secondary/40 p-4 text-sm">
+        <p className="font-medium">Ovo je samo evidencija.</p>
+        <p className="text-muted-foreground mt-1 text-xs">
           Novac primaš direktno od učenika ili roditelja. Platforma ne
           procesuje uplate.
         </p>

@@ -27,27 +27,26 @@ export default async function DashboardPage() {
       : org?.subscription_status;
 
   return (
-    <div className="px-4 sm:px-8 py-8 space-y-8 max-w-6xl mx-auto w-full">
+    <div className="px-4 sm:px-8 py-6 space-y-8 max-w-6xl mx-auto w-full">
       <PageHeader
-        title={`Dobar dan, ${firstName}.`}
+        title={`Dobar dan, ${firstName}`}
         description={`${org?.name} · plan ${org?.subscription_tier} · ${statusLabel}`}
         actions={
-          <Link href="/students/new" className={buttonVariants({ size: "lg" })}>
-            <Plus className="size-4" />
+          <Link href="/students/new" className={buttonVariants({ size: "sm" })}>
+            <Plus className="size-3.5" strokeWidth={2} />
             Dodaj učenika
           </Link>
         }
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Aktivni učenici" value="0" icon={Users} tone="primary" />
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Aktivni učenici" value="0" icon={Users} />
         <StatCard label="Časova ove nedelje" value="0" icon={CalendarDays} />
         <StatCard
           label="Ukupan dug"
           value="0 RSD"
           icon={Banknote}
-          tone="warning"
-          hint="Niko ne duguje."
+          hint="Niko ne duguje"
         />
         <StatCard
           label="Opomene"
@@ -58,24 +57,27 @@ export default async function DashboardPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="font-heading text-2xl">Sledeći koraci</h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-medium">Sledeći koraci</h2>
+          <span className="text-xs text-muted-foreground">3 preostalo</span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
           <NextStepCard
             href="/students/new"
             title="Dodaj prvog učenika"
-            description="Unesi ime, razred i cenu po času. Ostalo automatski."
+            description="Ime, razred i cena po času. Ostalo automatski."
             icon={Users}
           />
           <NextStepCard
             href="/schedule"
             title="Zakaži prvi čas"
-            description="Postavi termin ili ponavljajući slot u nedelji."
+            description="Pojedinačan termin ili ponavljajući slot."
             icon={CalendarDays}
           />
           <NextStepCard
             href="/profile"
             title="Aktiviraj javni profil"
-            description="Roditelji mogu da ti šalju upit preko booking forme."
+            description="Roditelji ti šalju upite preko forme."
             icon={Sparkles}
           />
         </div>
@@ -98,16 +100,19 @@ function NextStepCard({
   return (
     <Link
       href={href}
-      className="group rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-[0_2px_12px_rgba(15,118,110,0.08)]"
+      className="group rounded-lg border border-border bg-card p-4 transition-colors hover:bg-secondary/40"
     >
-      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-3">
-        <Icon className="size-5" />
+      <div className="flex items-center justify-between">
+        <Icon
+          className="size-4 text-muted-foreground"
+          strokeWidth={1.75}
+        />
+        <ArrowRight className="size-3.5 text-muted-foreground/0 group-hover:text-muted-foreground transition-colors" />
       </div>
-      <h3 className="font-medium text-base">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-1">{description}</p>
-      <span className="text-sm text-primary inline-flex items-center gap-1 mt-3 group-hover:gap-2 transition-all">
-        Kreni <ArrowRight className="size-3.5" />
-      </span>
+      <h3 className="text-sm font-medium mt-3">{title}</h3>
+      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+        {description}
+      </p>
     </Link>
   );
 }

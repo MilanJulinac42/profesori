@@ -1,28 +1,24 @@
 import Link from "next/link";
 import {
-  GraduationCap,
   Users,
   CalendarDays,
   Banknote,
   Sparkles,
   Globe,
+  GraduationCap,
   ArrowRight,
   type LucideIcon,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { Logo } from "@/components/layout/logo";
 
 export default function HomePage() {
   return (
     <div className="flex-1 flex flex-col">
-      <header className="border-b border-border">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <GraduationCap className="size-4" />
-            </div>
-            <span className="font-heading text-xl">Profesori</span>
-          </Link>
-          <nav className="flex items-center gap-2">
+      <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-6 h-full flex items-center justify-between">
+          <Logo />
+          <nav className="flex items-center gap-1.5">
             <Link
               href="/login"
               className={buttonVariants({ variant: "ghost", size: "sm" })}
@@ -37,70 +33,73 @@ export default function HomePage() {
       </header>
 
       <main className="flex-1">
-        <section className="px-6 py-20 sm:py-28 text-center max-w-3xl mx-auto">
-          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground">
-            <span className="size-1.5 rounded-full bg-primary" />
-            Za solo profesore privatnih časova
-          </span>
-          <h1 className="font-heading text-5xl sm:text-6xl leading-[1.05] mt-5">
-            Vodi privatne časove,{" "}
-            <span className="text-primary">bez haosa.</span>
-          </h1>
-          <p className="text-lg text-muted-foreground mt-6 max-w-xl mx-auto">
-            Učenici, raspored, naplata i AI generator zadataka — na jednom
-            mestu. Manje papira, više vremena za predavanje.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
-            <Link
-              href="/signup"
-              className={buttonVariants({ size: "lg" })}
-            >
-              Probaj besplatno
-              <ArrowRight className="size-4" />
-            </Link>
-            <Link
-              href="/login"
-              className={buttonVariants({ size: "lg", variant: "outline" })}
-            >
-              Već imam nalog
-            </Link>
+        {/* Hero */}
+        <section className="relative px-6 pt-20 sm:pt-28 pb-20 text-center">
+          <div className="absolute inset-0 bg-grid pointer-events-none" />
+          <div className="relative max-w-3xl mx-auto">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs text-muted-foreground">
+              <span className="size-1.5 rounded-full bg-foreground" />
+              Za solo profesore privatnih časova
+            </span>
+            <h1 className="text-4xl sm:text-6xl font-medium tracking-tight leading-[1.05] mt-6">
+              Vodi privatne časove
+              <br />
+              <span className="text-muted-foreground">bez haosa.</span>
+            </h1>
+            <p className="text-base sm:text-lg text-muted-foreground mt-5 max-w-xl mx-auto">
+              Učenici, raspored, naplata i AI generator zadataka — na jednom
+              mestu. Manje papira, više vremena za predavanje.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-7">
+              <Link href="/signup" className={buttonVariants({ size: "lg" })}>
+                Probaj besplatno
+                <ArrowRight className="size-4" strokeWidth={2} />
+              </Link>
+              <Link
+                href="/login"
+                className={buttonVariants({ size: "lg", variant: "outline" })}
+              >
+                Već imam nalog
+              </Link>
+            </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              14 dana besplatno · bez kartice
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            14 dana besplatno · bez kartice
-          </p>
         </section>
 
+        {/* Features */}
         <section className="px-6 pb-24 max-w-6xl mx-auto">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <FeatureCard
+          <div className="border-t border-l border-border grid sm:grid-cols-2 lg:grid-cols-3">
+            <FeatureCell
               icon={Users}
               title="Učenici i beleške"
-              description="Svaki učenik ima svoju karticu sa istorijom časova i napretkom."
+              description="Svaki učenik ima karticu sa istorijom časova i napretkom."
             />
-            <FeatureCard
+            <FeatureCell
               icon={CalendarDays}
               title="Raspored u 1 kliku"
               description="Ponavljajući termini, drag & drop, podsetnici roditeljima."
             />
-            <FeatureCard
+            <FeatureCell
               icon={Banknote}
               title="Naplata bez muke"
               description="Vidiš ko duguje koliko. Pošalji opomenu jednim klikom."
             />
-            <FeatureCard
+            <FeatureCell
               icon={Sparkles}
               title="AI generator zadataka"
               description="Zadaci po razredu, temi i težini. Eksport u PDF."
             />
-            <FeatureCard
+            <FeatureCell
               icon={Globe}
               title="Javni profil"
               description="Roditelji ti šalju upite preko booking forme."
             />
-            <FeatureCard
+            <FeatureCell
               icon={GraduationCap}
               title="Predmet-agnostički"
-              description="Matematika, fizika, jezici, šta god predaješ."
+              description="Matematika, fizika, jezici — šta god predaješ."
             />
           </div>
         </section>
@@ -118,7 +117,7 @@ export default function HomePage() {
   );
 }
 
-function FeatureCard({
+function FeatureCell({
   icon: Icon,
   title,
   description,
@@ -128,12 +127,15 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-6">
-      <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary mb-4">
-        <Icon className="size-5" />
-      </div>
-      <h3 className="font-medium">{title}</h3>
-      <p className="text-sm text-muted-foreground mt-1.5">{description}</p>
+    <div className="border-b border-r border-border p-6">
+      <Icon
+        className="size-4 text-muted-foreground"
+        strokeWidth={1.75}
+      />
+      <h3 className="text-sm font-medium mt-4">{title}</h3>
+      <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+        {description}
+      </p>
     </div>
   );
 }

@@ -11,9 +11,9 @@ import {
   Globe,
   Settings,
   type LucideIcon,
-  GraduationCap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "./logo";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -31,15 +31,12 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex md:w-60 lg:w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-      <div className="flex h-16 items-center gap-2 px-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <GraduationCap className="size-4" />
-        </div>
-        <span className="font-heading text-xl">Profesori</span>
+    <aside className="hidden md:flex md:w-56 lg:w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+      <div className="flex h-14 items-center px-5">
+        <Logo />
       </div>
 
-      <nav className="flex-1 px-3 py-2 space-y-0.5">
+      <nav className="flex-1 px-3 py-1 space-y-px">
         {NAV.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
@@ -49,23 +46,24 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                "flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
                 active
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                  : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/65 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
               )}
             >
-              <Icon
-                className={cn(
-                  "size-4 shrink-0",
-                  active ? "text-primary" : "text-sidebar-foreground/60",
-                )}
-              />
+              <Icon className="size-4 shrink-0" strokeWidth={1.75} />
               <span>{item.label}</span>
             </Link>
           );
         })}
       </nav>
+
+      <div className="px-3 py-3 border-t border-sidebar-border">
+        <p className="text-[11px] uppercase tracking-wider text-muted-foreground px-2.5">
+          Probni period
+        </p>
+      </div>
     </aside>
   );
 }

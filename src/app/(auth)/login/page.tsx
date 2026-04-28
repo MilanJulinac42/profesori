@@ -11,19 +11,23 @@ export default function LoginPage() {
   const [state, action, pending] = useActionState<AuthState, FormData>(signIn, undefined);
 
   return (
-    <form action={action} className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Prijava</h1>
+    <form action={action} className="space-y-7">
+      <div className="space-y-1.5">
+        <h1 className="text-2xl font-medium tracking-tight">Prijava</h1>
         <p className="text-sm text-muted-foreground">Dobrodošao nazad.</p>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3.5">
         <div className="space-y-1.5">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email" className="text-xs">
+            Email
+          </Label>
           <Input id="email" name="email" type="email" required autoComplete="email" />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="password">Lozinka</Label>
+          <Label htmlFor="password" className="text-xs">
+            Lozinka
+          </Label>
           <Input
             id="password"
             name="password"
@@ -46,7 +50,7 @@ export default function LoginPage() {
 
       <p className="text-sm text-center text-muted-foreground">
         Nemaš nalog?{" "}
-        <Link href="/signup" className="text-foreground underline">
+        <Link href="/signup" className="text-foreground underline underline-offset-4">
           Kreiraj besplatno
         </Link>
       </p>

@@ -14,19 +14,19 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between border-b border-border pb-6",
+        "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
         className,
       )}
     >
-      <div className="space-y-1.5 max-w-2xl">
-        <h1 className="font-heading text-3xl sm:text-4xl leading-tight">
-          {title}
-        </h1>
+      <div className="space-y-1 max-w-2xl">
+        <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
         {description && (
-          <p className="text-muted-foreground text-base">{description}</p>
+          <p className="text-muted-foreground text-sm">{description}</p>
         )}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && (
+        <div className="flex items-center gap-2 shrink-0">{actions}</div>
+      )}
     </div>
   );
 }

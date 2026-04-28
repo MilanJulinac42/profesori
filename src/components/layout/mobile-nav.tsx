@@ -13,11 +13,11 @@ import {
   Settings,
   Menu,
   X,
-  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Logo } from "./logo";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -45,23 +45,18 @@ export function MobileNav() {
         onClick={() => setOpen(true)}
         aria-label="Otvori meni"
       >
-        <Menu className="size-5" />
+        <Menu className="size-5" strokeWidth={1.75} />
       </Button>
 
       {open && (
         <div className="md:hidden fixed inset-0 z-50">
           <div
-            className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
           <div className="absolute inset-y-0 left-0 w-72 bg-sidebar border-r border-sidebar-border flex flex-col">
-            <div className="flex h-16 items-center justify-between px-5">
-              <div className="flex items-center gap-2">
-                <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <GraduationCap className="size-4" />
-                </div>
-                <span className="font-heading text-xl">Profesori</span>
-              </div>
+            <div className="flex h-14 items-center justify-between px-5">
+              <Logo />
               <Button
                 type="button"
                 variant="ghost"
@@ -69,10 +64,10 @@ export function MobileNav() {
                 onClick={() => setOpen(false)}
                 aria-label="Zatvori meni"
               >
-                <X className="size-5" />
+                <X className="size-5" strokeWidth={1.75} />
               </Button>
             </div>
-            <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+            <nav className="flex-1 px-3 py-1 space-y-px overflow-y-auto">
               {NAV.map((item) => {
                 const active =
                   pathname === item.href ||
@@ -84,20 +79,13 @@ export function MobileNav() {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
                       active
-                        ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-                        : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60",
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-sidebar-foreground/65 hover:bg-sidebar-accent/60",
                     )}
                   >
-                    <Icon
-                      className={cn(
-                        "size-4 shrink-0",
-                        active
-                          ? "text-primary"
-                          : "text-sidebar-foreground/60",
-                      )}
-                    />
+                    <Icon className="size-4 shrink-0" strokeWidth={1.75} />
                     <span>{item.label}</span>
                   </Link>
                 );

@@ -1,77 +1,47 @@
 import Link from "next/link";
-import { GraduationCap, Sparkles, Users, Banknote } from "lucide-react";
+import { Logo, LogoMark } from "@/components/layout/logo";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex-1 grid lg:grid-cols-2">
-      {/* Left brand panel */}
-      <div className="hidden lg:flex flex-col justify-between p-10 bg-primary text-primary-foreground relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.07] pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <Link href="/" className="relative flex items-center gap-2 w-fit">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-primary-foreground/10 backdrop-blur-sm">
-            <GraduationCap className="size-5" />
-          </div>
-          <span className="font-heading text-2xl">Profesori</span>
+    <div className="flex-1 grid lg:grid-cols-[1fr_minmax(420px,520px)]">
+      {/* Left brand panel — light, minimal */}
+      <div className="hidden lg:flex flex-col justify-between p-10 border-r border-border bg-secondary/40 relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid opacity-60 pointer-events-none" />
+        <Link href="/" className="relative w-fit">
+          <Logo />
         </Link>
 
-        <div className="relative space-y-6 max-w-md">
-          <h2 className="font-heading text-4xl leading-tight">
-            Manje administracije, više vremena za časove.
+        <div className="relative space-y-3 max-w-md">
+          <h2 className="text-3xl font-medium tracking-tight leading-[1.15]">
+            Manje administracije,
+            <br />
+            <span className="text-muted-foreground">više vremena za časove.</span>
           </h2>
-          <p className="text-primary-foreground/75 text-lg">
-            Sve što ti treba za vođenje privatnih časova — na jednom mestu.
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Sve što ti treba za vođenje privatnih časova — učenici, raspored,
+            naplata i AI generator zadataka. Na jednom mestu.
           </p>
-          <ul className="space-y-3 text-primary-foreground/85">
-            <Feature icon={Users} text="Učenici, beleške i kontakti" />
-            <Feature icon={Banknote} text="Evidencija duga i uplata" />
-            <Feature icon={Sparkles} text="AI generator zadataka" />
-          </ul>
         </div>
 
-        <p className="relative text-xs text-primary-foreground/55">
-          © {new Date().getFullYear()} Profesori. Sva prava zadržana.
+        <p className="relative text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Profesori
         </p>
       </div>
 
       {/* Right form */}
-      <div className="flex items-center justify-center px-6 py-12">
-        <div className="w-full max-w-sm">
-          <Link
-            href="/"
-            className="lg:hidden flex items-center gap-2 mb-10 justify-center"
-          >
-            <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <GraduationCap className="size-4" />
+      <div className="flex flex-col">
+        <div className="lg:hidden flex items-center px-6 h-14 border-b border-border">
+          <Logo />
+        </div>
+        <div className="flex-1 flex items-center justify-center px-6 py-12">
+          <div className="w-full max-w-sm">
+            <div className="lg:hidden flex justify-center mb-8">
+              <LogoMark className="size-10" />
             </div>
-            <span className="font-heading text-xl">Profesori</span>
-          </Link>
-          {children}
+            {children}
+          </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function Feature({
-  icon: Icon,
-  text,
-}: {
-  icon: typeof Users;
-  text: string;
-}) {
-  return (
-    <li className="flex items-center gap-3">
-      <span className="flex size-8 items-center justify-center rounded-lg bg-primary-foreground/10">
-        <Icon className="size-4" />
-      </span>
-      <span>{text}</span>
-    </li>
   );
 }
