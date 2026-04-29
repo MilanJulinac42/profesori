@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Logo, LogoMark } from "@/components/layout/logo";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -7,9 +6,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Left brand panel — light, minimal */}
       <div className="hidden lg:flex flex-col justify-between p-10 border-r border-border bg-secondary/40 relative overflow-hidden">
         <div className="absolute inset-0 bg-grid opacity-60 pointer-events-none" />
-        <Link href="/" className="relative w-fit">
+        <div className="relative w-fit">
           <Logo />
-        </Link>
+        </div>
 
         <div className="relative space-y-3 max-w-md">
           <h2 className="text-3xl font-medium tracking-tight leading-[1.15]">
