@@ -33,7 +33,12 @@ import {
   type Testimonial,
 } from "@/lib/public-profile/types";
 import type { ThemeId } from "@/lib/public-profile/themes";
+import {
+  normalizeSections,
+  type Section,
+} from "@/lib/public-profile/sections";
 import { ThemePicker } from "./theme-picker";
+import { SectionsEditor } from "./sections-editor";
 import {
   savePublicProfile,
   type ProfileFormState,
@@ -66,6 +71,7 @@ type InitialProfile = {
   intro_video_url: string | null;
   location: string | null;
   theme: string;
+  sections: unknown;
 };
 
 export function ProfileForm({
@@ -124,6 +130,9 @@ export function ProfileForm({
     )
       ? initial.theme
       : "aurora") as ThemeId,
+  );
+  const [sections, setSections] = useState<Section[]>(() =>
+    normalizeSections(initial.sections),
   );
 
   const saved =
@@ -298,6 +307,13 @@ export function ProfileForm({
           Boja i stil javne stranice. Ne menja podatke, samo izgled.
         </p>
         <ThemePicker value={theme} onChange={setTheme} />
+      </Section>
+
+      <Section title="Sekcije i redosled">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Šta se prikazuje na javnoj stranici i kojim redosledom.
+        </p>
+        <SectionsEditor value={sections} onChange={setSections} />
       </Section>
 
       <Section title="Vidljivost">

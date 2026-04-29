@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeSections } from "./sections";
 
 export type ProfileFormState = {
   error?: string;
@@ -131,6 +132,17 @@ export async function savePublicProfile(
     ? themeRaw
     : "aurora";
 
+  let sectionsParsed: unknown = [];
+  const sectionsRaw = String(formData.get("sections") ?? "").trim();
+  if (sectionsRaw) {
+    try {
+      sectionsParsed = JSON.parse(sectionsRaw);
+    } catch {
+      // ignore — normalizeSections will fall back to defaults
+    }
+  }
+  const sections = normalizeSections(sectionsParsed);
+
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = "Ime je obavezno.";
   if (!slug) fieldErrors.slug = "Slug je obavezan.";
@@ -178,6 +190,7 @@ export async function savePublicProfile(
     intro_video_url: introVideoUrl,
     location,
     theme,
+    sections,
   };
 
   // Upsert by organization_id.

@@ -44,6 +44,7 @@ export default async function PublicProfilePage() {
     intro_video_url: null,
     location: null,
     theme: "aurora",
+    sections: [],
   };
 
   const publicUrl = profile?.published
