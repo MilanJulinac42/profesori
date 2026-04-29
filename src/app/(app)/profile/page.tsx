@@ -46,6 +46,7 @@ export default async function PublicProfilePage() {
     theme: "aurora",
     layout: "stack",
     sections: [],
+    pricing_packages: [],
   };
 
   const publicUrl = profile?.published

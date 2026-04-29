@@ -4,6 +4,7 @@ import type { Section } from "@/lib/public-profile/sections";
 import { BioSection } from "../_sections/bio";
 import { VideoSection } from "../_sections/video";
 import { TagsSection } from "../_sections/tags";
+import { PricingSection } from "../_sections/pricing";
 import { ExperienceSection } from "../_sections/experience";
 import { QualificationsSection } from "../_sections/qualifications";
 import { TestimonialsSection } from "../_sections/testimonials";
@@ -26,6 +27,8 @@ export function SectionRenderer({
       return <VideoSection profile={profile} />;
     case "tags":
       return <TagsSection profile={profile} />;
+    case "pricing":
+      return <PricingSection profile={profile} />;
     case "experience":
       return <ExperienceSection profile={profile} />;
     case "qualifications":

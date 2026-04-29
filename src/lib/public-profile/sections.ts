@@ -5,6 +5,7 @@ export type SectionType =
   | "bio"
   | "video"
   | "tags"
+  | "pricing"
   | "experience"
   | "qualifications"
   | "testimonials"
@@ -36,6 +37,10 @@ export const SECTION_META: Record<
     label: "Šta predajem",
     description: "Predmeti, nivoi, specijalnosti, formati, jezici.",
   },
+  pricing: {
+    label: "Cenovnik / paketi",
+    description: "Paketi časova sa cenama (mesečna karta, priprema, ...).",
+  },
   experience: {
     label: "Iskustvo",
     description: "Timeline poslova i pozicija.",
@@ -60,6 +65,7 @@ export const ALL_SECTION_TYPES: SectionType[] = [
   "bio",
   "video",
   "tags",
+  "pricing",
   "experience",
   "qualifications",
   "testimonials",
@@ -119,12 +125,14 @@ export function shouldRenderSection(
       return profile.qualifications.length > 0;
     case "testimonials":
       return profile.testimonials.length > 0;
+    case "pricing":
+      return (profile.pricing_packages?.length ?? 0) > 0;
     case "direct_contact":
       return Boolean(profile.contact_email);
     case "bio":
       return Boolean(profile.bio);
     case "stats":
-      return true; // Always render — auto-derives from data, may show partial.
+      return true;
     case "tags":
       return (
         profile.subjects.length +

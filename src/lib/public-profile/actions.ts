@@ -120,6 +120,25 @@ export async function savePublicProfile(
     if (!quote || !author) return null;
     return { quote, author, relation };
   });
+  const pricingPackages = parseJsonArray("pricing_packages", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const name = String(item.name ?? "").trim();
+    const priceN = Number(item.price ?? 0);
+    if (!name || !Number.isFinite(priceN) || priceN <= 0) return null;
+    const sessionsN = item.sessions == null ? null : Number(item.sessions);
+    const description = String(item.description ?? "").trim() || null;
+    return {
+      name,
+      sessions:
+        sessionsN != null && Number.isFinite(sessionsN) && sessionsN > 0
+          ? Math.round(sessionsN)
+          : null,
+      price: Math.round(priceN),
+      description,
+      highlighted: Boolean(item.highlighted),
+    };
+  });
 
   const introVideoUrl =
     String(formData.get("intro_video_url") ?? "").trim() || null;
@@ -197,6 +216,7 @@ export async function savePublicProfile(
     theme,
     layout,
     sections,
+    pricing_packages: pricingPackages,
   };
 
   // Upsert by organization_id.

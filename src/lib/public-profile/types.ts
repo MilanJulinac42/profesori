@@ -30,6 +30,16 @@ export type Testimonial = {
   relation?: string | null;
 };
 
+export type PricingPackage = {
+  name: string;
+  /** Optional session count — used for display + per-session math. */
+  sessions?: number | null;
+  /** Price in paras (1 RSD = 100 paras). */
+  price: number;
+  description?: string | null;
+  highlighted: boolean;
+};
+
 export type PublicProfile = {
   id: string;
   organization_id: string;
@@ -56,6 +66,7 @@ export type PublicProfile = {
   theme: string;
   layout: string;
   sections: unknown;
+  pricing_packages: PricingPackage[];
   created_at: string;
   updated_at: string;
 };

@@ -31,6 +31,7 @@ import {
   type Qualification,
   type Experience,
   type Testimonial,
+  type PricingPackage,
 } from "@/lib/public-profile/types";
 import type { ThemeId } from "@/lib/public-profile/themes";
 import type { LayoutId } from "@/lib/public-profile/layouts";
@@ -40,6 +41,7 @@ import {
 } from "@/lib/public-profile/sections";
 import { ThemePicker } from "./theme-picker";
 import { LayoutPicker } from "./layout-picker";
+import { PricingEditor } from "./pricing-editor";
 import { SectionsEditor } from "./sections-editor";
 import {
   savePublicProfile,
@@ -75,6 +77,7 @@ type InitialProfile = {
   theme: string;
   layout: string;
   sections: unknown;
+  pricing_packages?: PricingPackage[];
 };
 
 export function ProfileForm({
@@ -141,6 +144,9 @@ export function ProfileForm({
     (["stack", "split", "magazine", "card"].includes(initial.layout)
       ? initial.layout
       : "stack") as LayoutId,
+  );
+  const [pricingPackages, setPricingPackages] = useState<PricingPackage[]>(
+    initial.pricing_packages ?? [],
   );
 
   const saved =
@@ -274,6 +280,17 @@ export function ProfileForm({
           type="email"
           value={contactEmail}
           onChange={setContactEmail}
+        />
+      </Section>
+
+      <Section title="Cenovnik / paketi" icon={MapPin}>
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Pakete časova prikazuje sekcija "Cenovnik" na javnom profilu. Označi
+          jedan kao najpopularniji da bude istaknut.
+        </p>
+        <PricingEditor
+          value={pricingPackages}
+          onChange={setPricingPackages}
         />
       </Section>
 
