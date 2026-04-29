@@ -42,6 +42,8 @@ export async function savePublicProfile(
   const available = availableRaw === "on" || availableRaw === "true";
   const contactEmail =
     String(formData.get("contact_email") ?? "").trim() || null;
+  const contactPhone =
+    String(formData.get("contact_phone") ?? "").trim() || null;
   const photoUrl = String(formData.get("photo_url") ?? "").trim() || null;
   const publishedRaw = String(formData.get("published") ?? "");
   const published = publishedRaw === "on" || publishedRaw === "true";
@@ -205,6 +207,7 @@ export async function savePublicProfile(
     price_range_text: priceRange,
     available_for_new_students: available,
     contact_email: contactEmail,
+    contact_phone: contactPhone,
     photo_url: photoUrl,
     published,
     links,

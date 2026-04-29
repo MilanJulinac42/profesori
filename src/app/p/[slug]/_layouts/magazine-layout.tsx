@@ -9,6 +9,7 @@ import {
 import { SocialIcon } from "@/components/social-icon";
 
 import { StickyCta } from "../_components/sticky-cta";
+import { QuickContactDock } from "../_components/quick-contact-dock";
 import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
 import { SectionRenderer } from "../_shared/section-renderer";
@@ -175,6 +176,10 @@ export function MagazineLayout({
       </footer>
 
       {profile.available_for_new_students && <StickyCta />}
+      <QuickContactDock
+        phone={profile.contact_phone}
+        email={profile.contact_email}
+      />
     </div>
   );
 }

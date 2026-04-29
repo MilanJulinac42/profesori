@@ -35,6 +35,7 @@ export default async function PublicProfilePage() {
     price_range_text: null,
     available_for_new_students: true,
     contact_email: teacher.email,
+    contact_phone: null,
     photo_url: null,
     published: false,
     links: [],

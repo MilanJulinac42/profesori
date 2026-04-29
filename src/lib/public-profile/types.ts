@@ -54,6 +54,7 @@ export type PublicProfile = {
   price_range_text: string | null;
   available_for_new_students: boolean;
   contact_email: string | null;
+  contact_phone: string | null;
   photo_url: string | null;
   published: boolean;
   links: SocialLink[];

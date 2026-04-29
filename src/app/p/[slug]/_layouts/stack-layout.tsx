@@ -7,6 +7,7 @@ import {
 } from "@/lib/public-profile/sections";
 import { cn } from "@/lib/utils";
 import { StickyCta } from "../_components/sticky-cta";
+import { QuickContactDock } from "../_components/quick-contact-dock";
 import { HeroSection } from "../_sections/hero";
 import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
@@ -80,6 +81,10 @@ export function StackLayout({
       </footer>
 
       {profile.available_for_new_students && <StickyCta />}
+      <QuickContactDock
+        phone={profile.contact_phone}
+        email={profile.contact_email}
+      />
     </div>
   );
 }

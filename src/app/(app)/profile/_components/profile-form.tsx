@@ -66,6 +66,7 @@ type InitialProfile = {
   price_range_text: string | null;
   available_for_new_students: boolean;
   contact_email: string | null;
+  contact_phone: string | null;
   photo_url: string | null;
   published: boolean;
   links: SocialLink[];
@@ -110,6 +111,9 @@ export function ProfileForm({
   const [priceRange, setPriceRange] = useState(initial.price_range_text ?? "");
   const [contactEmail, setContactEmail] = useState(
     initial.contact_email ?? "",
+  );
+  const [contactPhone, setContactPhone] = useState(
+    initial.contact_phone ?? "",
   );
   const [photoUrl, setPhotoUrl] = useState(initial.photo_url ?? "");
   const [available, setAvailable] = useState(
@@ -280,6 +284,15 @@ export function ProfileForm({
           type="email"
           value={contactEmail}
           onChange={setContactEmail}
+        />
+        <Field
+          label="Telefon (za WhatsApp / Viber / poziv)"
+          name="contact_phone"
+          type="tel"
+          value={contactPhone}
+          onChange={setContactPhone}
+          placeholder="+381 64 123 4567"
+          hint="Roditelji vide plutajuće dugmiće sa direktnim linkom na poruku/poziv."
         />
       </Section>
 
