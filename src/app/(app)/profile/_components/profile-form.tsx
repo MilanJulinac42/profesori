@@ -32,6 +32,8 @@ import {
   type Experience,
   type Testimonial,
 } from "@/lib/public-profile/types";
+import type { ThemeId } from "@/lib/public-profile/themes";
+import { ThemePicker } from "./theme-picker";
 import {
   savePublicProfile,
   type ProfileFormState,
@@ -63,6 +65,7 @@ type InitialProfile = {
   testimonials: Testimonial[];
   intro_video_url: string | null;
   location: string | null;
+  theme: string;
 };
 
 export function ProfileForm({
@@ -115,6 +118,13 @@ export function ProfileForm({
     initial.intro_video_url ?? "",
   );
   const [location, setLocation] = useState(initial.location ?? "");
+  const [theme, setTheme] = useState<ThemeId>(
+    (["aurora", "minimal", "sage", "sunrise", "editorial"].includes(
+      initial.theme,
+    )
+      ? initial.theme
+      : "aurora") as ThemeId,
+  );
 
   const saved =
     !pending && state !== undefined && !state.error && !state.fieldErrors;
@@ -281,6 +291,13 @@ export function ProfileForm({
           placeholder="https://youtube.com/watch?v=..."
           hint="Kratak video u kome se predstavljaš (do 2 min preporuka)."
         />
+      </Section>
+
+      <Section title="Tema profila">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Boja i stil javne stranice. Ne menja podatke, samo izgled.
+        </p>
+        <ThemePicker value={theme} onChange={setTheme} />
       </Section>
 
       <Section title="Vidljivost">

@@ -124,6 +124,13 @@ export async function savePublicProfile(
     String(formData.get("intro_video_url") ?? "").trim() || null;
   const location = String(formData.get("location") ?? "").trim() || null;
 
+  const themeRaw = String(formData.get("theme") ?? "aurora").trim();
+  const theme = ["aurora", "minimal", "sage", "sunrise", "editorial"].includes(
+    themeRaw,
+  )
+    ? themeRaw
+    : "aurora";
+
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = "Ime je obavezno.";
   if (!slug) fieldErrors.slug = "Slug je obavezan.";
@@ -170,6 +177,7 @@ export async function savePublicProfile(
     testimonials,
     intro_video_url: introVideoUrl,
     location,
+    theme,
   };
 
   // Upsert by organization_id.

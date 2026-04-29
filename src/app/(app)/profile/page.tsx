@@ -43,6 +43,7 @@ export default async function PublicProfilePage() {
     testimonials: [],
     intro_video_url: null,
     location: null,
+    theme: "aurora",
   };
 
   const publicUrl = profile?.published

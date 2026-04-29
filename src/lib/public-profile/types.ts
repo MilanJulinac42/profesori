@@ -53,6 +53,7 @@ export type PublicProfile = {
   experiences: Experience[];
   testimonials: Testimonial[];
   location: string | null;
+  theme: string;
   created_at: string;
   updated_at: string;
 };

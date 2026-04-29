@@ -24,6 +24,7 @@ import {
   type SocialLink,
   type Testimonial,
 } from "@/lib/public-profile/types";
+import { THEMES, type ThemeId } from "@/lib/public-profile/themes";
 import { SocialIcon } from "@/components/social-icon";
 import { BookingForm } from "./_components/booking-form";
 import { StickyCta } from "./_components/sticky-cta";
@@ -42,6 +43,9 @@ export default async function PublicProfilePage({
   const ytId = profile.intro_video_url
     ? extractYouTubeId(profile.intro_video_url)
     : null;
+
+  const themeId = (profile.theme as ThemeId) ?? "aurora";
+  const theme = THEMES[themeId] ?? THEMES.aurora;
 
   // Trust-signal stats: years experience, subjects count, qualifications count, testimonials count.
   const yearsValue = extractYearsToken(profile.years_experience);
@@ -82,7 +86,12 @@ export default async function PublicProfilePage({
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div
+      className={cn(
+        "flex-1 flex flex-col bg-background",
+        theme.serifHeadings && "theme-editorial",
+      )}
+    >
       <header className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <span className="inline-flex items-center gap-2 text-sm">
@@ -102,34 +111,34 @@ export default async function PublicProfilePage({
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(ellipse 70% 90% at 100% 0%, oklch(0.85 0.16 70 / 0.18) 0%, transparent 60%), radial-gradient(ellipse 60% 80% at 0% 50%, oklch(0.7 0.18 145 / 0.14) 0%, transparent 60%), radial-gradient(ellipse 60% 70% at 50% 100%, oklch(0.7 0.18 250 / 0.12) 0%, transparent 60%)",
-          }}
-        />
-        <div
-          className="absolute inset-0 opacity-[0.35] pointer-events-none"
-          style={{
-            backgroundImage:
-              "linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-            maskImage:
-              "radial-gradient(ellipse 80% 80% at 50% 40%, black 30%, transparent 75%)",
-          }}
-        />
+        {theme.heroBg && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ backgroundImage: theme.heroBg }}
+          />
+        )}
+        {theme.showGrid && (
+          <div
+            className="absolute inset-0 opacity-[0.35] pointer-events-none"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)",
+              backgroundSize: "40px 40px",
+              maskImage:
+                "radial-gradient(ellipse 80% 80% at 50% 40%, black 30%, transparent 75%)",
+            }}
+          />
+        )}
 
         <div className="relative max-w-5xl mx-auto px-6 py-16 sm:py-24">
           <div className="flex flex-col sm:flex-row gap-8 sm:gap-12 items-center sm:items-start">
             <div className="relative shrink-0">
-              <div
-                className="absolute -inset-2 rounded-full opacity-50 blur-xl"
-                style={{
-                  background:
-                    "conic-gradient(from 180deg, oklch(0.85 0.16 70 / 0.6), oklch(0.7 0.18 145 / 0.6), oklch(0.7 0.18 250 / 0.6), oklch(0.85 0.16 70 / 0.6))",
-                }}
-              />
+              {theme.avatarRing && (
+                <div
+                  className="absolute -inset-2 rounded-full opacity-50 blur-xl"
+                  style={{ background: theme.avatarRing }}
+                />
+              )}
               <Avatar
                 name={profile.display_name}
                 photoUrl={profile.photo_url}
@@ -402,7 +411,10 @@ export default async function PublicProfilePage({
               </h2>
             </div>
 
-            <FeaturedTestimonial t={profile.testimonials[0]} />
+            <FeaturedTestimonial
+              t={profile.testimonials[0]}
+              cardAccentBg={theme.cardAccentBg}
+            />
 
             {profile.testimonials.length > 1 && (
               <div className="grid sm:grid-cols-2 gap-4">
@@ -419,13 +431,12 @@ export default async function PublicProfilePage({
           id="booking"
           className="scroll-mt-20 relative overflow-hidden rounded-3xl border border-border bg-card p-6 sm:p-10"
         >
-          <div
-            className="absolute inset-0 pointer-events-none opacity-50"
-            style={{
-              backgroundImage:
-                "radial-gradient(ellipse 60% 80% at 100% 0%, oklch(0.85 0.16 70 / 0.10) 0%, transparent 60%), radial-gradient(ellipse 50% 70% at 0% 100%, oklch(0.7 0.18 145 / 0.10) 0%, transparent 60%)",
-            }}
-          />
+          {theme.cardAccentBg && (
+            <div
+              className="absolute inset-0 pointer-events-none opacity-50"
+              style={{ backgroundImage: theme.cardAccentBg }}
+            />
+          )}
           <div className="relative space-y-6 max-w-2xl mx-auto">
             <div className="text-center space-y-2">
               <h2 className="text-3xl sm:text-4xl font-medium tracking-tight">
@@ -500,16 +511,21 @@ function pluralSr(
 
 /* ---------------- testimonials ---------------- */
 
-function FeaturedTestimonial({ t }: { t: Testimonial }) {
+function FeaturedTestimonial({
+  t,
+  cardAccentBg,
+}: {
+  t: Testimonial;
+  cardAccentBg: string;
+}) {
   return (
     <figure className="relative overflow-hidden rounded-3xl border border-border bg-card p-7 sm:p-10">
-      <div
-        className="absolute inset-0 pointer-events-none opacity-40"
-        style={{
-          backgroundImage:
-            "radial-gradient(ellipse 50% 60% at 100% 0%, oklch(0.85 0.16 70 / 0.12) 0%, transparent 60%), radial-gradient(ellipse 50% 60% at 0% 100%, oklch(0.7 0.18 145 / 0.10) 0%, transparent 60%)",
-        }}
-      />
+      {cardAccentBg && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-40"
+          style={{ backgroundImage: cardAccentBg }}
+        />
+      )}
       <Quote
         className="absolute top-6 right-6 size-10 text-muted-foreground/15"
         strokeWidth={1.5}

@@ -136,6 +136,18 @@
   }
 }
 
+/* Editorial theme: serif headings on the public profile page only. */
+.theme-editorial h1,
+.theme-editorial h2,
+.theme-editorial h3,
+.theme-editorial blockquote {
+  font-family: var(--font-instrument-serif), Georgia, serif;
+  letter-spacing: -0.01em;
+}
+.theme-editorial h1 {
+  font-weight: 400;
+}
+
 /* Subtle background grid for hero sections */
 .bg-grid {
   background-image:
