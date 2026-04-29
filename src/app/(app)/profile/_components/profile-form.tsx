@@ -32,6 +32,9 @@ import {
   type Experience,
   type Testimonial,
   type PricingPackage,
+  type FaqItem,
+  type GalleryImage,
+  type OfficeHoursMap,
 } from "@/lib/public-profile/types";
 import type { ThemeId } from "@/lib/public-profile/themes";
 import type { LayoutId } from "@/lib/public-profile/layouts";
@@ -42,6 +45,9 @@ import {
 import { ThemePicker } from "./theme-picker";
 import { LayoutPicker } from "./layout-picker";
 import { PricingEditor } from "./pricing-editor";
+import { FaqEditor } from "./faq-editor";
+import { GalleryEditor } from "./gallery-editor";
+import { OfficeHoursEditor } from "./office-hours-editor";
 import { SectionsEditor } from "./sections-editor";
 import {
   savePublicProfile,
@@ -79,6 +85,10 @@ type InitialProfile = {
   layout: string;
   sections: unknown;
   pricing_packages?: PricingPackage[];
+  faq_items?: FaqItem[];
+  gallery_images?: GalleryImage[];
+  intro_video_autoplay?: boolean;
+  office_hours?: OfficeHoursMap | null;
 };
 
 export function ProfileForm({
@@ -151,6 +161,18 @@ export function ProfileForm({
   );
   const [pricingPackages, setPricingPackages] = useState<PricingPackage[]>(
     initial.pricing_packages ?? [],
+  );
+  const [faqItems, setFaqItems] = useState<FaqItem[]>(
+    initial.faq_items ?? [],
+  );
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>(
+    initial.gallery_images ?? [],
+  );
+  const [introVideoAutoplay, setIntroVideoAutoplay] = useState<boolean>(
+    initial.intro_video_autoplay ?? false,
+  );
+  const [officeHours, setOfficeHours] = useState<OfficeHoursMap | null>(
+    initial.office_hours ?? null,
   );
 
   const saved =
@@ -307,6 +329,34 @@ export function ProfileForm({
         />
       </Section>
 
+      <Section title="Radno vreme">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Definiše koje slotove kalendar pokazuje kao moguće. Mini kalendar na
+          javnoj stranici prikazuje samo slobodne slotove unutar ovog vremena.
+        </p>
+        <OfficeHoursEditor value={officeHours} onChange={setOfficeHours} />
+      </Section>
+
+      <Section title="Galerija">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Otpremi slike koje pokazuju atmosferu, materijale, ili tebe dok
+          predaješ.
+        </p>
+        <GalleryEditor
+          orgId={organizationId}
+          value={galleryImages}
+          onChange={setGalleryImages}
+        />
+      </Section>
+
+      <Section title="Često postavljana pitanja">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Q&A koji se prikazuje kao accordion na javnom profilu. Smanjuje broj
+          ponavljajućih pitanja u inboxu.
+        </p>
+        <FaqEditor value={faqItems} onChange={setFaqItems} />
+      </Section>
+
       <Section title="Društvene mreže i linkovi" icon={LinkIcon}>
         <LinksEditor value={links} onChange={setLinks} />
       </Section>
@@ -337,6 +387,13 @@ export function ProfileForm({
           onChange={setIntroVideoUrl}
           placeholder="https://youtube.com/watch?v=..."
           hint="Kratak video u kome se predstavljaš (do 2 min preporuka)."
+        />
+        <Toggle
+          name="intro_video_autoplay"
+          checked={introVideoAutoplay}
+          onChange={setIntroVideoAutoplay}
+          label="Auto-play video"
+          hint="Video se automatski pokreće (bez zvuka) kad poseti stranicu."
         />
       </Section>
 

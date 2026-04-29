@@ -40,6 +40,13 @@ export type PricingPackage = {
   highlighted: boolean;
 };
 
+export type FaqItem = { question: string; answer: string };
+
+export type GalleryImage = { url: string; caption?: string | null };
+
+/** Per-day office hours. Keys: "0".."6" (0=Sunday). Null = closed. */
+export type OfficeHoursMap = Record<string, { start: number; end: number } | null>;
+
 export type PublicProfile = {
   id: string;
   organization_id: string;
@@ -68,6 +75,10 @@ export type PublicProfile = {
   layout: string;
   sections: unknown;
   pricing_packages: PricingPackage[];
+  faq_items: FaqItem[];
+  gallery_images: GalleryImage[];
+  intro_video_autoplay: boolean;
+  office_hours: OfficeHoursMap | null;
   created_at: string;
   updated_at: string;
 };

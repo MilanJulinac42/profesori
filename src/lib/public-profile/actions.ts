@@ -169,6 +169,57 @@ export async function savePublicProfile(
   }
   const sections = normalizeSections(sectionsParsed);
 
+  const faqItems = parseJsonArray("faq_items", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const question = String(item.question ?? "").trim();
+    const answer = String(item.answer ?? "").trim();
+    if (!question || !answer) return null;
+    return { question, answer };
+  });
+
+  const galleryImages = parseJsonArray("gallery_images", (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as ItemRecord;
+    const url = String(item.url ?? "").trim();
+    const caption = String(item.caption ?? "").trim() || null;
+    if (!url) return null;
+    return { url, caption };
+  });
+
+  const introAutoplayRaw = String(formData.get("intro_video_autoplay") ?? "");
+  const introVideoAutoplay =
+    introAutoplayRaw === "on" || introAutoplayRaw === "true";
+
+  let officeHours: Record<string, { start: number; end: number } | null> | null = null;
+  const officeHoursRaw = String(formData.get("office_hours") ?? "").trim();
+  if (officeHoursRaw) {
+    try {
+      const parsed = JSON.parse(officeHoursRaw);
+      if (parsed && typeof parsed === "object") {
+        const cleaned: Record<string, { start: number; end: number } | null> = {};
+        for (const k of ["0", "1", "2", "3", "4", "5", "6"]) {
+          const v = (parsed as Record<string, unknown>)[k];
+          if (v && typeof v === "object") {
+            const s = Number((v as { start?: number }).start);
+            const e = Number((v as { end?: number }).end);
+            if (
+              Number.isFinite(s) && Number.isFinite(e) &&
+              s >= 0 && s <= 23 && e > s && e <= 24
+            ) {
+              cleaned[k] = { start: Math.round(s), end: Math.round(e) };
+              continue;
+            }
+          }
+          cleaned[k] = null;
+        }
+        officeHours = cleaned;
+      }
+    } catch {
+      officeHours = null;
+    }
+  }
+
   const fieldErrors: Record<string, string> = {};
   if (!displayName) fieldErrors.display_name = "Ime je obavezno.";
   if (!slug) fieldErrors.slug = "Slug je obavezan.";
@@ -220,6 +271,10 @@ export async function savePublicProfile(
     layout,
     sections,
     pricing_packages: pricingPackages,
+    faq_items: faqItems,
+    gallery_images: galleryImages,
+    intro_video_autoplay: introVideoAutoplay,
+    office_hours: officeHours,
   };
 
   // Upsert by organization_id.

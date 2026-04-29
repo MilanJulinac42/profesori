@@ -48,6 +48,10 @@ export default async function PublicProfilePage() {
     layout: "stack",
     sections: [],
     pricing_packages: [],
+    faq_items: [],
+    gallery_images: [],
+    intro_video_autoplay: false,
+    office_hours: null,
   };
 
   const publicUrl = profile?.published

@@ -4,12 +4,14 @@ export type SectionType =
   | "stats"
   | "bio"
   | "video"
+  | "gallery"
   | "tags"
   | "pricing"
   | "calendar"
   | "experience"
   | "qualifications"
   | "testimonials"
+  | "faq"
   | "direct_contact";
 
 export type Section = {
@@ -33,6 +35,10 @@ export const SECTION_META: Record<
   video: {
     label: "Video predstavljanje",
     description: "YouTube embed.",
+  },
+  gallery: {
+    label: "Galerija",
+    description: "Slike učenja, atmosfere, materijala.",
   },
   tags: {
     label: "Šta predajem",
@@ -58,6 +64,10 @@ export const SECTION_META: Record<
     label: "Preporuke",
     description: "Citati učenika i roditelja.",
   },
+  faq: {
+    label: "Često postavljana pitanja",
+    description: "Q&A — rešava obične dileme roditelja unapred.",
+  },
   direct_contact: {
     label: "Direktan email",
     description: "Mali link sa email adresom ispod booking forme.",
@@ -69,12 +79,14 @@ export const ALL_SECTION_TYPES: SectionType[] = [
   "stats",
   "bio",
   "video",
+  "gallery",
   "tags",
   "pricing",
   "calendar",
   "experience",
   "qualifications",
   "testimonials",
+  "faq",
   "direct_contact",
 ];
 
@@ -109,7 +121,6 @@ export function normalizeSections(input: unknown): Section[] {
     }
   }
 
-  // Append any missing types as visible defaults.
   for (const t of ALL_SECTION_TYPES) {
     if (!seen.has(t)) result.push({ type: t, visible: true });
   }
@@ -125,6 +136,8 @@ export function shouldRenderSection(
   switch (type) {
     case "video":
       return Boolean(profile.intro_video_url);
+    case "gallery":
+      return (profile.gallery_images?.length ?? 0) > 0;
     case "experience":
       return profile.experiences.length > 0;
     case "qualifications":
@@ -135,6 +148,8 @@ export function shouldRenderSection(
       return (profile.pricing_packages?.length ?? 0) > 0;
     case "calendar":
       return true;
+    case "faq":
+      return (profile.faq_items?.length ?? 0) > 0;
     case "direct_contact":
       return Boolean(profile.contact_email);
     case "bio":

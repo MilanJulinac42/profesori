@@ -31,6 +31,7 @@ export async function CalendarSection({ profile }: { profile: PublicProfile }) {
     now,
     daysAhead: CALENDAR_DAYS_AHEAD,
     busyLessons,
+    officeHours: profile.office_hours,
   });
 
   return (
