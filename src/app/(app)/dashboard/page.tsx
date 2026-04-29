@@ -19,8 +19,17 @@ import {
 } from "@/lib/analytics/queries";
 import { getOrgDebtors } from "@/lib/payments/queries";
 import { countLessonsMissingNotes } from "@/lib/lessons/queries";
+import { getOwnPublicProfile } from "@/lib/public-profile/queries";
+import {
+  computeProfileCompleteness,
+  getRecentActivity,
+  getRecentNewBookings,
+} from "@/lib/dashboard/queries";
 import { formatRsd } from "@/lib/money";
 import { AnalyticsSection } from "./_components/analytics-section";
+import { ProfileWidget } from "./_components/profile-widget";
+import { BookingsPreview } from "./_components/bookings-preview";
+import { RecentActivity } from "./_components/recent-activity";
 import { StickyNote } from "lucide-react";
 
 type Search = { period?: string };
@@ -40,6 +49,10 @@ export default async function DashboardPage({
       : "month"
   ) as AnalyticsPeriod;
 
+  const org = Array.isArray(profile.organizations)
+    ? profile.organizations[0]
+    : profile.organizations;
+
   // Concurrent queries.
   const range = getRangeForPeriod(period);
   const [
@@ -48,6 +61,9 @@ export default async function DashboardPage({
     analytics,
     debtors,
     missingNotesCount,
+    publicProfile,
+    recentBookings,
+    recentActivity,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -65,11 +81,12 @@ export default async function DashboardPage({
     getLessonAnalytics(supabase, range),
     getOrgDebtors(supabase),
     countLessonsMissingNotes(supabase),
+    getOwnPublicProfile(supabase, org!.id),
+    getRecentNewBookings(supabase, 4),
+    getRecentActivity(supabase, 8),
   ]);
 
-  const org = Array.isArray(profile.organizations)
-    ? profile.organizations[0]
-    : profile.organizations;
+  const completeness = computeProfileCompleteness(publicProfile);
   const firstName = profile.full_name?.split(" ")[0] ?? "profesore";
 
   // Trial countdown.
@@ -180,6 +197,11 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {/* New bookings preview (only if there are new requests) */}
+      {recentBookings.length > 0 && (
+        <BookingsPreview bookings={recentBookings} />
+      )}
+
       {/* Debt + missing-notes callouts */}
       {(debtors.totalDebt > 0 || missingNotesCount > 0) && (
         <section className="grid gap-3 lg:grid-cols-2">
@@ -193,27 +215,35 @@ export default async function DashboardPage({
       {/* Analytics */}
       <AnalyticsSection stats={analytics} period={period} />
 
-      {/* Bottom row: onboarding (only when not done) + upcoming */}
-      <section
-        className={cn(
-          "grid gap-3",
-          showOnboarding ? "lg:grid-cols-[1.4fr_1fr]" : "lg:grid-cols-1",
-        )}
-      >
-        {showOnboarding && <NextStepsCard />}
-        <UpcomingCard
-          lessons={
-            (upcoming as
-              | {
-                  id: string;
-                  scheduled_at: string;
-                  duration_minutes: number;
-                  status: string;
-                  students: { full_name: string } | null;
-                }[]
-              | null) ?? []
-          }
-        />
+      {/* Public profile widget */}
+      <ProfileWidget
+        slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
+        published={publicProfile?.published ?? false}
+        availableForNewStudents={
+          publicProfile?.available_for_new_students ?? true
+        }
+        completeness={completeness}
+      />
+
+      {/* Activity + Upcoming + Onboarding */}
+      <section className="grid gap-3 lg:grid-cols-2">
+        <RecentActivity events={recentActivity} />
+        <div className="space-y-3">
+          {showOnboarding && <NextStepsCard />}
+          <UpcomingCard
+            lessons={
+              (upcoming as
+                | {
+                    id: string;
+                    scheduled_at: string;
+                    duration_minutes: number;
+                    status: string;
+                    students: { full_name: string } | null;
+                  }[]
+                | null) ?? []
+            }
+          />
+        </div>
       </section>
     </div>
   );
