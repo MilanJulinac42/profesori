@@ -5,6 +5,7 @@ import { BioSection } from "../_sections/bio";
 import { VideoSection } from "../_sections/video";
 import { TagsSection } from "../_sections/tags";
 import { PricingSection } from "../_sections/pricing";
+import { CalendarSection } from "../_sections/calendar";
 import { ExperienceSection } from "../_sections/experience";
 import { QualificationsSection } from "../_sections/qualifications";
 import { TestimonialsSection } from "../_sections/testimonials";
@@ -29,6 +30,8 @@ export function SectionRenderer({
       return <TagsSection profile={profile} />;
     case "pricing":
       return <PricingSection profile={profile} />;
+    case "calendar":
+      return <CalendarSection profile={profile} />;
     case "experience":
       return <ExperienceSection profile={profile} />;
     case "qualifications":

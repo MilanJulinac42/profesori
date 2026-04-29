@@ -6,6 +6,7 @@ export type SectionType =
   | "video"
   | "tags"
   | "pricing"
+  | "calendar"
   | "experience"
   | "qualifications"
   | "testimonials"
@@ -41,6 +42,10 @@ export const SECTION_META: Record<
     label: "Cenovnik / paketi",
     description: "Paketi časova sa cenama (mesečna karta, priprema, ...).",
   },
+  calendar: {
+    label: "Kad sam slobodan",
+    description: "Mini kalendar dostupnosti — roditelj klikne slot za upit.",
+  },
   experience: {
     label: "Iskustvo",
     description: "Timeline poslova i pozicija.",
@@ -66,6 +71,7 @@ export const ALL_SECTION_TYPES: SectionType[] = [
   "video",
   "tags",
   "pricing",
+  "calendar",
   "experience",
   "qualifications",
   "testimonials",
@@ -127,6 +133,8 @@ export function shouldRenderSection(
       return profile.testimonials.length > 0;
     case "pricing":
       return (profile.pricing_packages?.length ?? 0) > 0;
+    case "calendar":
+      return true;
     case "direct_contact":
       return Boolean(profile.contact_email);
     case "bio":
