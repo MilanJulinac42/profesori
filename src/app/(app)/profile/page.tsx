@@ -44,6 +44,7 @@ export default async function PublicProfilePage() {
     intro_video_url: null,
     location: null,
     theme: "aurora",
+    layout: "stack",
     sections: [],
   };
 

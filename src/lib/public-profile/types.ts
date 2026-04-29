@@ -54,6 +54,7 @@ export type PublicProfile = {
   testimonials: Testimonial[];
   location: string | null;
   theme: string;
+  layout: string;
   sections: unknown;
   created_at: string;
   updated_at: string;

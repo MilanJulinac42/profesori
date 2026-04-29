@@ -132,6 +132,11 @@ export async function savePublicProfile(
     ? themeRaw
     : "aurora";
 
+  const layoutRaw = String(formData.get("layout") ?? "stack").trim();
+  const layout = ["stack", "split", "magazine", "card"].includes(layoutRaw)
+    ? layoutRaw
+    : "stack";
+
   let sectionsParsed: unknown = [];
   const sectionsRaw = String(formData.get("sections") ?? "").trim();
   if (sectionsRaw) {
@@ -190,6 +195,7 @@ export async function savePublicProfile(
     intro_video_url: introVideoUrl,
     location,
     theme,
+    layout,
     sections,
   };
 

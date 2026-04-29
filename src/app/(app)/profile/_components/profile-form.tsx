@@ -33,11 +33,13 @@ import {
   type Testimonial,
 } from "@/lib/public-profile/types";
 import type { ThemeId } from "@/lib/public-profile/themes";
+import type { LayoutId } from "@/lib/public-profile/layouts";
 import {
   normalizeSections,
   type Section,
 } from "@/lib/public-profile/sections";
 import { ThemePicker } from "./theme-picker";
+import { LayoutPicker } from "./layout-picker";
 import { SectionsEditor } from "./sections-editor";
 import {
   savePublicProfile,
@@ -71,6 +73,7 @@ type InitialProfile = {
   intro_video_url: string | null;
   location: string | null;
   theme: string;
+  layout: string;
   sections: unknown;
 };
 
@@ -133,6 +136,11 @@ export function ProfileForm({
   );
   const [sections, setSections] = useState<Section[]>(() =>
     normalizeSections(initial.sections),
+  );
+  const [layout, setLayout] = useState<LayoutId>(
+    (["stack", "split", "magazine", "card"].includes(initial.layout)
+      ? initial.layout
+      : "stack") as LayoutId,
   );
 
   const saved =
@@ -302,9 +310,16 @@ export function ProfileForm({
         />
       </Section>
 
-      <Section title="Tema profila">
+      <Section title="Layout stranice">
         <p className="text-xs text-muted-foreground -mt-3 mb-1">
-          Boja i stil javne stranice. Ne menja podatke, samo izgled.
+          Struktura javne stranice — kako su sekcije raspoređene.
+        </p>
+        <LayoutPicker value={layout} onChange={setLayout} />
+      </Section>
+
+      <Section title="Boje (paleta)">
+        <p className="text-xs text-muted-foreground -mt-3 mb-1">
+          Boja i stilski naglasak. Ne menja strukturu, samo paletu.
         </p>
         <ThemePicker value={theme} onChange={setTheme} />
       </Section>
