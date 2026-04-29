@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { BILLABLE_STATUSES, type Payment, type PaymentMethod } from "./types";
-import type { Lesson } from "@/lib/lessons/types";
+import type { Lesson, LessonStatus } from "@/lib/lessons/types";
 
 /* ---------------- Period analytics ---------------- */
 
@@ -15,13 +15,14 @@ export type BillingAnalytics = {
 export async function getBillingAnalytics(
   supabase: SupabaseClient,
   range: { from: Date; to: Date },
+  billableStatuses: LessonStatus[] = BILLABLE_STATUSES,
 ): Promise<BillingAnalytics> {
   const [{ data: lessons }, { data: payments }] = await Promise.all([
     supabase
       .from("lessons")
       .select("price, status")
       .is("deleted_at", null)
-      .in("status", BILLABLE_STATUSES)
+      .in("status", billableStatuses)
       .gte("scheduled_at", range.from.toISOString())
       .lte("scheduled_at", range.to.toISOString()),
     supabase
@@ -110,6 +111,7 @@ export type StudentBilling = {
 export async function getStudentBilling(
   supabase: SupabaseClient,
   studentId: string,
+  billableStatuses: LessonStatus[] = BILLABLE_STATUSES,
 ): Promise<StudentBilling> {
   const [{ data: lessons }, { data: payments }] = await Promise.all([
     supabase
@@ -117,7 +119,7 @@ export async function getStudentBilling(
       .select("*")
       .eq("student_id", studentId)
       .is("deleted_at", null)
-      .in("status", BILLABLE_STATUSES)
+      .in("status", billableStatuses)
       .order("scheduled_at", { ascending: true }),
     supabase
       .from("payments")
@@ -172,6 +174,7 @@ export type OrgDebtor = {
 
 export async function getOrgDebtors(
   supabase: SupabaseClient,
+  billableStatuses: LessonStatus[] = BILLABLE_STATUSES,
 ): Promise<{
   totalDebt: number;
   totalCredit: number;
@@ -187,7 +190,7 @@ export async function getOrgDebtors(
         .from("lessons")
         .select("student_id, price, scheduled_at, status")
         .is("deleted_at", null)
-        .in("status", BILLABLE_STATUSES)
+        .in("status", billableStatuses)
         .order("scheduled_at", { ascending: true }),
       supabase
         .from("payments")

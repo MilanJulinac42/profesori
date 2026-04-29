@@ -32,7 +32,9 @@ import {
   type LessonStatus,
 } from "@/lib/lessons/types";
 import { getStudentBilling } from "@/lib/payments/queries";
+import { computeBillableStatuses } from "@/lib/payments/types";
 import { getRemindersForStudent } from "@/lib/reminders/queries";
+import { getOrgSettings } from "@/lib/settings/queries";
 import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
 
@@ -74,13 +76,20 @@ export default async function StudentPage({
   ).length;
   const nextLesson = upcomingLessons[upcomingLessons.length - 1];
 
-  // Billing + reminders + teacher profile (for opomena template).
-  const [billing, reminders, { profile: teacherProfile }] = await Promise.all([
-    getStudentBilling(supabase, s.id),
+  // Billing + reminders + teacher profile + org settings.
+  const [{ profile: teacherProfile }] = await Promise.all([requireUser()]);
+  const teacherOrg = Array.isArray(teacherProfile.organizations)
+    ? teacherProfile.organizations[0]
+    : teacherProfile.organizations;
+  const settings = await getOrgSettings(supabase, teacherOrg!.id);
+  const billableStatuses = computeBillableStatuses(settings);
+
+  const [billing, reminders] = await Promise.all([
+    getStudentBilling(supabase, s.id, billableStatuses),
     getRemindersForStudent(supabase, s.id, 20),
-    requireUser(),
   ]);
   const teacherName = teacherProfile.full_name ?? "Profesor";
+  const customTemplate = settings.reminder_template ?? null;
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-6xl mx-auto w-full">
@@ -212,6 +221,7 @@ export default async function StudentPage({
             oldestUnpaidAt={billing.oldestUnpaidAt}
             payments={billing.payments}
             reminders={reminders}
+            customTemplate={customTemplate}
           />
           <LessonsList upcoming={upcomingLessons} past={pastLessons} />
           <NotesList lessons={lessons} />

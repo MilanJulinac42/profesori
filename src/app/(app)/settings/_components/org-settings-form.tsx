@@ -138,9 +138,8 @@ export function OrgSettingsForm({
             hint="No-show je standardno naplativ — učenik ni nije obavestio."
           />
           <p className="text-[11px] text-muted-foreground italic">
-            Napomena: trenutno se ova podešavanja čuvaju u bazi, ali logika
-            naplate ih još ne čita. Aktiviraćemo u sledećoj iteraciji — za sad
-            informativno.
+            Promene odmah utiču na kalkulaciju duga i izveštaje. Otkazani časovi
+            ovog tipa biće (ili neće biti) uračunati u dug učenika i u prihod.
           </p>
         </div>
       </div>

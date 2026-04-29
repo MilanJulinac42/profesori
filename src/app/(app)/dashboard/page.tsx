@@ -18,8 +18,10 @@ import {
   type AnalyticsPeriod,
 } from "@/lib/analytics/queries";
 import { getOrgDebtors } from "@/lib/payments/queries";
+import { computeBillableStatuses } from "@/lib/payments/types";
 import { countLessonsMissingNotes } from "@/lib/lessons/queries";
 import { getOwnPublicProfile } from "@/lib/public-profile/queries";
+import { getOrgSettings } from "@/lib/settings/queries";
 import {
   computeProfileCompleteness,
   getRecentActivity,
@@ -53,6 +55,9 @@ export default async function DashboardPage({
     ? profile.organizations[0]
     : profile.organizations;
 
+  const settings = await getOrgSettings(supabase, org!.id);
+  const billableStatuses = computeBillableStatuses(settings);
+
   // Concurrent queries.
   const range = getRangeForPeriod(period);
   const [
@@ -79,7 +84,7 @@ export default async function DashboardPage({
       .order("scheduled_at", { ascending: true })
       .limit(5),
     getLessonAnalytics(supabase, range),
-    getOrgDebtors(supabase),
+    getOrgDebtors(supabase, billableStatuses),
     countLessonsMissingNotes(supabase),
     getOwnPublicProfile(supabase, org!.id),
     getRecentNewBookings(supabase, 4),

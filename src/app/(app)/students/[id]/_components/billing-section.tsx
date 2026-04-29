@@ -37,6 +37,7 @@ export function BillingSection({
   oldestUnpaidAt,
   payments,
   reminders,
+  customTemplate,
 }: {
   studentId: string;
   studentName: string;
@@ -52,6 +53,7 @@ export function BillingSection({
   oldestUnpaidAt: string | null;
   payments: Payment[];
   reminders: ReminderLog[];
+  customTemplate?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
@@ -268,6 +270,7 @@ export function BillingSection({
         studentId={studentId}
         parentPhone={parentPhone}
         parentEmail={parentEmail}
+        customTemplate={customTemplate}
         context={{
           teacherName,
           studentName,

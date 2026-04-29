@@ -56,6 +56,7 @@ export function BillingClient({
   recentPayments,
   pickerStudents,
   teacherName,
+  customTemplate,
 }: {
   period: AnalyticsPeriod;
   periodLabel: string;
@@ -66,6 +67,7 @@ export function BillingClient({
   recentPayments: RecentPayment[];
   pickerStudents: PickerStudentExtended[];
   teacherName: string;
+  customTemplate: string | null;
 }) {
   const [dialogState, setDialogState] = useState<{
     open: boolean;
@@ -231,6 +233,7 @@ export function BillingClient({
           studentId={reminderState.debtor.student_id}
           parentPhone={reminderStudent.parent_phone}
           parentEmail={reminderStudent.parent_email}
+          customTemplate={customTemplate}
           context={{
             teacherName,
             studentName: reminderState.debtor.full_name,

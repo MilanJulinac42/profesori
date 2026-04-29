@@ -32,11 +32,22 @@ export const PAYMENT_METHOD_OPTIONS: { value: PaymentMethod; label: string }[] =
 
 /**
  * Lesson statuses that result in a debt (i.e., the lesson is "billable").
- * Spec says: cancelled_by_teacher does NOT charge; cancelled_by_student and
- * no_show CHARGE by default (will be settings-configurable later).
+ * cancelled_by_teacher never charges. The other two are toggleable via settings.
  */
 export const BILLABLE_STATUSES: LessonStatus[] = [
   "completed",
   "cancelled_by_student",
   "no_show",
 ];
+
+/** Compute billable statuses from org settings. */
+export function computeBillableStatuses(settings: {
+  charge_for_cancelled_by_student?: boolean;
+  charge_for_no_show?: boolean;
+}): LessonStatus[] {
+  const list: LessonStatus[] = ["completed"];
+  if (settings.charge_for_cancelled_by_student !== false)
+    list.push("cancelled_by_student");
+  if (settings.charge_for_no_show !== false) list.push("no_show");
+  return list;
+}

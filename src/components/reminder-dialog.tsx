@@ -37,6 +37,7 @@ export type ReminderDialogProps = {
   context: ReminderContext;
   parentPhone?: string | null;
   parentEmail?: string | null;
+  customTemplate?: string | null;
 };
 
 export function ReminderDialog({
@@ -46,6 +47,7 @@ export function ReminderDialog({
   context,
   parentPhone,
   parentEmail,
+  customTemplate,
 }: ReminderDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -55,6 +57,7 @@ export function ReminderDialog({
           context={context}
           parentPhone={parentPhone ?? null}
           parentEmail={parentEmail ?? null}
+          customTemplate={customTemplate ?? null}
           onDone={onClose}
         />
       </DialogContent>
@@ -67,15 +70,17 @@ function Form({
   context,
   parentPhone,
   parentEmail,
+  customTemplate,
   onDone,
 }: {
   studentId: string;
   context: ReminderContext;
   parentPhone: string | null;
   parentEmail: string | null;
+  customTemplate: string | null;
   onDone: () => void;
 }) {
-  const initialText = generateReminderText(context);
+  const initialText = generateReminderText(context, customTemplate);
   const [text, setText] = useState(initialText);
   const [pending, startTransition] = useTransition();
   const [sentVia, setSentVia] = useState<ReminderChannel | null>(null);

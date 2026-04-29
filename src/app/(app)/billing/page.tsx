@@ -1,16 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { PageHeader } from "@/components/page-header";
 import {
   getOrgDebtors,
   getBillingAnalytics,
   getRecentPayments,
 } from "@/lib/payments/queries";
+import { computeBillableStatuses } from "@/lib/payments/types";
 import {
   getRangeForPeriod,
   PERIOD_LABELS,
   type AnalyticsPeriod,
 } from "@/lib/analytics/queries";
 import { getLastReminderByStudent } from "@/lib/reminders/queries";
+import { getOrgSettings } from "@/lib/settings/queries";
 import { requireUser } from "@/lib/supabase/auth";
 import { BillingClient } from "./_components/billing-client";
 
@@ -30,16 +31,21 @@ export default async function BillingPage({
   ) as AnalyticsPeriod;
   const range = getRangeForPeriod(period);
 
+  const { profile: teacherProfile } = await requireUser();
+  const teacherOrg = Array.isArray(teacherProfile.organizations)
+    ? teacherProfile.organizations[0]
+    : teacherProfile.organizations;
+  const settings = await getOrgSettings(supabase, teacherOrg!.id);
+  const billableStatuses = computeBillableStatuses(settings);
+
   const [
     { totalDebt, totalCredit, debtors },
     analytics,
     recentPayments,
-    { profile: teacherProfile },
   ] = await Promise.all([
-    getOrgDebtors(supabase),
-    getBillingAnalytics(supabase, range),
+    getOrgDebtors(supabase, billableStatuses),
+    getBillingAnalytics(supabase, range, billableStatuses),
     getRecentPayments(supabase, 8),
-    requireUser(),
   ]);
 
   // Last reminder map for debtor rows.
@@ -52,7 +58,7 @@ export default async function BillingPage({
     lastReminderAt: lastReminders.get(d.student_id)?.sent_at ?? null,
   }));
 
-  // Build student list for the picker (all active + currently-debt students).
+  // Build student list for the picker.
   const { data: allStudents } = await supabase
     .from("students")
     .select("id, full_name, parent_name, parent_phone, parent_email")
@@ -61,7 +67,7 @@ export default async function BillingPage({
 
   const debtMap = new Map(debtors.map((d) => [d.student_id, d.debt]));
   const pickerStudents = (
-    allStudents as
+    (allStudents as
       | {
           id: string;
           full_name: string;
@@ -69,7 +75,7 @@ export default async function BillingPage({
           parent_phone: string | null;
           parent_email: string | null;
         }[]
-      | null ?? []
+      | null) ?? []
   ).map((s) => ({
     id: s.id,
     full_name: s.full_name,
@@ -90,6 +96,7 @@ export default async function BillingPage({
       recentPayments={recentPayments}
       pickerStudents={pickerStudents}
       teacherName={teacherProfile.full_name ?? "Profesor"}
+      customTemplate={settings.reminder_template ?? null}
     />
   );
 }
