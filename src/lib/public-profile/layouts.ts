@@ -25,14 +25,14 @@ export const LAYOUTS: Record<LayoutId, LayoutDef> = {
   magazine: {
     id: "magazine",
     name: "Magazine",
-    description: "Editorial banner, serif naslovi, više whitespace-a.",
-    available: false,
+    description: "Editorial masthead, serif naslovi, centrirana banner kompozicija.",
+    available: true,
   },
   card: {
     id: "card",
     name: "Card",
-    description: "Sve unutar jedne velike kartice.",
-    available: false,
+    description: "Sve unutar jedne velike centrirane kartice.",
+    available: true,
   },
 };
 
