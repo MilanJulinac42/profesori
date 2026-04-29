@@ -20,6 +20,7 @@ import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
 import { SectionRenderer } from "../_shared/section-renderer";
 import { Avatar } from "../_shared/avatar";
+import { Reveal } from "@/components/reveal";
 
 export function SplitLayout({
   profile,
@@ -69,18 +70,25 @@ export function SplitLayout({
         <SidebarHero profile={profile} theme={theme} />
 
         <main className="px-6 py-10 lg:px-12 lg:py-14 space-y-14 min-w-0">
-          {showStats && <StatsSection profile={profile} variant="compact" />}
+          {showStats && (
+            <Reveal>
+              <StatsSection profile={profile} variant="compact" />
+            </Reveal>
+          )}
 
           {mainSections.map((s) => (
-            <SectionRenderer
-              key={s.type}
-              section={s}
-              profile={profile}
-              theme={theme}
-            />
+            <Reveal key={s.type}>
+              <SectionRenderer
+                section={s}
+                profile={profile}
+                theme={theme}
+              />
+            </Reveal>
           ))}
 
-          <BookingSection profile={profile} theme={theme} />
+          <Reveal>
+            <BookingSection profile={profile} theme={theme} />
+          </Reveal>
         </main>
       </div>
 

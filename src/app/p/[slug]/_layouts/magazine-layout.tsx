@@ -13,6 +13,7 @@ import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
 import { SectionRenderer } from "../_shared/section-renderer";
 import { Avatar } from "../_shared/avatar";
+import { Reveal } from "@/components/reveal";
 
 /**
  * Magazine layout — editorial masthead, big serif name, centered banner.
@@ -144,18 +145,25 @@ export function MagazineLayout({
 
       {/* Body */}
       <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-14 sm:py-20 space-y-16">
-        {showStats && <StatsSection profile={profile} variant="compact" />}
+        {showStats && (
+          <Reveal>
+            <StatsSection profile={profile} variant="compact" />
+          </Reveal>
+        )}
 
         {mainSections.map((s) => (
-          <SectionRenderer
-            key={s.type}
-            section={s}
-            profile={profile}
-            theme={theme}
-          />
+          <Reveal key={s.type}>
+            <SectionRenderer
+              section={s}
+              profile={profile}
+              theme={theme}
+            />
+          </Reveal>
         ))}
 
-        <BookingSection profile={profile} theme={theme} />
+        <Reveal>
+          <BookingSection profile={profile} theme={theme} />
+        </Reveal>
       </main>
 
       {/* Footer */}

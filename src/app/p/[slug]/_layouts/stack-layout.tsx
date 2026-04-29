@@ -11,6 +11,7 @@ import { HeroSection } from "../_sections/hero";
 import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
 import { SectionRenderer } from "../_shared/section-renderer";
+import { Reveal } from "@/components/reveal";
 
 export function StackLayout({
   profile,
@@ -57,9 +58,13 @@ export function StackLayout({
 
       <main className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 sm:py-16 space-y-16">
         {mainSections.map((s) => (
-          <SectionRenderer key={s.type} section={s} profile={profile} theme={theme} />
+          <Reveal key={s.type}>
+            <SectionRenderer section={s} profile={profile} theme={theme} />
+          </Reveal>
         ))}
-        <BookingSection profile={profile} theme={theme} />
+        <Reveal>
+          <BookingSection profile={profile} theme={theme} />
+        </Reveal>
       </main>
 
       <footer className="border-t border-border py-8">

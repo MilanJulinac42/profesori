@@ -7,9 +7,17 @@ import {
 } from "lucide-react";
 import type { PublicProfile } from "@/lib/public-profile/types";
 import { extractYearsToken, pluralSr } from "../_shared/helpers";
+import { CountUp } from "@/components/count-up";
 import { cn } from "@/lib/utils";
 
 type Variant = "band" | "compact";
+
+type Stat = {
+  value: number;
+  suffix?: string;
+  label: string;
+  icon: LucideIcon;
+};
 
 export function StatsSection({
   profile,
@@ -18,26 +26,30 @@ export function StatsSection({
   profile: PublicProfile;
   variant?: Variant;
 }) {
-  const yearsValue = extractYearsToken(profile.years_experience);
-  const stats: { value: string; label: string; icon: LucideIcon }[] = [];
-  if (yearsValue) {
-    stats.push({ value: yearsValue, label: "godina iskustva", icon: Briefcase });
+  const stats: Stat[] = [];
+
+  const yearsToken = extractYearsToken(profile.years_experience);
+  if (yearsToken) {
+    const num = parseInt(yearsToken, 10);
+    if (!isNaN(num)) {
+      stats.push({
+        value: num,
+        suffix: yearsToken.endsWith("+") ? "+" : "",
+        label: "godina iskustva",
+        icon: Briefcase,
+      });
+    }
   }
   if (profile.subjects.length > 0) {
     stats.push({
-      value: String(profile.subjects.length),
-      label: pluralSr(
-        profile.subjects.length,
-        "predmet",
-        "predmeta",
-        "predmeta",
-      ),
+      value: profile.subjects.length,
+      label: pluralSr(profile.subjects.length, "predmet", "predmeta", "predmeta"),
       icon: BookOpen,
     });
   }
   if (profile.qualifications.length > 0) {
     stats.push({
-      value: String(profile.qualifications.length),
+      value: profile.qualifications.length,
       label: pluralSr(
         profile.qualifications.length,
         "diploma",
@@ -49,7 +61,7 @@ export function StatsSection({
   }
   if (profile.testimonials.length > 0) {
     stats.push({
-      value: String(profile.testimonials.length),
+      value: profile.testimonials.length,
       label: pluralSr(
         profile.testimonials.length,
         "preporuka",
@@ -74,7 +86,6 @@ export function StatsSection({
     );
   }
 
-  // compact: card grid (used inside Split layout's main column)
   return (
     <section
       className={cn(
@@ -89,17 +100,13 @@ export function StatsSection({
   );
 }
 
-function StatCell({
-  stat,
-}: {
-  stat: { value: string; label: string; icon: LucideIcon };
-}) {
+function StatCell({ stat }: { stat: Stat }) {
   const Icon = stat.icon;
   return (
     <div className="flex flex-col items-center text-center sm:items-start sm:text-left">
       <Icon className="size-4 text-muted-foreground mb-2" strokeWidth={1.75} />
       <p className="text-2xl sm:text-3xl font-medium tracking-tight tabular-nums">
-        {stat.value}
+        <CountUp end={stat.value} suffix={stat.suffix ?? ""} />
       </p>
       <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
     </div>

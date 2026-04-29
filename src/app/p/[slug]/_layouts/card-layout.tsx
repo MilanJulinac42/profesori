@@ -14,6 +14,7 @@ import { StatsSection } from "../_sections/stats";
 import { BookingSection } from "../_sections/booking";
 import { SectionRenderer } from "../_shared/section-renderer";
 import { Avatar } from "../_shared/avatar";
+import { Reveal } from "@/components/reveal";
 
 /**
  * Card layout — single big rounded card centered on a soft gradient background.
@@ -155,21 +156,28 @@ export function CardLayout({
 
           {/* Body sections inside card */}
           <div className="px-6 sm:px-10 py-8 space-y-12 border-t border-border">
-            {showStats && <StatsSection profile={profile} variant="compact" />}
+            {showStats && (
+              <Reveal>
+                <StatsSection profile={profile} variant="compact" />
+              </Reveal>
+            )}
 
             {mainSections.map((s) => (
-              <SectionRenderer
-                key={s.type}
-                section={s}
-                profile={profile}
-                theme={theme}
-              />
+              <Reveal key={s.type}>
+                <SectionRenderer
+                  section={s}
+                  profile={profile}
+                  theme={theme}
+                />
+              </Reveal>
             ))}
           </div>
 
           {/* Booking embedded at bottom of card */}
           <div className="border-t border-border bg-secondary/40 px-6 sm:px-10 py-10">
-            <BookingSection profile={profile} theme={theme} variant="embedded" />
+            <Reveal>
+              <BookingSection profile={profile} theme={theme} variant="embedded" />
+            </Reveal>
           </div>
         </article>
 
