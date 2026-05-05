@@ -11,6 +11,7 @@ import {
   Loader2,
   Check,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +35,7 @@ type Props = {
   studentName: string;
   hasParentEmail: boolean;
   hasStudentEmail: boolean;
+  parentPhone: string | null;
   audience: "parent" | "student";
   weeklyEnabled: boolean;
   monthlyEnabled: boolean;
@@ -49,13 +51,23 @@ type PreviewState =
       error: string | null;
       html: string | null;
       subject: string | null;
+      shareText: string | null;
     };
+
+function buildWhatsAppUrl(text: string, phone?: string | null): string {
+  const encoded = encodeURIComponent(text);
+  const phoneTrimmed = phone?.replace(/[^\d]/g, "") ?? "";
+  return phoneTrimmed
+    ? `https://wa.me/${phoneTrimmed}?text=${encoded}`
+    : `https://wa.me/?text=${encoded}`;
+}
 
 export function ReportsPanel({
   studentId,
   studentName,
   hasParentEmail,
   hasStudentEmail,
+  parentPhone,
   audience,
   weeklyEnabled,
   monthlyEnabled,
@@ -87,6 +99,7 @@ export function ReportsPanel({
       error: null,
       html: null,
       subject: null,
+      shareText: null,
     });
     setSendError(null);
     setSendOk(null);
@@ -101,6 +114,7 @@ export function ReportsPanel({
           error: res.error,
           html: null,
           subject: null,
+          shareText: null,
         });
         return;
       }
@@ -111,6 +125,7 @@ export function ReportsPanel({
         error: null,
         html: res.html,
         subject: res.subject,
+        shareText: res.shareText,
       });
     });
   }
@@ -208,7 +223,12 @@ export function ReportsPanel({
             </div>
             <ul className="divide-y divide-border">
               {logs.map((l) => (
-                <LogRow key={l.id} log={l} studentName={studentName} />
+                <LogRow
+                  key={l.id}
+                  log={l}
+                  studentName={studentName}
+                  parentPhone={parentPhone}
+                />
               ))}
             </ul>
           </div>
@@ -265,6 +285,20 @@ export function ReportsPanel({
                 >
                   Zatvori
                 </Button>
+                {preview.shareText && (
+                  <a
+                    href={buildWhatsAppUrl(
+                      preview.shareText,
+                      audience === "parent" ? parentPhone : null,
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background hover:bg-secondary text-sm h-8 px-3"
+                  >
+                    <MessageCircle className="size-3.5" strokeWidth={1.75} />
+                    WhatsApp
+                  </a>
+                )}
                 <Button
                   type="button"
                   size="sm"
@@ -284,7 +318,7 @@ export function ReportsPanel({
                   ) : (
                     <>
                       <Send className="size-3.5" strokeWidth={2} />
-                      Pošalji
+                      Pošalji email
                     </>
                   )}
                 </Button>
@@ -364,8 +398,21 @@ function ReportCta({
   );
 }
 
-function LogRow({ log, studentName }: { log: ReportLog; studentName: string }) {
+function LogRow({
+  log,
+  studentName,
+  parentPhone,
+}: {
+  log: ReportLog;
+  studentName: string;
+  parentPhone: string | null;
+}) {
   const sentDt = new Date(log.sent_at);
+  const shareText =
+    typeof log.data_snapshot?.shareText === "string"
+      ? (log.data_snapshot.shareText as string)
+      : null;
+
   return (
     <li className="px-5 py-3 flex items-center gap-3">
       <div className="text-xs tabular-nums text-muted-foreground w-24 shrink-0">
@@ -385,6 +432,20 @@ function LogRow({ log, studentName }: { log: ReportLog; studentName: string }) {
         </div>
       </div>
       <StatusBadge status={log.status} />
+      {shareText && (
+        <a
+          href={buildWhatsAppUrl(
+            shareText,
+            log.audience === "parent" ? parentPhone : null,
+          )}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-muted-foreground hover:text-foreground"
+          aria-label={`Podeli izveštaj za ${studentName} preko WhatsApp-a`}
+        >
+          <MessageCircle className="size-3.5" strokeWidth={1.75} />
+        </a>
+      )}
       <Link
         href={`/reports/${log.id}`}
         className="text-xs text-muted-foreground hover:text-foreground"

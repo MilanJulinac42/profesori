@@ -231,6 +231,7 @@ export default async function StudentPage({
             studentName={s.full_name}
             hasParentEmail={!!s.parent_email}
             hasStudentEmail={!!s.student_email}
+            parentPhone={s.parent_phone}
             audience={s.report_audience}
             weeklyEnabled={s.weekly_reports_enabled}
             monthlyEnabled={s.monthly_reports_enabled}

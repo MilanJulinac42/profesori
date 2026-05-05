@@ -1,7 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getResend, getResendFromEmail } from "@/lib/ai/resend";
 import type { Student } from "@/lib/students/types";
-import { renderReportHtml, renderReportPlainText } from "./render";
+import {
+  renderReportHtml,
+  renderReportPlainText,
+  renderReportShareText,
+} from "./render";
 import type { ReportData } from "./types";
 
 export type SendOutcome =
@@ -130,5 +134,8 @@ function serializeReportData(data: ReportData): Record<string, unknown> {
     totalDebtNow: data.totalDebtNow,
     aiIntro: data.aiIntro,
     lessonsCount: data.lessons.length,
+    // Cache-uj WhatsApp share text za istoriju — bez ovog bi history row
+    // morao da poziva server akciju ili da re-konstruiše tekst iz polja.
+    shareText: renderReportShareText(data),
   };
 }

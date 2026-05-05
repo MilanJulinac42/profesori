@@ -19,11 +19,11 @@ export function AutoPrint() {
   return null;
 }
 
-export function PrintButton() {
+export function PrintButton({ label = "Štampaj" }: { label?: string }) {
   return (
     <Button size="sm" onClick={() => window.print()}>
       <Printer className="size-3.5" strokeWidth={1.75} />
-      Štampaj
+      {label}
     </Button>
   );
 }

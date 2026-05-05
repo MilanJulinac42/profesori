@@ -6,7 +6,7 @@ import { requireUser } from "@/lib/supabase/auth";
 import type { Student } from "@/lib/students/types";
 import { generateReport } from "./generate";
 import { sendReport } from "./send";
-import { renderReportHtml } from "./render";
+import { renderReportHtml, renderReportShareText } from "./render";
 import { getPastReportPeriod } from "./period";
 import type { ReportData, ReportKind } from "./types";
 
@@ -16,6 +16,7 @@ export type PreviewResult =
       data: ReportData;
       html: string;
       subject: string;
+      shareText: string;
     }
   | { ok: false; error: string };
 
@@ -52,8 +53,9 @@ export async function previewReportAction(
     });
 
     const { html, subject } = renderReportHtml(data);
+    const shareText = renderReportShareText(data);
 
-    return { ok: true, data, html, subject };
+    return { ok: true, data, html, subject, shareText };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Greška u generisanju.";
     return { ok: false, error: msg };

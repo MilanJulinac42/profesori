@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getExerciseSet } from "@/lib/exercises/queries";
 import { DIFFICULTY_LABELS } from "@/lib/exercises/types";
-import { AutoPrint, PrintButton } from "./_components/auto-print";
+import { AutoPrint, PrintButton } from "@/components/auto-print";
 
 type Search = { solutions?: string };
 

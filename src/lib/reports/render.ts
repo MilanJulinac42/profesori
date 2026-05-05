@@ -288,6 +288,41 @@ export function renderReportPlainText(data: ReportData): string {
   return lines.join("\n");
 }
 
+/**
+ * Vrlo kratka verzija za WhatsApp deljenje (~300-500 chars).
+ * WhatsApp poruke obično se prelistavaju brzo — samo bitno.
+ */
+export function renderReportShareText(data: ReportData): string {
+  const lines: string[] = [];
+  const kindLabel =
+    data.kind === "weekly" ? "Nedeljni izveštaj" : "Mesečni izveštaj";
+  lines.push(`${kindLabel} — ${data.studentName} — ${data.periodLabel}`);
+  lines.push("");
+  lines.push(data.aiIntro);
+  lines.push("");
+
+  const statsLine: string[] = [];
+  statsLine.push(`Časova: ${data.lessonsHeld}`);
+  if (data.totalMinutes > 0) statsLine.push(`${data.totalMinutes} min`);
+  if (data.avgRating !== null) {
+    statsLine.push(`prosek ${data.avgRating.toFixed(1)}/5`);
+  }
+  lines.push(statsLine.join(" · "));
+
+  if (data.topTopics.length > 0) {
+    lines.push(`Teme: ${data.topTopics.slice(0, 5).join(", ")}`);
+  }
+
+  if (data.nextLessonPlan) {
+    lines.push("");
+    lines.push(`Sledeći put: ${data.nextLessonPlan}`);
+  }
+
+  lines.push("");
+  lines.push(`— ${data.teacherName}`);
+  return lines.join("\n");
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

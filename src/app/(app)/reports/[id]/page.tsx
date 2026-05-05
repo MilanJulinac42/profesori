@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Mail, Calendar, AlertCircle, Check } from "lucide-react";
+import {
+  ArrowLeft,
+  Mail,
+  Calendar,
+  AlertCircle,
+  Check,
+  Printer,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import { getReportLog } from "@/lib/reports/queries";
 import { REPORT_KIND_LABELS } from "@/lib/reports/types";
 
@@ -28,13 +36,23 @@ export default async function ReportSnapshotPage({
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-6 max-w-4xl mx-auto w-full">
-      <Link
-        href={student ? `/students/${student.id}` : "/students"}
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
-      >
-        <ArrowLeft className="size-3.5" strokeWidth={1.75} />
-        {student ? `Nazad na ${student.full_name}` : "Nazad"}
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          href={student ? `/students/${student.id}` : "/students"}
+          className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        >
+          <ArrowLeft className="size-3.5" strokeWidth={1.75} />
+          {student ? `Nazad na ${student.full_name}` : "Nazad"}
+        </Link>
+
+        <Link
+          href={`/reports/${log.id}/print`}
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+        >
+          <Printer className="size-3.5" strokeWidth={1.75} />
+          Štampaj / sačuvaj PDF
+        </Link>
+      </div>
 
       <header className="space-y-2 pb-4 border-b border-border">
         <div className="flex items-center gap-2 flex-wrap">

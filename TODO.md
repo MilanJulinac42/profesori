@@ -116,9 +116,45 @@ Sve je commit-ovano i deploy-ovano, ali da feature radi u produkciji moraš da u
 
 ## 🚀 Sledeći prioriteti (sa Tier-a iz prvobitnog plana)
 
-Po impact/effort:
+### A — Quick wins (kod je jednostavan, ide odmah dok ne stigneš do glavne mašine)
 
-1. **Vercel Cron za auto-slanje izveštaja** — Pon 08:00 (nedeljni) + 1. u mesecu 08:00 (mesečni). Manual trigger već radi, sad treba samo automatski feed.
-2. **WhatsApp/Viber link za opomene + share izveštaja** — 80% komunikacije u Srbiji ide tuda. Sad imamo subject+html, lako dodajemo "Podeli WhatsApp-om" dugme.
-3. **Recurring časovi** ("Marko, ponedeljkom u 17h, do kraja semestra" → kreira sve odjednom)
-4. **Google Calendar sync** — read-only u prvi mah
+1. **Browser print stranica za izveštaje** — `/reports/[id]/print` sa auto `window.print()`, isti pattern kao kod exercises. Profesor (i roditelj) može da napravi PDF preko browser print dialog-a (Ctrl+P → Save as PDF). 15 min posla.
+2. **WhatsApp share dugme u ReportsPanel-u** — `wa.me/<phone>?text=...` link sa subject + kratki preview. Roditelj/učenik dobija poruku odmah na WhatsApp umesto/uz email. 15 min posla.
+
+### B — Cron (sledeća iteracija, NE HITNO)
+
+**Vercel Cron za auto-slanje izveštaja** — Pon 08:00 (nedeljni) + 1. u mesecu 08:00 (mesečni).
+
+**Argumenti ZA:**
+- Konzistentnost — roditelji se naviknu i tek tada feature ima retention efekat. Bez cron-a, profesor zaboravi da klikne, izveštaji prestaju da pristižu, feature se zaboravi.
+- Marketing — "automatski svake nedelje, ne moraš ništa" je razlog zašto profesor obnovi pretplatu.
+- Pretvara alat iz "moram da ga koristim" u "radi za mene".
+
+**Argumenti PROTIV (zašto NE ODMAH):**
+- Sadržaj još nije validiran u praksi. Cron šalje 50 mejlova odjednom — bug u promptu = 50 frustriranih roditelja.
+- Edge case-ovi: idempotency (već imamo unique index `report_logs_unique_period_idx`), pauzirani učenici, prazni periodi, time zones. Sve rešivo, ali traži 2-3h pažnje.
+
+**Plan kada krenemo:**
+- `vercel.json` sa dva cron job-a
+- API route `/api/cron/reports?kind=weekly|monthly` koji prolazi kroz sve org-ove → sve `active` učenike → proveri toggle (`weekly_reports_enabled` ili `monthly_reports_enabled`) → proveri da već nije poslat za taj period → generiše + šalje
+- Auth: `CRON_SECRET` env var, svaki request od Vercel-a nosi taj header
+- Smart skip: ako je u periodu 0 časova i nema dugovanja, NE šalji ništa (da ne spam-uje)
+
+**Pre nego što ovo radimo**: 2-3 nedelje korišćenja manual flow-a, da vidiš da li je sadržaj OK i da li profesori uopšte koriste izveštaje.
+
+### C — PDF za izveštaje (low ROI, samo ako profesor zatraži)
+
+**Iskrena preporuka: NE radimo PDF attachment u emailu.**
+- HTML email koji već imamo je za 95% slučajeva bolji od PDF-a (otvori-i-čitaj na telefonu vs download-otvori-čitaj).
+- PDF prilozi pogoršavaju Resend deliverability (SPAM filteri).
+- Server-side PDF u Vercel-u je nezgodan (`puppeteer` traži special chromium binary; `@react-pdf/renderer` znači potpuno drugi template = duplikacija HTML šablona).
+
+**Što ćemo umesto toga uraditi (deo A iznad):** browser print rutu — pokriva use case "profesor želi PDF za arhivu" i "roditelj želi PDF da pokaže detetu na papiru".
+
+**Ako baš zatraži neko**: server-side PDF preko `@react-pdf/renderer` je 2-dana posao i znači paralelan template (drugi renderer od HTML email-a).
+
+### D — Druge stvari iz prvobitnog Tier 1/2
+
+5. **Recurring časovi** — "Marko, ponedeljkom u 17h, do kraja semestra" → kreira sve odjednom. Pola dana posla, brutalno štedi vreme.
+6. **Google Calendar sync** — read-only u prvi mah, da ne mora dvaput da unosi.
+7. **Domaći zadaci sa tracking-om** — posle časa dodaj domaći, učenik/roditelj dobije link, profesor vidi ko je uradio.
