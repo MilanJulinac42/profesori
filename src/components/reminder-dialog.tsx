@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect } from "react";
 import {
   Copy,
   MessageSquare,
+  MessageCircle,
   Mail,
   Smartphone,
   Check,
@@ -109,6 +110,13 @@ function Form({
           setTimeout(() => {
             window.location.href = "viber://";
           }, 100);
+        } else if (channel === "whatsapp") {
+          // wa.me sa brojem za direktan target, bez broja za picker.
+          const phoneDigits = parentPhone?.replace(/[^\d]/g, "") ?? "";
+          const url = phoneDigits
+            ? `https://wa.me/${phoneDigits}?text=${encodeURIComponent(text)}`
+            : `https://wa.me/?text=${encodeURIComponent(text)}`;
+          window.open(url, "_blank", "noopener,noreferrer");
         }
       } catch {
         // Clipboard API may fail in some contexts. Continue anyway.
@@ -129,6 +137,9 @@ function Form({
           sms: "SMS otvoren. Pošalji iz aplikacije za poruke.",
           email: "Email klijent otvoren. Pošalji iz mail aplikacije.",
           viber: "Tekst kopiran. Otvori Viber i zalepi u chat.",
+          whatsapp: parentPhone
+            ? "WhatsApp otvoren. Pošalji poruku."
+            : "WhatsApp otvoren. Izaberi kontakt i pošalji.",
         };
         toast.success("Opomena evidentirana", {
           description: messages[channel],
@@ -183,11 +194,19 @@ function Form({
         <p className="text-xs text-muted-foreground">Izaberi kanal:</p>
         <div className="grid grid-cols-2 gap-2">
           <ChannelButton
-            icon={Copy}
-            label="Kopiraj"
-            sublabel="za Viber, WhatsApp..."
-            onClick={() => send("copy")}
-            sent={sentVia === "copy"}
+            icon={MessageCircle}
+            label="WhatsApp"
+            sublabel={parentPhone ?? "Izaberi kontakt"}
+            onClick={() => send("whatsapp")}
+            sent={sentVia === "whatsapp"}
+            disabled={pending}
+          />
+          <ChannelButton
+            icon={MessageSquare}
+            label="Viber"
+            sublabel="Tekst → clipboard, app se otvara"
+            onClick={() => send("viber")}
+            sent={sentVia === "viber"}
             disabled={pending}
           />
           <ChannelButton
@@ -207,11 +226,11 @@ function Form({
             disabled={pending || !parentEmail}
           />
           <ChannelButton
-            icon={MessageSquare}
-            label="Viber"
-            sublabel="Otvara Viber app"
-            onClick={() => send("viber")}
-            sent={sentVia === "viber"}
+            icon={Copy}
+            label="Kopiraj"
+            sublabel="Samo tekst → clipboard"
+            onClick={() => send("copy")}
+            sent={sentVia === "copy"}
             disabled={pending}
           />
         </div>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseRsdInput } from "@/lib/money";
-import type { LessonStatus } from "./types";
+import type { LessonStatus, RecurrenceFrequency } from "./types";
 import {
   processNoteText,
   transcribeAndProcess,
@@ -148,6 +148,150 @@ export async function createLesson(
   revalidatePath("/dashboard");
   revalidatePath(`/students/${studentId}`);
   return undefined;
+}
+
+/* ---------- recurring ---------- */
+
+export type RecurringResult =
+  | {
+      ok: true;
+      created: number;
+      skipped: { date: string; reason: string }[];
+      groupId: string;
+    }
+  | { ok: false; error: string; fieldErrors?: Record<string, string> };
+
+/**
+ * Kreira seriju ponavljajućih časova. Conflict-detection se radi PER kandidata:
+ * ako neki termin koliduje sa postojećim časom, on se preskače (vraća se u
+ * `skipped`), ali ostali se kreiraju.
+ *
+ * Svi kreirani časovi dele isti `recurrence_group_id` da bi se kasnije mogli
+ * brisati/menjati kao grupa.
+ */
+export async function createRecurringLessons(input: {
+  studentId: string;
+  date: string; // "YYYY-MM-DD" prvog časa
+  time: string; // "HH:MM"
+  durationMinutes: number;
+  priceRaw: string; // user input; ako prazno, koristi default učenika
+  frequency: RecurrenceFrequency;
+  count: number; // ukupno časova (uključujući prvi)
+}): Promise<RecurringResult> {
+  const fieldErrors: Record<string, string> = {};
+  if (!input.studentId) fieldErrors.student_id = "Izaberi učenika.";
+  if (!input.date) fieldErrors.date = "Datum je obavezan.";
+  if (!input.time) fieldErrors.time = "Vreme je obavezno.";
+  if (!Number.isFinite(input.durationMinutes) || input.durationMinutes <= 0) {
+    fieldErrors.duration_minutes = "Trajanje mora biti broj veći od 0.";
+  }
+  if (!Number.isFinite(input.count) || input.count < 2 || input.count > 52) {
+    fieldErrors.count = "Broj časova mora biti između 2 i 52.";
+  }
+  if (Object.keys(fieldErrors).length) {
+    return { ok: false, error: "Proveri polja.", fieldErrors };
+  }
+
+  const baseDate = new Date(`${input.date}T${input.time}:00`);
+  if (isNaN(baseDate.getTime())) {
+    return {
+      ok: false,
+      error: "Neispravan datum/vreme.",
+      fieldErrors: { date: "Neispravan datum/vreme." },
+    };
+  }
+
+  const { supabase, orgId } = await getOrgId();
+  if (!orgId) return { ok: false, error: "Niste prijavljeni." };
+
+  // Pull student da znamo defaults.
+  const { data: student } = await supabase
+    .from("students")
+    .select("default_price_per_lesson, default_lesson_duration_minutes")
+    .eq("id", input.studentId)
+    .single();
+  if (!student) {
+    return {
+      ok: false,
+      error: "Učenik nije pronađen.",
+      fieldErrors: { student_id: "Učenik nije pronađen." },
+    };
+  }
+
+  let pricePara = student.default_price_per_lesson ?? 0;
+  if (input.priceRaw && input.priceRaw.trim()) {
+    const parsed = parseRsdInput(input.priceRaw);
+    if (parsed === null) {
+      return {
+        ok: false,
+        error: "Cena mora biti broj.",
+        fieldErrors: { price: "Cena mora biti broj." },
+      };
+    }
+    pricePara = parsed;
+  }
+
+  const intervalDays = input.frequency === "weekly" ? 7 : 14;
+  const groupId = crypto.randomUUID();
+
+  const toInsert: {
+    organization_id: string;
+    student_id: string;
+    scheduled_at: string;
+    duration_minutes: number;
+    price: number;
+    status: "scheduled";
+    recurrence_group_id: string;
+  }[] = [];
+  const skipped: { date: string; reason: string }[] = [];
+
+  for (let i = 0; i < input.count; i++) {
+    const candidate = new Date(baseDate.getTime());
+    candidate.setDate(candidate.getDate() + i * intervalDays);
+    const conflict = await findConflict(
+      supabase,
+      candidate,
+      input.durationMinutes,
+    );
+    if (conflict) {
+      skipped.push({
+        date: candidate.toISOString(),
+        reason: formatConflictMessage(conflict),
+      });
+      continue;
+    }
+    toInsert.push({
+      organization_id: orgId,
+      student_id: input.studentId,
+      scheduled_at: candidate.toISOString(),
+      duration_minutes: input.durationMinutes,
+      price: pricePara,
+      status: "scheduled",
+      recurrence_group_id: groupId,
+    });
+  }
+
+  if (toInsert.length === 0) {
+    return {
+      ok: false,
+      error:
+        "Svi termini koliduju sa postojećim časovima. Promeni vreme ili učestalost.",
+    };
+  }
+
+  const { error } = await supabase.from("lessons").insert(toInsert);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+  revalidatePath(`/students/${input.studentId}`);
+
+  return {
+    ok: true,
+    created: toInsert.length,
+    skipped,
+    groupId,
+  };
 }
 
 export async function updateLesson(
@@ -394,6 +538,42 @@ export async function saveLessonNotesFromDraft(
   revalidatePath("/dashboard");
   if (existing.student_id) revalidatePath(`/students/${existing.student_id}`);
   return {};
+}
+
+/**
+ * Soft-delete sve časove iz iste recurrence grupe sa scheduled_at >=
+ * scheduled_at zadatog časa. Korisno kad profesor klikne "Obriši sve buduće".
+ */
+export async function deleteFutureLessonsInGroup(
+  lessonId: string,
+): Promise<{ deleted: number; error?: string }> {
+  const { supabase } = await getOrgId();
+
+  const { data: anchor } = await supabase
+    .from("lessons")
+    .select("scheduled_at, recurrence_group_id, student_id")
+    .eq("id", lessonId)
+    .single();
+
+  if (!anchor) return { deleted: 0, error: "Čas nije pronađen." };
+  if (!anchor.recurrence_group_id)
+    return { deleted: 0, error: "Ovaj čas nije deo serije." };
+
+  const { data: deleted, error } = await supabase
+    .from("lessons")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("recurrence_group_id", anchor.recurrence_group_id)
+    .gte("scheduled_at", anchor.scheduled_at)
+    .is("deleted_at", null)
+    .select("id");
+
+  if (error) return { deleted: 0, error: error.message };
+
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+  if (anchor.student_id) revalidatePath(`/students/${anchor.student_id}`);
+
+  return { deleted: deleted?.length ?? 0 };
 }
 
 export async function deleteLesson(lessonId: string) {

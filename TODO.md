@@ -6,15 +6,17 @@ Sve je commit-ovano i deploy-ovano, ali da feature radi u produkciji moraš da u
 
 ## ⚠️ Mora pre nego što feature počne da radi u prod
 
-### 1. Migracije na produkcionoj bazi (Task #2, #8, #14)
+### 1. Migracije na produkcionoj bazi (Task #2, #8, #14, #22, #23)
 - Fajlovi:
   - `supabase/migrations/0019_exercise_sets.sql` — tabela za AI generator zadataka
   - `supabase/migrations/0020_lesson_voice_notes.sql` — `progress_summary` + `voice_transcript_raw` na `lessons`
-  - `supabase/migrations/0021_reports.sql` — students preferences (audience, student_email, weekly/monthly enabled) + `report_logs` tabela
+  - `supabase/migrations/0021_reports.sql` — students preferences + `report_logs` tabela
+  - `supabase/migrations/0022_reminder_whatsapp.sql` — dodaje `'whatsapp'` kao validan kanal u `reminder_logs`
+  - `supabase/migrations/0023_lesson_recurrence.sql` — `recurrence_group_id` na `lessons` za serije ponavljajućih časova
 - Pokreni jedno od sledećeg:
   - Lokalno sa `SUPABASE_CONNECTION_STRING` u `.env.local` → `npm run db:migrate`
   - Ili kroz Supabase Dashboard → SQL Editor → paste-uj sadržaj migracije i Run
-- Verifikuj: `exercise_sets` i `report_logs` tabele postoje + nove kolone na `lessons` i `students`
+- Verifikuj: nove tabele (`exercise_sets`, `report_logs`) i nove kolone (`progress_summary`, `voice_transcript_raw`, `recurrence_group_id` na lessons; `student_email`, `report_audience`, weekly/monthly toggles na students) postoje
 
 ### 2. API ključevi u Vercel env vars (Task #1, #7, #16)
 - Vercel Dashboard → projekat → Settings → Environment Variables

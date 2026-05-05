@@ -14,6 +14,8 @@ import {
   X,
   XCircle,
   HelpCircle,
+  Repeat,
+  CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,14 +42,18 @@ import { StarRating } from "@/components/star-rating";
 import { AINoteCapture, type FilledDraft } from "@/components/ai-note-capture";
 import {
   LESSON_STATUS_LABELS,
+  RECURRENCE_FREQ_LABELS,
   type LessonStatus,
   type LessonWithStudent,
+  type RecurrenceFrequency,
 } from "@/lib/lessons/types";
 import {
   createLesson,
+  createRecurringLessons,
   updateLesson,
   setLessonStatus,
   deleteLesson,
+  deleteFutureLessonsInGroup,
 } from "@/lib/lessons/actions";
 import { parasToRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -132,8 +138,12 @@ function CreateForm({
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState(defaultTime ?? "16:00");
   const [priceText, setPriceText] = useState("");
+  const [recurring, setRecurring] = useState(false);
+  const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>("weekly");
+  const [recurCount, setRecurCount] = useState(8);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const selectedStudent = students.find((s) => s.id === studentId);
@@ -146,6 +156,39 @@ function CreateForm({
   }, [studentId, selectedStudent]);
 
   function onSubmit() {
+    setError(null);
+    setFieldErrors({});
+    setSkippedNotice(null);
+
+    if (recurring) {
+      startTransition(async () => {
+        const res = await createRecurringLessons({
+          studentId,
+          date,
+          time,
+          durationMinutes: duration,
+          priceRaw: priceText,
+          frequency: recurFreq,
+          count: recurCount,
+        });
+        if (!res.ok) {
+          if (res.fieldErrors) setFieldErrors(res.fieldErrors);
+          setError(res.error);
+          return;
+        }
+        if (res.skipped.length > 0) {
+          setSkippedNotice(
+            `Kreirano ${res.created} časova. ${res.skipped.length} preskočeno zbog konflikta.`,
+          );
+          // Pause na trenutak da korisnik vidi poruku, pa zatvori.
+          setTimeout(onDone, 2000);
+        } else {
+          onDone();
+        }
+      });
+      return;
+    }
+
     const fd = new FormData();
     fd.set("student_id", studentId);
     fd.set("date", date);
@@ -154,8 +197,6 @@ function CreateForm({
     if (priceText) fd.set("price", priceText);
 
     startTransition(async () => {
-      setError(null);
-      setFieldErrors({});
       const res = await createLesson(undefined, fd);
       if (res?.error) setError(res.error);
       else if (res?.fieldErrors)
@@ -319,16 +360,95 @@ function CreateForm({
             )}
         </div>
 
+        {/* Recurring */}
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={recurring}
+              onChange={(e) => setRecurring(e.target.checked)}
+              className="size-3.5 accent-foreground"
+            />
+            <Repeat className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+            <span className="text-sm font-medium">Ponovi ovaj čas</span>
+          </label>
+
+          {recurring && (
+            <div className="pt-2 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="recur-freq" className="text-xs">
+                    Učestalost
+                  </Label>
+                  <Select
+                    value={recurFreq}
+                    onValueChange={(v) =>
+                      setRecurFreq((v as RecurrenceFrequency) ?? "weekly")
+                    }
+                  >
+                    <SelectTrigger id="recur-freq" className="w-full">
+                      <SelectValue>
+                        {(value: string) =>
+                          RECURRENCE_FREQ_LABELS[
+                            value as RecurrenceFrequency
+                          ] ?? "Učestalost"
+                        }
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">
+                        {RECURRENCE_FREQ_LABELS.weekly}
+                      </SelectItem>
+                      <SelectItem value="biweekly">
+                        {RECURRENCE_FREQ_LABELS.biweekly}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="recur-count" className="text-xs">
+                    Broj časova
+                  </Label>
+                  <Input
+                    id="recur-count"
+                    type="number"
+                    min={2}
+                    max={52}
+                    value={recurCount}
+                    onChange={(e) => setRecurCount(Number(e.target.value) || 2)}
+                  />
+                </div>
+              </div>
+              <RecurrencePreview
+                date={date}
+                time={time}
+                frequency={recurFreq}
+                count={recurCount}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Conflict / generic error */}
         {fieldErrors.time && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
             {fieldErrors.time}
           </div>
         )}
+        {fieldErrors.count && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {fieldErrors.count}
+          </div>
+        )}
         {error && (
           <p className="text-sm text-destructive" role="alert">
             {error}
           </p>
+        )}
+        {skippedNotice && (
+          <div className="rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs">
+            {skippedNotice}
+          </div>
         )}
       </div>
 
@@ -342,9 +462,56 @@ function CreateForm({
           disabled={pending || !studentId}
           onClick={onSubmit}
         >
-          {pending ? "Čuvanje..." : "Zakaži"}
+          {pending
+            ? recurring
+              ? "Kreiranje serije..."
+              : "Čuvanje..."
+            : recurring
+              ? `Zakaži ${recurCount} časova`
+              : "Zakaži"}
         </Button>
       </DialogFooter>
+    </div>
+  );
+}
+
+function RecurrencePreview({
+  date,
+  time,
+  frequency,
+  count,
+}: {
+  date: string;
+  time: string;
+  frequency: RecurrenceFrequency;
+  count: number;
+}) {
+  if (!date || !time || count < 2) return null;
+  const base = new Date(`${date}T${time}:00`);
+  if (isNaN(base.getTime())) return null;
+  const interval = frequency === "weekly" ? 7 : 14;
+  const dates: Date[] = [];
+  for (let i = 0; i < Math.min(count, 4); i++) {
+    const d = new Date(base.getTime());
+    d.setDate(d.getDate() + i * interval);
+    dates.push(d);
+  }
+  const lastIdx = count - 1;
+  const last = new Date(base.getTime());
+  last.setDate(last.getDate() + lastIdx * interval);
+
+  return (
+    <div className="text-[11px] text-muted-foreground space-y-1">
+      <p className="inline-flex items-center gap-1">
+        <CalendarClock className="size-3" strokeWidth={1.75} />
+        Prvi čas: {format(base, "EEEE, d. MMM yyyy. HH:mm", { locale: sr })}
+      </p>
+      <p>
+        Poslednji čas: {format(last, "EEEE, d. MMM yyyy.", { locale: sr })}
+      </p>
+      <p className="text-muted-foreground/80">
+        Termini koji koliduju sa drugim časovima biće preskočeni.
+      </p>
     </div>
   );
 }
@@ -447,6 +614,24 @@ function EditForm({
     });
   }
 
+  function onDeleteFutureSeries() {
+    if (
+      !confirm(
+        "Obrisati ovaj čas i SVE buduće termine iz ove serije? Prošli časovi ostaju netaknuti.",
+      )
+    ) {
+      return;
+    }
+    startStatusTransition(async () => {
+      const res = await deleteFutureLessonsInGroup(lesson.id);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      onDone();
+    });
+  }
+
   const dtLabel = format(dt, "EEEE, d. MMMM", { locale: sr });
 
   return (
@@ -476,6 +661,15 @@ function EditForm({
             >
               {LESSON_STATUS_LABELS[lesson.status]}
             </span>
+            {lesson.recurrence_group_id && (
+              <>
+                {" · "}
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <Repeat className="size-3" strokeWidth={1.75} />
+                  Deo serije
+                </span>
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
       </div>
@@ -685,18 +879,34 @@ function EditForm({
         )}
       </div>
 
-      <DialogFooter className="!mx-0 !mb-0 flex flex-row !justify-between">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onDelete}
-          disabled={statusPending}
-          className="text-destructive hover:text-destructive"
-        >
-          <Trash2 className="size-3.5" strokeWidth={1.75} />
-          Obriši
-        </Button>
+      <DialogFooter className="!mx-0 !mb-0 flex flex-row !justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            disabled={statusPending}
+            className="text-destructive hover:text-destructive"
+          >
+            <Trash2 className="size-3.5" strokeWidth={1.75} />
+            Obriši
+          </Button>
+          {lesson.recurrence_group_id && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onDeleteFutureSeries}
+              disabled={statusPending}
+              className="text-destructive hover:text-destructive"
+              title="Obriši ovaj i sve buduće termine iz serije"
+            >
+              <Repeat className="size-3.5" strokeWidth={1.75} />
+              Obriši sve buduće
+            </Button>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={onDone}>
             Otkaži

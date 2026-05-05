@@ -1,4 +1,4 @@
-export type ReminderChannel = "copy" | "sms" | "email" | "viber";
+export type ReminderChannel = "copy" | "sms" | "email" | "viber" | "whatsapp";
 
 export type ReminderLog = {
   id: string;
@@ -16,4 +16,5 @@ export const REMINDER_CHANNEL_LABELS: Record<ReminderChannel, string> = {
   sms: "SMS",
   email: "Email",
   viber: "Viber",
+  whatsapp: "WhatsApp",
 };

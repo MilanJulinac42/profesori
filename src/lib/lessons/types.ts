@@ -19,9 +19,17 @@ export type Lesson = {
   next_lesson_plan: string | null;
   progress_summary: string | null;
   voice_transcript_raw: string | null;
+  recurrence_group_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+};
+
+export type RecurrenceFrequency = "weekly" | "biweekly";
+
+export const RECURRENCE_FREQ_LABELS: Record<RecurrenceFrequency, string> = {
+  weekly: "Nedeljno",
+  biweekly: "Na 2 nedelje",
 };
 
 export const LESSON_RATING_LABELS: Record<number, string> = {
