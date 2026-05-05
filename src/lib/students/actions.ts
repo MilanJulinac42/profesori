@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseRsdInput } from "@/lib/money";
-import type { StudentStatus } from "./types";
+import type { ReportAudience, StudentStatus } from "./types";
 
 export type StudentFormState = {
   error?: string;
@@ -18,6 +18,14 @@ function readFormPayload(formData: FormData) {
   const parentName = String(formData.get("parent_name") ?? "").trim() || null;
   const parentPhone = String(formData.get("parent_phone") ?? "").trim() || null;
   const parentEmail = String(formData.get("parent_email") ?? "").trim() || null;
+  const studentEmail = String(formData.get("student_email") ?? "").trim() || null;
+  const reportAudienceRaw = String(formData.get("report_audience") ?? "parent").trim();
+  const reportAudience: ReportAudience =
+    reportAudienceRaw === "student" ? "student" : "parent";
+  const weeklyEnabled =
+    String(formData.get("weekly_reports_enabled") ?? "") === "on";
+  const monthlyEnabled =
+    String(formData.get("monthly_reports_enabled") ?? "") === "on";
   const priceRaw = String(formData.get("default_price_per_lesson") ?? "").trim();
   const durationRaw = String(formData.get("default_lesson_duration_minutes") ?? "60").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
@@ -52,6 +60,10 @@ function readFormPayload(formData: FormData) {
     parentName,
     parentPhone,
     parentEmail,
+    studentEmail,
+    reportAudience,
+    weeklyEnabled,
+    monthlyEnabled,
     pricePara,
     priceError,
     durationMinutes,
@@ -98,6 +110,10 @@ export async function createStudent(
       parent_name: data.parentName,
       parent_phone: data.parentPhone,
       parent_email: data.parentEmail,
+      student_email: data.studentEmail,
+      report_audience: data.reportAudience,
+      weekly_reports_enabled: data.weeklyEnabled,
+      monthly_reports_enabled: data.monthlyEnabled,
       default_price_per_lesson: data.pricePara,
       default_lesson_duration_minutes: data.durationMinutes,
       notes: data.notes,
@@ -138,6 +154,10 @@ export async function updateStudent(
       parent_name: data.parentName,
       parent_phone: data.parentPhone,
       parent_email: data.parentEmail,
+      student_email: data.studentEmail,
+      report_audience: data.reportAudience,
+      weekly_reports_enabled: data.weeklyEnabled,
+      monthly_reports_enabled: data.monthlyEnabled,
       default_price_per_lesson: data.pricePara,
       default_lesson_duration_minutes: data.durationMinutes,
       notes: data.notes,

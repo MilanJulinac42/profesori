@@ -1,5 +1,7 @@
 export type StudentStatus = "active" | "paused" | "inactive";
 
+export type ReportAudience = "parent" | "student";
+
 export type Student = {
   id: string;
   organization_id: string;
@@ -9,6 +11,10 @@ export type Student = {
   parent_name: string | null;
   parent_phone: string | null;
   parent_email: string | null;
+  student_email: string | null;
+  report_audience: ReportAudience;
+  weekly_reports_enabled: boolean;
+  monthly_reports_enabled: boolean;
   default_price_per_lesson: number; // paras
   default_lesson_duration_minutes: number;
   notes: string | null;
@@ -17,6 +23,11 @@ export type Student = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+};
+
+export const REPORT_AUDIENCE_LABELS: Record<ReportAudience, string> = {
+  parent: "Roditelj (3. lice)",
+  student: "Učenik sam (2. lice)",
 };
 
 export const STATUS_LABELS: Record<StudentStatus, string> = {

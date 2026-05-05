@@ -144,10 +144,53 @@ export function StudentForm(props: Props) {
             defaultValue={s?.parent_phone ?? ""}
           />
           <Field
-            label="Email"
+            label="Email roditelja"
             name="parent_email"
             type="email"
             defaultValue={s?.parent_email ?? ""}
+          />
+        </div>
+      </Section>
+
+      <Section title="Izveštaji">
+        <div className="space-y-1.5">
+          <Label className="text-xs">Komu šalješ nedeljni/mesečni izveštaj</Label>
+          <div className="grid sm:grid-cols-2 gap-2">
+            <AudienceRadio
+              value="parent"
+              defaultChecked={(s?.report_audience ?? "parent") === "parent"}
+              title="Roditelju"
+              description="3. lice — “Marko je…”. Na email roditelja iznad."
+            />
+            <AudienceRadio
+              value="student"
+              defaultChecked={s?.report_audience === "student"}
+              title="Samom učeniku"
+              description="2. lice — “Pokrio si…”. Na email učenika ispod."
+            />
+          </div>
+        </div>
+
+        <Field
+          label="Email učenika (za odrasle/punoletne)"
+          name="student_email"
+          type="email"
+          defaultValue={s?.student_email ?? ""}
+          hint="Koristi se ako je publika postavljena na “samom učeniku”."
+        />
+
+        <div className="grid sm:grid-cols-2 gap-2 pt-2">
+          <ToggleRow
+            name="weekly_reports_enabled"
+            defaultChecked={s?.weekly_reports_enabled ?? true}
+            label="Nedeljni izveštaj"
+            description="Automatski svake nedelje u ponedeljak ujutru."
+          />
+          <ToggleRow
+            name="monthly_reports_enabled"
+            defaultChecked={s?.monthly_reports_enabled ?? true}
+            label="Mesečni izveštaj"
+            description="Automatski 1. u mesecu za prošli mesec."
           />
         </div>
       </Section>
@@ -285,5 +328,64 @@ function Field({
       {error && <p className="text-xs text-destructive">{error}</p>}
       {!error && hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
+  );
+}
+
+function AudienceRadio({
+  value,
+  defaultChecked,
+  title,
+  description,
+}: {
+  value: "parent" | "student";
+  defaultChecked: boolean;
+  title: string;
+  description: string;
+}) {
+  return (
+    <label className="flex items-start gap-2.5 rounded-md border border-border p-3 cursor-pointer hover:bg-secondary/40 transition-colors has-[:checked]:border-foreground has-[:checked]:bg-secondary/60">
+      <input
+        type="radio"
+        name="report_audience"
+        value={value}
+        defaultChecked={defaultChecked}
+        className="mt-0.5 size-3.5 accent-foreground"
+      />
+      <div className="min-w-0">
+        <div className="text-sm font-medium leading-tight">{title}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          {description}
+        </div>
+      </div>
+    </label>
+  );
+}
+
+function ToggleRow({
+  name,
+  defaultChecked,
+  label,
+  description,
+}: {
+  name: string;
+  defaultChecked: boolean;
+  label: string;
+  description: string;
+}) {
+  return (
+    <label className="flex items-start gap-2.5 rounded-md border border-border p-3 cursor-pointer hover:bg-secondary/40 transition-colors">
+      <input
+        type="checkbox"
+        name={name}
+        defaultChecked={defaultChecked}
+        className="mt-0.5 size-3.5 accent-foreground"
+      />
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium leading-tight">{label}</div>
+        <div className="text-[11px] text-muted-foreground mt-0.5">
+          {description}
+        </div>
+      </div>
+    </label>
   );
 }

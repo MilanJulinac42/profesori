@@ -35,8 +35,10 @@ import { getStudentBilling } from "@/lib/payments/queries";
 import { computeBillableStatuses } from "@/lib/payments/types";
 import { getRemindersForStudent } from "@/lib/reminders/queries";
 import { getOrgSettings } from "@/lib/settings/queries";
+import { listReportLogs } from "@/lib/reports/queries";
 import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
+import { ReportsPanel } from "./_components/reports-panel";
 
 export default async function StudentPage({
   params,
@@ -84,9 +86,10 @@ export default async function StudentPage({
   const settings = await getOrgSettings(supabase, teacherOrg!.id);
   const billableStatuses = computeBillableStatuses(settings);
 
-  const [billing, reminders] = await Promise.all([
+  const [billing, reminders, reportLogs] = await Promise.all([
     getStudentBilling(supabase, s.id, billableStatuses),
     getRemindersForStudent(supabase, s.id, 20),
+    listReportLogs(supabase, s.id, 12),
   ]);
   const teacherName = teacherProfile.full_name ?? "Profesor";
   const customTemplate = settings.reminder_template ?? null;
@@ -222,6 +225,16 @@ export default async function StudentPage({
             payments={billing.payments}
             reminders={reminders}
             customTemplate={customTemplate}
+          />
+          <ReportsPanel
+            studentId={s.id}
+            studentName={s.full_name}
+            hasParentEmail={!!s.parent_email}
+            hasStudentEmail={!!s.student_email}
+            audience={s.report_audience}
+            weeklyEnabled={s.weekly_reports_enabled}
+            monthlyEnabled={s.monthly_reports_enabled}
+            logs={reportLogs}
           />
           <LessonsList upcoming={upcomingLessons} past={pastLessons} />
           <NotesList lessons={lessons} />
