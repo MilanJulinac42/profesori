@@ -1,0 +1,508 @@
+================================================================
+TESTIRANJE — Sesija 2026-05-05
+================================================================
+
+Ovaj fajl je pratilac TODO.md. TODO.md ima detalje, ovo je
+operativni checklist za stvarno testiranje na prod-u (ili
+lokalno) kad budeš na glavnoj mašini.
+
+Sve je commit-ovano na main grane. Vercel auto-deploy radi.
+Sve sto treba je: env vars + migracije + Resend domain.
+
+
+================================================================
+KORAK 0 — Pre-requisites (ovo MORA pre svega)
+================================================================
+
+[ ] 1. Migracije na prod bazi (0019-0023, REDOM)
+
+    Opcija A: Lokalno
+    --------------------------------------------------------
+    cd ~/Documents/profesori/profesori
+    # u .env.local dodaj:
+    #   SUPABASE_CONNECTION_STRING=postgresql://...
+    npm run db:migrate
+
+    Opcija B: Supabase Dashboard
+    --------------------------------------------------------
+    Otvori SQL Editor u Supabase Dashboard, paste-uj redom
+    sadrzaj svakog fajla iz supabase/migrations/:
+      - 0019_exercise_sets.sql
+      - 0020_lesson_voice_notes.sql
+      - 0021_reports.sql
+      - 0022_reminder_whatsapp.sql
+      - 0023_lesson_recurrence.sql
+
+    Verifikacija (u Supabase Table Editor):
+      - tabela exercise_sets postoji
+      - tabela report_logs postoji
+      - tabela lessons ima kolone: progress_summary,
+        voice_transcript_raw, recurrence_group_id
+      - tabela students ima kolone: student_email,
+        report_audience, weekly_reports_enabled,
+        monthly_reports_enabled
+
+
+[ ] 2. Env vars u Vercel-u (Settings -> Environment Variables)
+
+    Dodaj sledece, sve u Production scope:
+
+      ANTHROPIC_API_KEY=sk-ant-...
+        (za AI generator zadataka, voice cleanup, izvestaji)
+
+      OPENAI_API_KEY=sk-...
+        (za Whisper transkripciju glasovnih beleski)
+
+      RESEND_API_KEY=re_...
+        (za slanje izvestaja email-om)
+
+      RESEND_FROM_EMAIL='Profesori <reports@TVOJDOMEN.com>'
+        (mora biti VERIFIKOVAN domen u Resend dashboard-u)
+
+      CRON_SECRET=<rezultat: openssl rand -hex 32>
+        (NE aktiviraj cron jos — vidi sekciju 7)
+
+    Posle dodavanja: Redeploy (Settings -> Deployments ->
+    poslednji deployment -> Redeploy).
+
+
+[ ] 3. Resend domen verifikacija
+
+    Resend Dashboard -> Domains -> Add Domain -> tvoj domen
+    Dodaj DNS rekorde (SPF, DKIM, DMARC) u domen registrara.
+    Sacekaj verifikaciju (5 min do par sati).
+    BEZ OVOGA slanje izvestaja pada sa "domain not verified".
+
+
+================================================================
+TEST 1 — AI GENERATOR ZADATAKA (commit 63e770a)
+================================================================
+
+Cilj: profesor moze da generise i sacuva matematicke zadatke.
+
+KORACI:
+  [ ] Idi na /exercises
+       -> ako je banka prazna, vidis empty state sa CTA dugmetom
+       -> ako vec postoje setovi, vidis listu sa filterima
+
+  [ ] Klik "Generisi zadatke" -> /exercises/new
+
+  [ ] Popuni:
+       - Razred: 8. razred OS
+       - Tema: Kvadratne jednacine
+       - Tezina: srednje
+       - Broj zadataka: 10
+       - Napomena (opciono): "bez decimalnih brojeva"
+
+  [ ] Klik "Generisi zadatke"
+       -> spinner ~10-20 sekundi
+       -> appears preview sa 10 zadataka
+
+  [ ] Provera kvaliteta:
+       - svaki zadatak ima jasno pitanje
+       - svaki ima resenje (kratko, npr. "x = 3 ili x = -2")
+       - svaki ima detaljan postupak (collapse-uje se)
+       - matematika je TACNA (preracunaj jedan-dva)
+       - nivo je primeren razredu
+
+  [ ] Klik "Sacuvaj u banku"
+       -> redirect na /exercises/[id] detail
+
+  [ ] Na detail stranici:
+       [ ] Klik "Stampaj (sa resenjima)"
+            -> otvara se /print sa auto print dialog-om
+            -> Ctrl+P -> Save as PDF radi
+       [ ] Klik "Stampaj (bez resenja)"
+            -> isti dialog, ali sa praznim linijama za rad
+            -> field za ime/datum gore
+
+  [ ] Vrati se na /exercises -> set se vidi u listi
+
+PROBLEMI:
+  - "Internal Server Error" -> proveri ANTHROPIC_API_KEY u Vercel
+  - "tabela exercise_sets ne postoji" -> migracija 0019 nije pokrenuta
+  - matematicke greske u resenjima -> javi mi, podesicemo
+    adaptive thinking + effort: high
+
+
+================================================================
+TEST 2 — GLASOVNE BELESKE POSLE CASA (commit e925d04)
+================================================================
+
+Cilj: profesor brzo dodaje belesku posle casa preko glasovne ili
+otkucane poruke. AI strukturira ostalo (notes, topics, plan,
+ocena, progress_summary za izvestaje).
+
+PRE TESTA:
+  [ ] Imas bar jednog ucenika
+  [ ] Imas bar jedan zakazan/odrzan cas
+
+KORACI:
+  [ ] Otvori /schedule
+  [ ] Klik na neki cas (otvara se edit dialog)
+  [ ] Skroluj do "Beleske posle casa" sekcije
+  [ ] Vidis novi "AI asistent" panel sa Snimi/Otkucaj tabovima
+
+TEST 2A — Snimi glas:
+  [ ] Klik "Snimi belesku"
+  [ ] Browser trazi dozvolu mikrofona -> dozvoli
+  [ ] Vidis "Snimam..." sa pulsirajucim crvenim dot-om i timer-om
+  [ ] Govori 30-60 sekundi nesto kao:
+       "Danas smo radili kvadratne jednacine sa Markom.
+        Razume rastavljanje na cinioce, ali ima problema sa
+        kvadratnom formulom. Sledeci put cemo to ponoviti
+        i preci na primene. Cas je bio dobar."
+  [ ] Klik "Zaustavi"
+  [ ] Loading "AI obrađuje belesku..." ~5-10 sekundi
+  [ ] Forma se popunila:
+       - notes_after_lesson: ociscen tekst beleske
+       - topics_covered: tagovi (Kvadratne jednacine,
+         Rastavljanje na cinioce...)
+       - progress_summary: 1-2 recenice za izvestaj
+       - next_lesson_plan: plan za sledeci put
+       - ocena: 3-4 (zavisi od tona)
+
+TEST 2B — Otkucaj fallback:
+  [ ] Otvori drugi cas
+  [ ] U panelu klik tab "Otkucaj"
+  [ ] Ukucaj 1-2 recenice
+  [ ] Klik "Strukturiraj"
+  [ ] Forma se popunjava na isti nacin kao iznad
+
+TEST 2C — Mobile / iOS Safari:
+  [ ] Otvori prod URL na iPhone/iPad
+  [ ] Login, otvori cas, snimi belesku
+  [ ] iOS koristi audio/mp4 codec umesto webm — Whisper to prima
+  [ ] Provera: transkripcija srpskog je razumljiva
+
+TEST 2D — Dashboard quick action:
+  [ ] Imas bar jedan "completed" cas bez beleske
+  [ ] Idi na /dashboard
+  [ ] U "Beleske" callout-u vidis dugme "Snimi za poslednji"
+  [ ] Klik vodi na /lessons/[id]/note (full-screen)
+  [ ] Tu je isti AI panel + sticky save dugme na dnu
+
+PROBLEMI:
+  - Mikrofon nedostupan -> proveri permissions browsera
+  - "OPENAI_API_KEY nije podesen" -> dodaj u Vercel
+  - Transkripcija laze -> Whisper retko, ali javi se primer
+  - "tabela lessons nema kolonu progress_summary" -> migracija
+    0020 nije pokrenuta
+
+
+================================================================
+TEST 3 — NEDELJNI I MESECNI IZVESTAJI (commit 6debf2a)
+================================================================
+
+Cilj: profesor salje izvestaj roditelju (ili odraslom uceniku)
+sa AI uvodom + statistikom + per-cas progress.
+
+PRE TESTA:
+  [ ] Bar jedan ucenik sa par odrzanih casova koji imaju
+      progress_summary popunjen (testiraj TEST 2 prvo da
+      napunis podatke)
+  [ ] Email iz Resend-ovog verifikovanog domena
+
+KORACI:
+  [ ] Otvori profil ucenika -> /students/[id]
+
+  [ ] Sekcija "Izvestaji" je vidljiva.
+
+  [ ] Pre prvog slanja:
+       [ ] Klik "izmeni profil"
+       [ ] Sekcija "Izvestaji" u formi
+       [ ] Izaberi publiku:
+            - "Roditelju" (3. lice) za decu
+            - "Samom uceniku" (2. lice) za odrasle (faks, prijemni)
+       [ ] Ako je "Roditelju" -> popuni parent_email
+            Ako je "Samom uceniku" -> popuni student_email
+       [ ] Provera da su weekly/monthly toggles ON
+       [ ] Sacuvaj
+
+  [ ] Vrati se na /students/[id]
+
+  [ ] Klik "Pregled" za nedeljni
+       -> dialog otvara, "Generišem... ~5s"
+       -> appears HTML preview u iframe-u
+       -> proveri sadrzaj:
+            * Naslov: ime ucenika + period
+            * AI uvod (1-2 recenice u pravom licu)
+            * Stat grid: Casova, Minuta, Prosek
+            * Pokrivene teme (chips)
+            * Per-cas breakdown sa progress_summary
+            * Plan za sledeci put
+            * Naplata (ako ima duga ili uplata u periodu)
+            * Potpis sa imenom profesora
+
+  [ ] Klik "Posalji email" iz dialoga
+       -> "Posalji..." spinner
+       -> success: "Poslato na <email>" notification
+       -> dialog se zatvara
+
+  [ ] Provera:
+       [ ] U mailbox-u (parent_email ili student_email) stigao email
+       [ ] Subject: "Nedeljni izvestaj — <ime> — <period>"
+       [ ] Render izgleda dobro u Gmail-u (ako koristis)
+       [ ] Provera u istoriji panela na /students/[id]:
+            - novi red sa "Poslato" status, vremenskom oznakom,
+              email primaoca
+
+  [ ] Klik "oko" ikonu pored stavke -> /reports/[id]
+       -> snapshot HTML-a u iframe-u
+       -> period i recipient su tacni
+
+  [ ] Edge case: ucenik bez ijednog casa u periodu
+       -> Pregled radi
+       -> AI uvod kaze "Ove nedelje nije bilo casova" (bez Claude
+          poziva, statican tekst)
+
+PROBLEMI:
+  - "RESEND_API_KEY nije podesen" -> dodaj u Vercel + redeploy
+  - "domain not verified" -> Resend Dashboard -> Domains
+  - "Roditelj nema email" -> popuni parent_email u edit formi
+  - Email u SPAM-u -> SPF/DKIM/DMARC nisu propisno setovani
+  - "tabela report_logs ne postoji" -> migracija 0021 fail
+
+
+================================================================
+TEST 4 — PRINT IZVESTAJA + WHATSAPP SHARE (commit bf24e44)
+================================================================
+
+PRE TESTA: Test 3 mora da prodje (treba bar jedan poslat izvestaj
+u istoriji).
+
+KORACI:
+  [ ] Idi na /students/[id]
+  [ ] U istoriji izvestaja vidis tri ikone na svakom redu:
+       - status badge (Poslato/Greska/Preview)
+       - WhatsApp ikona (ako postoji shareText u snapshot-u)
+       - Eye ikona (link na snapshot)
+
+  [ ] Klik na Eye ikonu -> /reports/[id]
+       [ ] U header-u vidis "Stampaj / sacuvaj PDF" dugme
+       [ ] Klik -> redirect na /reports/[id]/print
+       [ ] Auto otvara native print dialog
+       [ ] Sidebar i topbar su SAKRIVENI u print preview-u
+       [ ] Sadrzaj: pun izvestaj sa AI uvodom, statistikom, etc.
+
+  [ ] Cancel print -> ostaje stranica (mozes da reload-ujes)
+
+  [ ] WhatsApp share iz dialoga (preview):
+       [ ] Klik "Pregled" za bilo koji kind
+       [ ] Posle preview-a, vidis 3 dugmeta u footer-u dialog-a:
+            - Zatvori, WhatsApp, Posalji email
+       [ ] Klik "WhatsApp"
+       [ ] Otvara se nov tab sa WhatsApp Web
+       [ ] Ako audience=parent i ima parent_phone:
+            URL je wa.me/<phone>?text=...
+            -> chat sa tom osobom je vec otvoren
+       [ ] Ako nema phone (audience=student):
+            URL je wa.me/?text=...
+            -> WhatsApp ti trazi da izaberes kontakt
+       [ ] Tekst je auto-popunjen — kratak ~400 char rezime
+
+  [ ] WhatsApp iz istorije:
+       [ ] Klik na WhatsApp ikonu pored bilo kog reda
+       [ ] Isto ponasanje kao iznad (koristi shareText
+            iz data_snapshot)
+
+PROBLEMI:
+  - WhatsApp ikona se ne pojavljuje u istoriji -> log je upisan
+    pre nego sto smo dodali shareText u snapshot. Posalji novi
+    izvestaj.
+  - Print preview prikazuje sidebar -> proveri da je promena
+    print:hidden u Sidebar/Topbar deploy-ovana
+
+
+================================================================
+TEST 5 — WHATSAPP OPOMENA U BILLING-U (commit c2d0b24)
+================================================================
+
+PRE TESTA: Bar jedan ucenik sa dugovanjem.
+
+KORACI:
+  [ ] Idi na /billing ili na profil ucenika sa dugom
+  [ ] Klik "Posalji opomenu" (postojeci flow)
+  [ ] U dialog-u vidis 5 dugmeta umesto 4:
+       - WhatsApp (PRVO mesto, najveca novosrpska zelja)
+       - Viber
+       - SMS
+       - Email
+       - Kopiraj
+
+  [ ] Klik "WhatsApp"
+       [ ] Otvara nov tab
+       [ ] Ako parent_phone postoji: wa.me/<phone>?text=...
+            -> direktno chat sa tom osobom
+       [ ] Ako nema phone-a: wa.me/?text=...
+            -> picker
+       [ ] Tekst je generisan opomenski template (isti koji
+            je vec radio za email)
+
+  [ ] U istoriji opomena (Reminder log) na profilu ucenika
+       -> pojavio se novi red sa channel="whatsapp"
+
+PROBLEMI:
+  - WhatsApp dugme nedostaje -> migracija 0022 nije pokrenuta
+    (constraint blokira channel='whatsapp' u DB)
+  - URL ne otvara WhatsApp -> proveri popup blocker u browseru
+
+
+================================================================
+TEST 6 — RECURRING CASOVI (commit c2d0b24)
+================================================================
+
+KORACI:
+  [ ] Idi na /schedule
+  [ ] Klik na prazan slot u nedelji da otvoris CreateForm
+       (ili "Zakazi cas" dugme)
+
+  [ ] Popuni:
+       - Ucenik: izaberi
+       - Datum + vreme: bilo sta validno
+       - Trajanje: 60 min
+
+  [ ] Skroluj do "Ponovi ovaj cas" sekcije
+  [ ] Cekiraj checkbox
+       -> otkriva se Ucestalost + Broj casova
+
+  [ ] Postavi:
+       - Ucestalost: Nedeljno
+       - Broj casova: 8
+
+  [ ] Provera preview-a ispod:
+       - "Prvi cas: <datum + vreme>"
+       - "Poslednji cas: <datum 7 nedelja kasnije>"
+
+  [ ] Klik "Zakazi 8 casova"
+       -> spinner "Kreiranje serije..."
+       -> dialog se zatvara
+       -> u week view vidis prvi cas; klikni napred kroz nedelje
+            i vidis ostale (na istom danu i vremenu)
+
+  [ ] Konflikt scenario:
+       [ ] Probaj da kreiras seriju koja koliduje sa postojecim
+            casovima (npr. preko vec zakazanog termina)
+       [ ] Ocekivano: dialog ostaje otvoren sa porukom
+            "Kreirano X casova. Y preskoceno zbog konflikta."
+
+  [ ] Edit recurring cas:
+       [ ] Klik na bilo koji cas iz serije
+       [ ] U header dialoga vidis "Deo serije" indikator
+       [ ] U footer-u vidis dva delete dugmeta:
+            - "Obrisi" (samo ovaj cas)
+            - "Obrisi sve buduce" (ovaj + svi buduci u seriji)
+
+  [ ] Klik "Obrisi sve buduce"
+       [ ] Confirm dialog: "Obrisati ovaj cas i SVE buduce..."
+       [ ] OK -> dialog se zatvara
+       [ ] Vidis u week view-u da su svi buduci nestali, ali
+            proslost (ako je bilo iz serije) ostaje
+
+PROBLEMI:
+  - "Ponovi" sekcija ne postoji u CreateForm -> deploy nije
+    primljen
+  - Toast "Svi termini koliduju" -> serija pada svuda; promeni
+    vreme ili ucestalost
+  - "Deo serije" indikator nedostaje na postojecem casu ->
+    migracija 0023 nije pokrenuta ili je cas kreiran pre nje
+
+
+================================================================
+TEST 7 — VERCEL CRON (commit f47ae76)
+================================================================
+
+VAZNO: NE AKTIVIRAJ CRON dok ne validiras manual flow 2-3
+nedelje. Vidi pre nego sto ides dalje:
+  - Test 2 i Test 3 prolaze cisto
+  - Mejlovi stizu i ne idu u SPAM
+  - Sadrzaj izvestaja je tacan i prijatan
+  - Bar 5-10 izvestaja je manualno poslato bez problema
+
+
+KORAK 7A — Test ruta MANUELNO pre aktivacije:
+  [ ] Generiši CRON_SECRET:
+       openssl rand -hex 32
+
+  [ ] Dodaj u Vercel env vars: CRON_SECRET=<hex>
+  [ ] Redeploy
+
+  [ ] Test cron route (zameni TVOJDOMEN i SECRET):
+       curl -H "Authorization: Bearer <CRON_SECRET>" \
+         https://TVOJDOMEN/api/cron/reports?kind=weekly
+
+  [ ] Vraca JSON:
+       {
+         "ok": true,
+         "durationMs": 1234,
+         "kind": "weekly",
+         "period_start": "2026-04-28",
+         "period_end": "2026-05-04",
+         "orgs_processed": 1,
+         "students_total": 5,
+         "sent": 3,
+         "skipped_already_sent": 0,
+         "skipped_no_email": 2,
+         "failed": 0,
+         "failures": []
+       }
+
+  [ ] Provera u prod-u:
+       [ ] U /students/[id] istoriji izvestaja, novi rowovi
+            sa "Poslato"
+       [ ] Stizu mejlovi za ucenike koji su dobili izvestaj
+       [ ] Idempotency: pokrenes cron drugi put, 'sent' = 0,
+            'skipped_already_sent' = 3
+
+
+KORAK 7B — Aktivacija cron-a:
+  vercel.json je vec u repou:
+       - "0 7 * * 1" (Pon 07:00 UTC = 08:00 zima / 09:00 leto BG)
+       - "0 7 1 * *" (1. u mesecu 07:00 UTC)
+
+  Cron POSTOJI od trenutka kad je vercel.json deploy-ovan, ali
+  ako nemas CRON_SECRET, ruta vraca 500 i cron ne pravi stetu.
+  Cim postavis CRON_SECRET i redeploy-uješ, cron je AKTIVAN.
+
+  Da privremeno isključiš:
+  - Obriši CRON_SECRET iz env -> ruta vraca 500
+  - Ili obriši vercel.json -> cron prestaje sledeći cycle
+
+
+KORAK 7C — Monitoring:
+  [ ] Vercel Dashboard -> Logs -> filter po /api/cron/reports
+  [ ] Svaka cron invokacija je vidljiva
+  [ ] Failures u summary JSON-u te mogu rano upozoriti
+
+PROBLEMI:
+  - "CRON_SECRET nije podesen" -> dodaj u env i redeploy
+  - 401 Unauthorized -> SECRET ne odgovara onome u env
+  - Mejlovi idu duplo -> proveri da unique constraint postoji
+    (migracija 0021 ima report_logs_unique_period_idx)
+
+
+================================================================
+NESTO NE RADI?
+================================================================
+
+Najcesce:
+  1. Migracije nisu pokrenute redom
+     -> proveri public._migrations tabelu u Supabase
+        (samo ona sa neprimenjenim migracija ce nedostajati)
+
+  2. Env vars nisu redeployment-ovane
+     -> Vercel: env var promene ne primenjuju se na vec
+        deploy-ovane verzije; uvek REDEPLOY posle dodavanja
+
+  3. Resend domen nije verifikovan
+     -> mejlovi pucaju sa "from_address_not_verified"
+
+  4. Build pada
+     -> proveri Vercel deploy logs; obicno je TS error
+
+Sve sto se desi, javi mi sa screenshot-om / log-om i resicemo.
+
+
+================================================================
+KRAJ
+================================================================

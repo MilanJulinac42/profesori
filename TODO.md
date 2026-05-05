@@ -2,6 +2,50 @@
 
 Sve je commit-ovano i deploy-ovano, ali da feature radi u produkciji moraš da uradiš nekoliko manuelnih koraka. **Dok ne uradiš ove korake, `/exercises` i lesson dialog AI capture će padati.**
 
+Test plan i checklist sa konkretnim koracima → `TESTING.txt` (taj fajl možeš da otvoriš sa bilo koje mašine, telefona, sveske).
+
+---
+
+## Šta je urađeno u sesiji 2026-05-05
+
+Sve gurnuto na `main`, Vercel auto-deploy. Šest commita:
+
+1. **`63e770a` — AI generator zadataka iz matematike**
+   - Migracija 0019 (`exercise_sets`)
+   - Sonnet 4.6 + Zod structured output + prompt caching
+   - `/exercises` lista, `/exercises/new` wizard, `/exercises/[id]` detalj sa print verzijom (sa/bez rešenja)
+
+2. **`e925d04` — Glasovne beleške posle časa**
+   - Migracija 0020 (`progress_summary`, `voice_transcript_raw` na `lessons`)
+   - OpenAI Whisper transkripcija → Claude cleanup u strukturisan draft
+   - VoiceRecorder + AINoteCapture u lesson dialog-u
+   - Dedikovana `/lessons/[id]/note` mobile-friendly stranica
+   - Dashboard "Snimi za poslednji" CTA
+
+3. **`6debf2a` — Nedeljni i mesečni izveštaji**
+   - Migracija 0021 (students preferences + `report_logs` tabela)
+   - Resend HTML email sa AI uvodnim paragrafom (3. lice za roditelja, 2. za učenika)
+   - Student form: audience radio + email učenika + toggles
+   - `/students/[id]` ReportsPanel sa preview/send/history
+   - `/reports/[id]` snapshot route
+
+4. **`bf24e44` — Browser print + WhatsApp share za izveštaje**
+   - `/reports/[id]/print` auto-print route (Ctrl+P → Save as PDF)
+   - WhatsApp share dugme u preview dialogu i istoriji
+   - `AutoPrint`/`PrintButton` promovisani u shared `@/components/auto-print`
+
+5. **`c2d0b24` — WhatsApp opomena + ponavljajući časovi**
+   - Migracija 0022 (`whatsapp` kanal u `reminder_logs`)
+   - WhatsApp dugme na prvom mestu u reminder dialog-u
+   - Migracija 0023 (`recurrence_group_id` na `lessons`)
+   - "Ponovi" UI u CreateForm (weekly/biweekly, 2-52 ponavljanja, conflict-skip)
+   - "Obriši sve buduće u serijama" u EditForm
+
+6. **`f47ae76` — Vercel Cron skeleton**
+   - `vercel.json` sa Pon 07:00 UTC (weekly) i 1. u mesecu 07:00 UTC (monthly)
+   - `/api/cron/reports` route sa `CRON_SECRET` bearer auth + idempotency check
+   - **NIJE AKTIVAN dok ne testiraš manual flow 2-3 nedelje**
+
 ---
 
 ## ⚠️ Mora pre nego što feature počne da radi u prod
