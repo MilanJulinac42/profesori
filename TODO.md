@@ -34,6 +34,28 @@ Sve je commit-ovano i deploy-ovano, ali da feature radi u produkciji moraš da u
 - Sačekaj verifikaciju (~5min do par sati)
 - Tek tada `RESEND_FROM_EMAIL` može da koristi taj domen
 
+### 2b. CRON_SECRET za auto-slanje izveštaja (Task #27)
+- Generiši random secret: `openssl rand -hex 32`
+- Vercel Dashboard → Settings → Environment Variables → `CRON_SECRET=<hex>`
+- Cron job-ovi su definisani u `vercel.json`:
+  - **Pon 07:00 UTC** (08:00 zimi / 09:00 leti Belgrade) → nedeljni izveštaji
+  - **1. u mesecu 07:00 UTC** → mesečni izveštaji
+- Vercel automatski šalje `Authorization: Bearer <CRON_SECRET>` na cron pozive
+- **PRE NEGO ŠTO PUSTIŠ CRON U PROD**: testiraj manual flow 1-2 nedelje. Bug u promptu = 50 frustriranih roditelja odjednom.
+- Da privremeno ISKLJUČIŠ cron bez deletovanja config-a: ukloni `vercel.json` iz repoa ili promeni schedule na nešto u dalekoj budućnosti
+
+### 2c. Manuelno testiranje cron rute pre aktivacije
+- Lokalno (sa popunjenim env-om):
+  ```bash
+  curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/reports?kind=weekly
+  ```
+- Na prod-u:
+  ```bash
+  curl -H "Authorization: Bearer <CRON_SECRET>" https://tvoj-domen.com/api/cron/reports?kind=weekly
+  ```
+- Vraća JSON sa summary: `{ orgs_processed, students_total, sent, skipped_already_sent, skipped_no_email, failed, failures[] }`
+- Idempotentno: druga (ista) cron invokacija ne šalje duplikate jer postoji unique index `report_logs_unique_period_idx`
+
 ---
 
 ## ✅ Testiranje (kad je gore gotovo)
