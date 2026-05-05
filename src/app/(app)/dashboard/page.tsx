@@ -19,7 +19,11 @@ import {
 } from "@/lib/analytics/queries";
 import { getOrgDebtors } from "@/lib/payments/queries";
 import { computeBillableStatuses } from "@/lib/payments/types";
-import { countLessonsMissingNotes } from "@/lib/lessons/queries";
+import {
+  countLessonsMissingNotes,
+  getOldestLessonNeedingNotes,
+  type LessonNeedingNote,
+} from "@/lib/lessons/queries";
 import { getOwnPublicProfile } from "@/lib/public-profile/queries";
 import { getOrgSettings } from "@/lib/settings/queries";
 import {
@@ -90,6 +94,8 @@ export default async function DashboardPage({
     getRecentNewBookings(supabase, 4),
     getRecentActivity(supabase, 8),
   ]);
+
+  const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
 
   const completeness = computeProfileCompleteness(publicProfile);
   const firstName = profile.full_name?.split(" ")[0] ?? "profesore";
@@ -212,7 +218,10 @@ export default async function DashboardPage({
         <section className="grid gap-3 lg:grid-cols-2">
           {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
           {missingNotesCount > 0 && (
-            <MissingNotesCallout count={missingNotesCount} />
+            <MissingNotesCallout
+              count={missingNotesCount}
+              oldest={oldestNeedingNotes}
+            />
           )}
         </section>
       )}
@@ -306,7 +315,14 @@ function DebtCallout({
 }
 
 /* ---------- missing notes callout ---------- */
-function MissingNotesCallout({ count }: { count: number }) {
+function MissingNotesCallout({
+  count,
+  oldest,
+}: {
+  count: number;
+  oldest: LessonNeedingNote | null;
+}) {
+  const oldestDt = oldest ? new Date(oldest.scheduled_at) : null;
   return (
     <section className="rounded-xl border border-border bg-card p-5">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -325,18 +341,43 @@ function MissingNotesCallout({ count }: { count: number }) {
                 : "održanih časova bez beleški"}
           </p>
         </div>
-        <Link
-          href="/schedule"
-          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          Otvori raspored
-          <ArrowRight className="size-3" strokeWidth={1.75} />
-        </Link>
+        {oldest && oldestDt ? (
+          <Link
+            href={`/lessons/${oldest.id}/note`}
+            className={cn(
+              buttonVariants({ size: "sm" }),
+              "shrink-0",
+            )}
+          >
+            <Sparkles className="size-3.5" strokeWidth={2} />
+            Snimi za poslednji
+          </Link>
+        ) : (
+          <Link
+            href="/schedule"
+            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          >
+            Otvori raspored
+            <ArrowRight className="size-3" strokeWidth={1.75} />
+          </Link>
+        )}
       </div>
-      <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
-        <StickyNote className="size-3" strokeWidth={1.75} />
-        Klikni na čas i popuni "Beleške posle časa" sekciju.
-      </p>
+      {oldest && oldestDt && (
+        <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
+          <StickyNote className="size-3" strokeWidth={1.75} />
+          {oldest.student_name} ·{" "}
+          {oldestDt.toLocaleDateString("sr-Latn-RS", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+          })}{" "}
+          u{" "}
+          {oldestDt.toLocaleTimeString("sr-Latn-RS", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
+      )}
     </section>
   );
 }

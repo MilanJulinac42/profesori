@@ -17,6 +17,8 @@ export type Lesson = {
   topics_covered: string[];
   lesson_rating: number | null; // 1..5 ili null
   next_lesson_plan: string | null;
+  progress_summary: string | null;
+  voice_transcript_raw: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

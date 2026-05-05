@@ -5,6 +5,12 @@ import { createClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseRsdInput } from "@/lib/money";
 import type { LessonStatus } from "./types";
+import {
+  processNoteText,
+  transcribeAndProcess,
+  type LessonContext,
+  type LessonDraft,
+} from "./transcribe";
 
 export type LessonFormState = {
   error?: string;
@@ -159,6 +165,10 @@ export async function updateLesson(
   const nextPlan = String(formData.get("next_lesson_plan") ?? "").trim() || null;
   const ratingRaw = String(formData.get("lesson_rating") ?? "").trim();
   const topicsJson = String(formData.get("topics_covered") ?? "").trim();
+  const progressSummary =
+    String(formData.get("progress_summary") ?? "").trim() || null;
+  const voiceTranscriptRaw =
+    String(formData.get("voice_transcript_raw") ?? "").trim() || null;
 
   let rating: number | null = null;
   if (ratingRaw) {
@@ -220,6 +230,8 @@ export async function updateLesson(
     next_lesson_plan: nextPlan,
     lesson_rating: rating,
     topics_covered: topics,
+    progress_summary: progressSummary,
+    voice_transcript_raw: voiceTranscriptRaw,
   };
   if (pricePara !== null) update.price = pricePara;
 
@@ -250,6 +262,138 @@ export async function setLessonStatus(lessonId: string, status: LessonStatus) {
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   if (existing?.student_id) revalidatePath(`/students/${existing.student_id}`);
+}
+
+/**
+ * Pomoćna: vraća kontekst časa za AI cleanup (ime učenika, razred, trajanje, recentne teme).
+ */
+async function fetchLessonContext(
+  supabase: SupabaseClient,
+  lessonId: string,
+): Promise<LessonContext | null> {
+  const { data: lesson } = await supabase
+    .from("lessons")
+    .select(
+      "duration_minutes, student_id, students(full_name, grade)",
+    )
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (!lesson) return null;
+
+  const studentsField = lesson.students as
+    | { full_name: string; grade: string | null }
+    | { full_name: string; grade: string | null }[]
+    | null;
+  const student = Array.isArray(studentsField) ? (studentsField[0] ?? null) : studentsField;
+
+  // Poslednje teme istog učenika za kontinuitet.
+  const { data: recent } = await supabase
+    .from("lessons")
+    .select("topics_covered")
+    .eq("student_id", lesson.student_id)
+    .eq("status", "completed")
+    .is("deleted_at", null)
+    .order("scheduled_at", { ascending: false })
+    .limit(5);
+
+  const recentTopics = Array.from(
+    new Set(
+      (recent ?? [])
+        .flatMap((r) => (r.topics_covered as string[] | null) ?? [])
+        .filter(Boolean),
+    ),
+  );
+
+  return {
+    studentName: student?.full_name ?? "Učenik",
+    studentGrade: student?.grade ?? null,
+    durationMinutes: lesson.duration_minutes as number,
+    recentTopics,
+  };
+}
+
+export type DraftResult =
+  | { ok: true; draft: LessonDraft; transcript: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Server action: prima audio FormData ili sirov tekst, vraća strukturisan draft
+ * koji UI prikaže profesoru za pregled.
+ */
+export async function generateLessonDraft(
+  formData: FormData,
+): Promise<DraftResult> {
+  try {
+    const lessonId = String(formData.get("lesson_id") ?? "").trim();
+    if (!lessonId) return { ok: false, error: "Nedostaje lesson_id." };
+
+    const supabase = await createClient();
+    const ctx = await fetchLessonContext(supabase, lessonId);
+    if (!ctx) return { ok: false, error: "Čas nije pronađen." };
+
+    const audioField = formData.get("audio");
+    const typedField = String(formData.get("typed_text") ?? "").trim();
+
+    if (audioField instanceof File && audioField.size > 0) {
+      const { draft, transcript } = await transcribeAndProcess(audioField, ctx);
+      return { ok: true, draft, transcript };
+    }
+
+    if (typedField) {
+      const draft = await processNoteText(typedField, ctx);
+      return { ok: true, draft, transcript: null };
+    }
+
+    return { ok: false, error: "Nema ni audija ni teksta." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Greška u obradi.";
+    return { ok: false, error: msg };
+  }
+}
+
+/**
+ * Server action: čuva (eventualno editovan) draft na času.
+ * Ako je status još "scheduled", postavlja na "completed".
+ */
+export async function saveLessonNotesFromDraft(
+  lessonId: string,
+  draft: LessonDraft & { transcript_raw?: string | null },
+): Promise<{ error?: string }> {
+  const { supabase } = await getOrgId();
+
+  const { data: existing } = await supabase
+    .from("lessons")
+    .select("student_id, status")
+    .eq("id", lessonId)
+    .single();
+
+  if (!existing) return { error: "Čas nije pronađen." };
+
+  const update: Record<string, unknown> = {
+    notes_after_lesson: draft.notes_after_lesson || null,
+    topics_covered: draft.topics_covered ?? [],
+    progress_summary: draft.progress_summary || null,
+    next_lesson_plan: draft.next_lesson_plan || null,
+    lesson_rating: draft.suggested_rating ?? null,
+    voice_transcript_raw: draft.transcript_raw ?? null,
+  };
+
+  if (existing.status === "scheduled") {
+    update.status = "completed";
+  }
+
+  const { error } = await supabase
+    .from("lessons")
+    .update(update)
+    .eq("id", lessonId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/schedule");
+  revalidatePath("/dashboard");
+  if (existing.student_id) revalidatePath(`/students/${existing.student_id}`);
+  return {};
 }
 
 export async function deleteLesson(lessonId: string) {

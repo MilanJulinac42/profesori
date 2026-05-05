@@ -42,3 +42,41 @@ export async function countLessonsMissingNotes(
     .or("notes_after_lesson.is.null,notes_after_lesson.eq.");
   return count ?? 0;
 }
+
+export type LessonNeedingNote = {
+  id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  student_name: string;
+};
+
+/**
+ * Najstariji "completed" čas koji još nema beleške — meta za quick-action na dashboard-u.
+ */
+export async function getOldestLessonNeedingNotes(
+  supabase: SupabaseClient,
+): Promise<LessonNeedingNote | null> {
+  const { data } = await supabase
+    .from("lessons")
+    .select("id, scheduled_at, duration_minutes, students(full_name)")
+    .is("deleted_at", null)
+    .eq("status", "completed")
+    .or("notes_after_lesson.is.null,notes_after_lesson.eq.")
+    .order("scheduled_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  const studentsField = data.students as
+    | { full_name: string }
+    | { full_name: string }[]
+    | null;
+  const student = Array.isArray(studentsField) ? (studentsField[0] ?? null) : studentsField;
+  return {
+    id: data.id as string,
+    scheduled_at: data.scheduled_at as string,
+    duration_minutes: data.duration_minutes as number,
+    student_name: student?.full_name ?? "Učenik",
+  };
+}

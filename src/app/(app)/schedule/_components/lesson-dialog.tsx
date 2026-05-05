@@ -37,6 +37,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { TopicInput } from "@/components/topic-input";
 import { StarRating } from "@/components/star-rating";
+import { AINoteCapture, type FilledDraft } from "@/components/ai-note-capture";
 import {
   LESSON_STATUS_LABELS,
   type LessonStatus,
@@ -371,6 +372,23 @@ function EditForm({
   const [topics, setTopics] = useState<string[]>(lesson.topics_covered ?? []);
   const [rating, setRating] = useState<number | null>(lesson.lesson_rating);
   const [nextPlan, setNextPlan] = useState(lesson.next_lesson_plan ?? "");
+  const [progressSummary, setProgressSummary] = useState(
+    lesson.progress_summary ?? "",
+  );
+  const [transcriptRaw, setTranscriptRaw] = useState<string | null>(
+    lesson.voice_transcript_raw ?? null,
+  );
+
+  function applyDraft(draft: FilledDraft) {
+    setNotesAfter(draft.notes_after_lesson || "");
+    setTopics(draft.topics_covered ?? []);
+    setProgressSummary(draft.progress_summary || "");
+    setNextPlan(draft.next_lesson_plan || "");
+    if (draft.suggested_rating !== null && draft.suggested_rating !== undefined) {
+      setRating(draft.suggested_rating);
+    }
+    setTranscriptRaw(draft.transcript_raw ?? null);
+  }
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -392,6 +410,8 @@ function EditForm({
     fd.set("next_lesson_plan", nextPlan);
     fd.set("topics_covered", JSON.stringify(topics));
     if (rating !== null) fd.set("lesson_rating", String(rating));
+    fd.set("progress_summary", progressSummary);
+    if (transcriptRaw) fd.set("voice_transcript_raw", transcriptRaw);
 
     startTransition(async () => {
       setError(null);
@@ -548,13 +568,15 @@ function EditForm({
           <div className="pt-1">
             <p className="text-xs font-medium">Beleške posle časa</p>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Privatno za tebe — učenik ne vidi.
+              Snimi glas ili otkucaj — AI strukturira ostalo.
             </p>
           </div>
 
+          <AINoteCapture lessonId={lesson.id} onDraft={applyDraft} />
+
           <div className="space-y-1.5">
             <Label htmlFor="notes_after_lesson" className="text-xs">
-              Šta je rađeno
+              Šta je rađeno (privatno)
             </Label>
             <Textarea
               id="notes_after_lesson"
@@ -562,6 +584,19 @@ function EditForm({
               onChange={(e) => setNotesAfter(e.target.value)}
               rows={3}
               placeholder="Kratko: o čemu ste pričali, šta ste vežbali..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="progress_summary" className="text-xs">
+              Rezime za izveštaj (vidi roditelj/učenik)
+            </Label>
+            <Textarea
+              id="progress_summary"
+              value={progressSummary}
+              onChange={(e) => setProgressSummary(e.target.value)}
+              rows={2}
+              placeholder="1-2 rečenice o napretku — ide u nedeljni/mesečni izveštaj."
             />
           </div>
 
