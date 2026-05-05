@@ -11,7 +11,7 @@ export function Topbar({
   badges?: { newBookings?: number };
 }) {
   return (
-    <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-30 h-14 border-b border-border bg-background/80 backdrop-blur-md print:hidden">
       <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-3">
         <MobileNav badges={badges} />
         <div className="flex-1" />
