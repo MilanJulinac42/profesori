@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import "katex/dist/katex.min.css";
 import { createClient } from "@/lib/supabase/server";
 import { getExerciseSet } from "@/lib/exercises/queries";
 import { DIFFICULTY_LABELS } from "@/lib/exercises/types";
+import { renderMathHtml } from "@/lib/exercises/math-render";
 import { AutoPrint, PrintButton } from "@/components/auto-print";
 
 type Search = { solutions?: string };
@@ -82,20 +84,27 @@ export default async function PrintPage({
           {set.exercises.map((ex, i) => (
             <li key={i} className="break-inside-avoid">
               <div className="inline">
-                <p className="inline whitespace-pre-wrap leading-relaxed text-[15px]">
-                  {ex.question}
-                </p>
+                <span
+                  className="leading-relaxed text-[15px]"
+                  dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.question) }}
+                />
               </div>
 
               {showSolutions ? (
                 <div className="mt-2 ml-6 pl-3 border-l-2 border-black/30 space-y-2">
                   <p className="text-sm">
                     <span className="font-semibold">Rešenje: </span>
-                    <span className="whitespace-pre-wrap">{ex.solution}</span>
+                    <span
+                      dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.solution) }}
+                    />
                   </p>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                  <p className="text-sm leading-relaxed">
                     <span className="font-semibold">Postupak: </span>
-                    {ex.explanation}
+                    <span
+                      dangerouslySetInnerHTML={{
+                        __html: renderMathHtml(ex.explanation),
+                      }}
+                    />
                   </p>
                 </div>
               ) : (

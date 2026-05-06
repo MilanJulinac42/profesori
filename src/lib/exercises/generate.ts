@@ -30,16 +30,28 @@ PRAVILA ZA ZADATKE:
 
 PRAVILA ZA REŠENJA I OBJAŠNJENJA:
 
-- "solution" = konačan odgovor, kratak i precizan (npr. "x = 3 ili x = -2", "P = 24 cm²", "n = 7").
+- "solution" = konačan odgovor, kratak i precizan (npr. "$x = 3$ ili $x = -2$", "$P = 24 \\,\\text{cm}^2$", "$n = 7$").
 - "explanation" = postupak rešavanja, korak po korak. Piši kao da objašnjavaš učeniku — svaki bitan korak na novom redu. Koristi prazan red između većih koraka.
-- Matematičke izraze piši ČITKO u plain tekstu, BEZ LaTeX-a:
-  * Razlomak: "3/4" ili "(2x+1)/(x-3)"
-  * Stepen: "x^2", "2^10", "(a+b)^3"
-  * Koren: "sqrt(2)", "sqrt(x+1)" — ili "√" simbol ako je čistije
-  * Indeks: "x_1", "a_n"
-  * Množenje: "·" ili "*" ili "x" — biraj što je čitljivije
-  * Greek slova pišu se rečju ili Unicode-om: "α", "π", "Δ"
-- NIKAD ne koristi $...$ ili \\frac{}{} — finalni izlaz će se prikazivati u običnom tekstu.
+
+MATEMATIČKI IZRAZI — KORISTI LaTeX UNUTAR DOLARA ($...$):
+
+- Inline math: $x^2 + 2x - 3 = 0$, $\\sqrt{2}$, $\\frac{a}{b}$, $x_1$, $\\Delta$, $\\pi$
+- Display math (kad je formula velika ili centralna): $$x_{1,2} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
+- Razlomci: $\\frac{3}{4}$, $\\frac{2x+1}{x-3}$ — UVEK $\\frac{}{}$, NIKAD plain "3/4" u math kontekstu.
+- Koren: $\\sqrt{2}$, $\\sqrt[3]{8}$, $\\sqrt{x+1}$
+- Stepen: $x^2$, $2^{10}$, $(a+b)^3$
+- Indeks: $x_1$, $a_n$, $x_{1,2}$
+- Greek: $\\alpha$, $\\beta$, $\\pi$, $\\Delta$
+- Množenje: $\\cdot$ ili $\\times$ (NE koristi "*" u math)
+- Plus-minus: $\\pm$
+- Integrali, sume: $\\int_0^1 x^2 \\, dx$, $\\sum_{i=1}^{n} i$
+- Tekst unutar formule: $P = a \\cdot b \\,\\text{cm}^2$
+- Sistemi: $\\begin{cases} x + y = 5 \\\\ x - y = 1 \\end{cases}$
+- Jedinice OUTSIDE math: pišu se kao običan tekst posle formule ("Površina je $24 \\,\\text{cm}^2$" ili "P = $24$ cm²")
+
+VAŽNO O LaTeX-u:
+- Sve formule MORAJU biti u $...$ (inline) ili $$...$$ (display). Plain tekst kao "x^2" ili "(2x+1)/(x-3)" se NEĆE renderovati i izgledaće ružno u štampi.
+- LaTeX naredbe pišeš normalno (npr. \\frac{a}{b}, \\sqrt{2}). JSON escaping je automatski.
 
 PRAVILA ZA NASLOV SETA:
 - Kratak, opisan, format: "[Tema] — [Razred] — [Broj] zadataka"

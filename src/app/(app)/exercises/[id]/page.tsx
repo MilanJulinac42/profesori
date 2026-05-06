@@ -8,12 +8,14 @@ import {
   Calendar,
   Sparkles,
 } from "lucide-react";
+import "katex/dist/katex.min.css";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { getExerciseSet } from "@/lib/exercises/queries";
 import { deleteExerciseSet } from "@/lib/exercises/actions";
 import { DIFFICULTY_LABELS } from "@/lib/exercises/types";
+import { renderMathHtml } from "@/lib/exercises/math-render";
 
 export default async function ExerciseSetPage({
   params,
@@ -102,27 +104,32 @@ export default async function ExerciseSetPage({
               <span className="text-sm font-medium tabular-nums text-muted-foreground shrink-0">
                 {i + 1}.
               </span>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed flex-1 min-w-0">
-                {ex.question}
-              </p>
+              <div
+                className="text-sm leading-relaxed flex-1 min-w-0"
+                dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.question) }}
+              />
             </div>
             <div className="pl-7 space-y-2">
               <div className="rounded-md bg-secondary/40 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   Rešenje
                 </p>
-                <p className="text-sm whitespace-pre-wrap font-medium">
-                  {ex.solution}
-                </p>
+                <div
+                  className="text-sm font-medium"
+                  dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.solution) }}
+                />
               </div>
               <details className="group">
                 <summary className="text-xs text-muted-foreground hover:text-foreground cursor-pointer list-none inline-flex items-center gap-1">
                   <span className="group-open:hidden">Prikaži postupak</span>
                   <span className="hidden group-open:inline">Sakrij postupak</span>
                 </summary>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed mt-2">
-                  {ex.explanation}
-                </p>
+                <div
+                  className="text-xs text-muted-foreground leading-relaxed mt-2"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMathHtml(ex.explanation),
+                  }}
+                />
               </details>
             </div>
           </li>

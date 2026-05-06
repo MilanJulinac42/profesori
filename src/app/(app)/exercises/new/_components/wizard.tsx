@@ -15,11 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import "katex/dist/katex.min.css";
 import {
   generateExerciseSetAction,
   saveExerciseSetAction,
   type GenerateFormState,
 } from "@/lib/exercises/actions";
+import { renderMathHtml } from "@/lib/exercises/math-render";
 import {
   COUNT_OPTIONS,
   DIFFICULTY_LABELS,
@@ -243,27 +245,32 @@ function Preview({
               <span className="text-sm font-medium tabular-nums text-muted-foreground shrink-0">
                 {i + 1}.
               </span>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed flex-1 min-w-0">
-                {ex.question}
-              </p>
+              <div
+                className="text-sm leading-relaxed flex-1 min-w-0"
+                dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.question) }}
+              />
             </div>
             <div className="pl-7 space-y-2">
               <div className="rounded-md bg-secondary/40 p-3">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
                   Rešenje
                 </p>
-                <p className="text-sm whitespace-pre-wrap font-medium">
-                  {ex.solution}
-                </p>
+                <div
+                  className="text-sm font-medium"
+                  dangerouslySetInnerHTML={{ __html: renderMathHtml(ex.solution) }}
+                />
               </div>
               <details className="group">
                 <summary className="text-xs text-muted-foreground hover:text-foreground cursor-pointer list-none inline-flex items-center gap-1">
                   <span className="group-open:hidden">Prikaži postupak</span>
                   <span className="hidden group-open:inline">Sakrij postupak</span>
                 </summary>
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed mt-2">
-                  {ex.explanation}
-                </p>
+                <div
+                  className="text-xs text-muted-foreground leading-relaxed mt-2"
+                  dangerouslySetInnerHTML={{
+                    __html: renderMathHtml(ex.explanation),
+                  }}
+                />
               </details>
             </div>
           </li>
