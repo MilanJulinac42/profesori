@@ -9,11 +9,12 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile } = await requireUser();
-  const userName = profile.full_name ?? profile.email;
-
   const supabase = await createClient();
-  const newBookings = await countNewBookings(supabase);
+  const [{ profile }, newBookings] = await Promise.all([
+    requireUser(),
+    countNewBookings(supabase),
+  ]);
+  const userName = profile.full_name ?? profile.email;
   const badges = { newBookings };
 
   return (

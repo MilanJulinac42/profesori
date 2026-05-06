@@ -10,9 +10,21 @@ export function getAnthropic(): Anthropic {
         "ANTHROPIC_API_KEY nije podešen. Dodaj ga u .env.local.",
       );
     }
-    client = new Anthropic({ apiKey });
+    // 529 (overloaded) i 5xx greške se retry-uju automatski sa
+    // eksponencijalnim backoff-om. Bumpovan default 2 → 5 jer Anthropic
+    // ume da bude preopterećen u špicu (529).
+    client = new Anthropic({ apiKey, maxRetries: 5 });
   }
   return client;
 }
 
 export const EXERCISE_MODEL = "claude-sonnet-4-6";
+
+/** Manji/jeftiniji model — fallback kad je Sonnet preopterećen (529). */
+export const FALLBACK_MODEL = "claude-haiku-4-5";
+
+/** Heuristika: da li je greška Anthropic 529 / overloaded. */
+export function isOverloadedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /529|overloaded/i.test(msg);
+}
