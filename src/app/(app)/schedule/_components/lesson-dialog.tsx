@@ -40,6 +40,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { TopicInput } from "@/components/topic-input";
 import { StarRating } from "@/components/star-rating";
 import { AINoteCapture, type FilledDraft } from "@/components/ai-note-capture";
+import { HomeworkSection } from "./homework-section";
 import {
   LESSON_STATUS_LABELS,
   RECURRENCE_FREQ_LABELS,
@@ -818,6 +819,22 @@ function EditForm({
               onChange={(e) => setNextPlan(e.target.value)}
               rows={2}
               placeholder="Plan za sledeći čas..."
+            />
+          </div>
+        </div>
+
+        {/* Homework section */}
+        <div>
+          <Separator />
+          <div className="pt-4">
+            <HomeworkSection
+              studentId={lesson.student_id}
+              studentName={lesson.students?.full_name ?? ""}
+              parentPhone={null}
+              lessonId={lesson.id}
+              appBaseUrl={
+                typeof window !== "undefined" ? window.location.origin : ""
+              }
             />
           </div>
         </div>

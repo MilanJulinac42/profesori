@@ -122,6 +122,9 @@ ${
     : ""
 }
 
+<!-- Domaći -->
+${renderHomeworkBlock(data)}
+
 <!-- Naplata -->
 ${renderBillingBlock(data)}
 
@@ -169,6 +172,24 @@ function renderLessonRow(l: {
     <div style="font-size:12px;color:#888;">${escapeHtml(dateLabel)} · ${timeLabel} · ${l.duration_minutes} min${l.rating !== null ? ` · ${l.rating}/5` : ""}</div>
     ${l.topics.length > 0 ? `<div style="font-size:12px;color:#666;margin-top:2px;">${escapeHtml(l.topics.join(", "))}</div>` : ""}
     ${l.progress_summary ? `<div style="font-size:14px;color:#1a1a1a;margin-top:4px;line-height:1.5;">${escapeHtml(l.progress_summary)}</div>` : ""}
+  </td></tr>`;
+}
+
+function renderHomeworkBlock(data: ReportData): string {
+  if (data.homeworkAssigned === 0) return "";
+
+  const submittedRate =
+    data.homeworkAssigned > 0
+      ? Math.round((data.homeworkSubmitted / data.homeworkAssigned) * 100)
+      : 0;
+
+  return `<tr><td style="padding:16px 32px 8px 32px;">
+    <p style="margin:0 0 8px 0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#888;">Domaći zadaci</p>
+    <p style="margin:0;font-size:14px;line-height:1.6;color:#1a1a1a;">
+      Zadato: <strong>${data.homeworkAssigned}</strong> · Predato:
+      <strong>${data.homeworkSubmitted}</strong>
+      ${data.homeworkAssigned > 0 ? ` (${submittedRate}%)` : ""}
+    </p>
   </td></tr>`;
 }
 
@@ -243,6 +264,11 @@ export function renderReportPlainText(data: ReportData): string {
   }
   if (data.topTopics.length > 0) {
     lines.push(`Pokrivene teme: ${data.topTopics.join(", ")}`);
+  }
+  if (data.homeworkAssigned > 0) {
+    lines.push(
+      `Domaći: zadato ${data.homeworkAssigned}, predato ${data.homeworkSubmitted}`,
+    );
   }
 
   const completedWithSummary = data.lessons.filter(

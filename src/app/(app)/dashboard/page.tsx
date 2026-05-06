@@ -32,6 +32,10 @@ import {
   getRecentNewBookings,
 } from "@/lib/dashboard/queries";
 import { formatRsd } from "@/lib/money";
+import {
+  countSubmittedHomework,
+  listSubmittedHomework,
+} from "@/lib/homework/queries";
 import { AnalyticsSection } from "./_components/analytics-section";
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
@@ -73,6 +77,8 @@ export default async function DashboardPage({
     publicProfile,
     recentBookings,
     recentActivity,
+    submittedHomeworkCount,
+    submittedHomework,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -93,6 +99,8 @@ export default async function DashboardPage({
     getOwnPublicProfile(supabase, org!.id),
     getRecentNewBookings(supabase, 4),
     getRecentActivity(supabase, 8),
+    countSubmittedHomework(supabase),
+    listSubmittedHomework(supabase, 3),
   ]);
 
   const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
@@ -213,14 +221,22 @@ export default async function DashboardPage({
         <BookingsPreview bookings={recentBookings} />
       )}
 
-      {/* Debt + missing-notes callouts */}
-      {(debtors.totalDebt > 0 || missingNotesCount > 0) && (
+      {/* Debt + missing-notes + homework callouts */}
+      {(debtors.totalDebt > 0 ||
+        missingNotesCount > 0 ||
+        submittedHomeworkCount > 0) && (
         <section className="grid gap-3 lg:grid-cols-2">
           {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
           {missingNotesCount > 0 && (
             <MissingNotesCallout
               count={missingNotesCount}
               oldest={oldestNeedingNotes}
+            />
+          )}
+          {submittedHomeworkCount > 0 && (
+            <HomeworkCallout
+              count={submittedHomeworkCount}
+              recent={submittedHomework}
             />
           )}
         </section>
@@ -377,6 +393,57 @@ function MissingNotesCallout({
             minute: "2-digit",
           })}
         </p>
+      )}
+    </section>
+  );
+}
+
+/* ---------- homework callout (čeka pregled) ---------- */
+function HomeworkCallout({
+  count,
+  recent,
+}: {
+  count: number;
+  recent: { id: string; title: string; student_name: string; submitted_at: string | null; student_id: string }[];
+}) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            Domaći za pregled
+          </p>
+          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
+            {count}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {count === 1
+              ? "predat domaći čeka ocenu"
+              : count < 5
+                ? "predata domaća čekaju ocenu"
+                : "predatih domaćih čeka ocenu"}
+          </p>
+        </div>
+        {recent[0] && (
+          <Link
+            href={`/students/${recent[0].student_id}`}
+            className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
+          >
+            <Check className="size-3.5" strokeWidth={2} />
+            Pregled
+          </Link>
+        )}
+      </div>
+      {recent.length > 0 && (
+        <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">
+          {recent.map((r) => (
+            <li key={r.id} className="truncate">
+              <span className="font-medium text-foreground">{r.student_name}</span>
+              {" — "}
+              {r.title}
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

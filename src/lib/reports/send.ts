@@ -178,6 +178,8 @@ function serializeReportData(data: ReportData): Record<string, unknown> {
     nextLessonPlan: data.nextLessonPlan,
     paidThisPeriod: data.paidThisPeriod,
     totalDebtNow: data.totalDebtNow,
+    homeworkAssigned: data.homeworkAssigned,
+    homeworkSubmitted: data.homeworkSubmitted,
     aiIntro: data.aiIntro,
     lessonsCount: data.lessons.length,
     // Cache-uj WhatsApp share text za istoriju — bez ovog bi history row

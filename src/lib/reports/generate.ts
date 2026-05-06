@@ -12,6 +12,7 @@ import {
 import { computeBillableStatuses } from "@/lib/payments/types";
 import { getStudentBilling } from "@/lib/payments/queries";
 import { getOrgSettings } from "@/lib/settings/queries";
+import { getHomeworkStatsForPeriod } from "@/lib/homework/queries";
 import type { Student, ReportAudience } from "@/lib/students/types";
 import { getReportPeriod } from "./period";
 import type { LessonInReport, ReportData, ReportKind } from "./types";
@@ -172,6 +173,14 @@ export async function generateReport(
     })
     .reduce((sum, p) => sum + p.amount, 0);
 
+  // Statistika domaćih za period.
+  const homeworkStats = await getHomeworkStatsForPeriod(
+    supabase,
+    input.student.id,
+    period.start,
+    period.end,
+  );
+
   // AI uvodni paragraf — hronološke beleške pomažu modelu da napiše prirodan
   // narativ (npr. "krajem nedelje je Marko prešao iz X u Y").
   const lessonNotes = held
@@ -194,6 +203,8 @@ export async function generateReport(
     topTopics,
     avgRating,
     lessonNotes,
+    homeworkAssigned: homeworkStats.assigned,
+    homeworkSubmitted: homeworkStats.submitted,
   });
 
   return {
@@ -215,6 +226,8 @@ export async function generateReport(
     nextLessonPlan,
     paidThisPeriod,
     totalDebtNow: billing.debt,
+    homeworkAssigned: homeworkStats.assigned,
+    homeworkSubmitted: homeworkStats.submitted,
     aiIntro: ai.intro,
     aiInputTokens: ai.inputTokens,
     aiOutputTokens: ai.outputTokens,
@@ -238,6 +251,8 @@ type IntroInput = {
     topics: string[];
     progressSummary: string;
   }>;
+  homeworkAssigned: number;
+  homeworkSubmitted: number;
 };
 
 async function generateIntro(input: IntroInput): Promise<{
@@ -325,6 +340,12 @@ function buildIntroPrompt(input: IntroInput): string {
   }
   if (input.avgRating !== null) {
     parts.push(`- Prosečna ocena časa: ${input.avgRating.toFixed(1)} / 5`);
+  }
+
+  if (input.homeworkAssigned > 0) {
+    parts.push(
+      `- Domaći: zadato ${input.homeworkAssigned}, predato ${input.homeworkSubmitted}`,
+    );
   }
 
   if (input.lessonNotes.length > 0) {

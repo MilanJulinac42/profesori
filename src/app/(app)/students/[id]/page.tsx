@@ -36,9 +36,11 @@ import { computeBillableStatuses } from "@/lib/payments/types";
 import { getRemindersForStudent } from "@/lib/reminders/queries";
 import { getOrgSettings } from "@/lib/settings/queries";
 import { listReportLogs } from "@/lib/reports/queries";
+import { listHomeworkForStudent } from "@/lib/homework/queries";
 import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
 import { ReportsPanel } from "./_components/reports-panel";
+import { HomeworkPanel } from "./_components/homework-panel";
 
 export default async function StudentPage({
   params,
@@ -86,11 +88,13 @@ export default async function StudentPage({
   const settings = await getOrgSettings(supabase, teacherOrg!.id);
   const billableStatuses = computeBillableStatuses(settings);
 
-  const [billing, reminders, reportLogs] = await Promise.all([
+  const [billing, reminders, reportLogs, homeworkItems] = await Promise.all([
     getStudentBilling(supabase, s.id, billableStatuses),
     getRemindersForStudent(supabase, s.id, 20),
     listReportLogs(supabase, s.id, 12),
+    listHomeworkForStudent(supabase, s.id, 20),
   ]);
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
   const teacherName = teacherProfile.full_name ?? "Profesor";
   const customTemplate = settings.reminder_template ?? null;
 
@@ -225,6 +229,12 @@ export default async function StudentPage({
             payments={billing.payments}
             reminders={reminders}
             customTemplate={customTemplate}
+          />
+          <HomeworkPanel
+            studentName={s.full_name}
+            parentPhone={s.parent_phone}
+            items={homeworkItems}
+            appBaseUrl={appBaseUrl}
           />
           <ReportsPanel
             studentId={s.id}

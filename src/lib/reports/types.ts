@@ -48,6 +48,10 @@ export type ReportData = {
   paidThisPeriod: number; // paras
   totalDebtNow: number; // paras (negative = credit)
 
+  // Domaći u periodu.
+  homeworkAssigned: number;
+  homeworkSubmitted: number;
+
   // AI uvodni paragraf — kratak, prirodan, lice prilagođeno publici.
   aiIntro: string;
 
