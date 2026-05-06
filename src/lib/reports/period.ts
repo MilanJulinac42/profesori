@@ -6,7 +6,7 @@ import {
   format,
   addDays,
 } from "date-fns";
-import { sr } from "date-fns/locale";
+import { srLatn } from "date-fns/locale";
 import type { ReportKind } from "./types";
 
 /**
@@ -28,7 +28,7 @@ export function getReportPeriod(
   // monthly
   const start = startOfMonth(anchor);
   const end = endOfMonth(anchor);
-  const label = format(start, "LLLL yyyy.", { locale: sr });
+  const label = format(start, "LLLL yyyy.", { locale: srLatn });
   return { start, end, label };
 }
 
@@ -52,7 +52,7 @@ function formatWeekLabel(start: Date, end: Date): string {
   // "5–11. maj 2026." ili "30. apr — 6. maj 2026." kad nedelja preseca mesec.
   const sameMonth = start.getMonth() === end.getMonth();
   if (sameMonth) {
-    return `${format(start, "d", { locale: sr })}–${format(end, "d. LLLL yyyy.", { locale: sr })}`;
+    return `${format(start, "d", { locale: srLatn })}–${format(end, "d. LLLL yyyy.", { locale: srLatn })}`;
   }
-  return `${format(start, "d. LLL", { locale: sr })} — ${format(end, "d. LLL yyyy.", { locale: sr })}`;
+  return `${format(start, "d. LLL", { locale: srLatn })} — ${format(end, "d. LLL yyyy.", { locale: srLatn })}`;
 }

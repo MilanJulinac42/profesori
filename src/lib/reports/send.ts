@@ -71,26 +71,31 @@ export async function sendReport(
     }
   }
 
-  // Upiši log bez obzira na ishod (ako je 'failed', vidi se u istoriji).
+  // UPSERT log — jedan red po (student, kind, period_start).
+  // Ako je već postojao draft za ovaj period, overrajduje se.
   const { data: logRow, error: logError } = await supabase
     .from("report_logs")
-    .insert({
-      organization_id: student.organization_id,
-      student_id: student.id,
-      kind: data.kind,
-      audience: data.audience,
-      period_start: data.periodStart.toISOString().slice(0, 10),
-      period_end: data.periodEnd.toISOString().slice(0, 10),
-      recipient_email: recipient,
-      resend_message_id: resendMessageId,
-      status,
-      error_message: errorMessage,
-      subject,
-      html_body: html,
-      data_snapshot: serializeReportData(data),
-      ai_input_tokens: data.aiInputTokens,
-      ai_output_tokens: data.aiOutputTokens,
-    })
+    .upsert(
+      {
+        organization_id: student.organization_id,
+        student_id: student.id,
+        kind: data.kind,
+        audience: data.audience,
+        period_start: data.periodStart.toISOString().slice(0, 10),
+        period_end: data.periodEnd.toISOString().slice(0, 10),
+        recipient_email: recipient,
+        resend_message_id: resendMessageId,
+        status,
+        error_message: errorMessage,
+        subject,
+        html_body: html,
+        data_snapshot: serializeReportData(data),
+        ai_input_tokens: data.aiInputTokens,
+        ai_output_tokens: data.aiOutputTokens,
+        sent_at: new Date().toISOString(),
+      },
+      { onConflict: "student_id,kind,period_start" },
+    )
     .select("id")
     .single();
 
@@ -113,6 +118,47 @@ function pickRecipient(student: Student, audience: "parent" | "student"): string
     return student.student_email?.trim() || null;
   }
   return student.parent_email?.trim() || null;
+}
+
+/**
+ * Upiše/azurira DRAFT izveštaj (bez slanja email-a).
+ * Koristi se kada profesor klikne "Pregled" ili "Regeneriši" — keširamo
+ * generisani html da naredni klik na "Pregled" ne troši Anthropic.
+ */
+export async function saveDraftReportLog(
+  supabase: SupabaseClient,
+  data: ReportData,
+  student: Student,
+): Promise<{ ok: true; logId: string } | { ok: false; error: string }> {
+  const { subject, html } = renderReportHtml(data);
+
+  const { data: logRow, error } = await supabase
+    .from("report_logs")
+    .upsert(
+      {
+        organization_id: student.organization_id,
+        student_id: student.id,
+        kind: data.kind,
+        audience: data.audience,
+        period_start: data.periodStart.toISOString().slice(0, 10),
+        period_end: data.periodEnd.toISOString().slice(0, 10),
+        recipient_email: null,
+        resend_message_id: null,
+        status: "draft",
+        error_message: null,
+        subject,
+        html_body: html,
+        data_snapshot: serializeReportData(data),
+        ai_input_tokens: data.aiInputTokens,
+        ai_output_tokens: data.aiOutputTokens,
+      },
+      { onConflict: "student_id,kind,period_start" },
+    )
+    .select("id")
+    .single();
+
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, logId: logRow.id };
 }
 
 function serializeReportData(data: ReportData): Record<string, unknown> {

@@ -1,5 +1,5 @@
 import { format } from "date-fns";
-import { sr } from "date-fns/locale";
+import { srLatn } from "date-fns/locale";
 import { formatRsd } from "@/lib/money";
 import { REPORT_KIND_LABELS } from "./types";
 import type { ReportData } from "./types";
@@ -163,7 +163,7 @@ function renderLessonRow(l: {
   progress_summary: string | null;
 }): string {
   const dt = new Date(l.scheduled_at);
-  const dateLabel = format(dt, "EEE, d. MMM", { locale: sr });
+  const dateLabel = format(dt, "EEE, d. MMM", { locale: srLatn });
   const timeLabel = format(dt, "HH:mm");
   return `<tr><td style="padding:8px 0;border-bottom:1px solid #f3f3ee;">
     <div style="font-size:12px;color:#888;">${escapeHtml(dateLabel)} · ${timeLabel} · ${l.duration_minutes} min${l.rating !== null ? ` · ${l.rating}/5` : ""}</div>
@@ -206,11 +206,12 @@ function renderGreeting(data: ReportData): string {
   if (data.audience === "student") {
     return `Pozdrav!`;
   }
-  // Parent
+  // Parent — koristimo "Pozdrav" da izbegnemo gender mismatch sa
+  // "Poštovani/Poštovana" (ne znamo pol roditelja iz imena pouzdano).
   if (data.parentName && data.parentName.trim()) {
-    return `Poštovani ${data.parentName.trim()},`;
+    return `Pozdrav, ${data.parentName.trim()},`;
   }
-  return `Poštovani,`;
+  return `Poštovani roditelji,`;
 }
 
 function renderClosing(data: ReportData): string {
@@ -225,9 +226,9 @@ export function renderReportPlainText(data: ReportData): string {
   const lines: string[] = [];
   lines.push(
     data.audience === "parent" && data.parentName
-      ? `Poštovani ${data.parentName},`
+      ? `Pozdrav, ${data.parentName},`
       : data.audience === "parent"
-        ? "Poštovani,"
+        ? "Poštovani roditelji,"
         : "Pozdrav!",
   );
   lines.push("");
@@ -256,7 +257,7 @@ export function renderReportPlainText(data: ReportData): string {
     )) {
       const dt = new Date(l.scheduled_at);
       lines.push(
-        `- ${format(dt, "d. MMM", { locale: sr })}: ${l.progress_summary}`,
+        `- ${format(dt, "d. MMM", { locale: srLatn })}: ${l.progress_summary}`,
       );
     }
   }

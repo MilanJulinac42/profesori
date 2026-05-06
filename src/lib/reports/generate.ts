@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { format } from "date-fns";
+import { srLatn } from "date-fns/locale";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { EXERCISE_MODEL, getAnthropic } from "@/lib/ai/anthropic";
+import {
+  EXERCISE_MODEL,
+  FALLBACK_MODEL,
+  getAnthropic,
+  isOverloadedError,
+} from "@/lib/ai/anthropic";
 import { computeBillableStatuses } from "@/lib/payments/types";
 import { getStudentBilling } from "@/lib/payments/queries";
 import { getOrgSettings } from "@/lib/settings/queries";
@@ -13,25 +20,53 @@ const IntroSchema = z.object({
   intro: z
     .string()
     .min(20)
-    .max(600)
+    .max(800)
     .describe(
-      "1-2 rečenice koje sažimaju period — šta je glavni tok bio, kako je išlo. Bez floskula, bez emoji-ja.",
+      "Uvodni paragraf izveštaja na srpskom (latinica). 1-2 rečenice za nedeljni, 2-4 za mesečni. Konkretne stvari iz beleški, ne floskule.",
     ),
 });
 
-const INTRO_SYSTEM_PROMPT = `Ti pišeš uvodni paragraf za izveštaj profesora privatnih časova u Srbiji.
+const INTRO_SYSTEM_PROMPT = `Ti pišeš uvodni paragraf za izveštaj profesora privatnih časova roditelju (ili učeniku odraslom) u Srbiji.
 
-PRAVILA:
+CILJ: Roditelj/učenik za 10 sekundi razume šta se desilo i kako je išlo. Konkretno, toplo, bez korporativnog tona.
 
-1. Maksimalno 1-2 rečenice. Konkretno, ne uopšteno.
-2. Piši na srpskom (latinica), profesionalno ali toplo.
-3. Lice se određuje publikom:
-   - Publika "parent" → 3. lice ("Marko je ove nedelje radio kvadratne jednačine i napreduje sa rastavljanjem.")
-   - Publika "student" → 2. lice ("Pokrio si kvadratne jednačine i počinjemo da te ne plaši rastavljanje.")
-4. Bez emoji-ja, bez "Drago mi je da javim..." floskula. Direktno na suštinu.
-5. Ako je period bio slab (otkazani časovi, niske ocene), budi iskren ali konstruktivan: "Ova nedelja je bila izazovna, ali..."
-6. Ako je period bio prazan (0 časova), to NIJE greška — formuliši: "Ove nedelje nije bilo časova" ili sl.
-7. Vraćaš isključivo strukturisan JSON sa "intro" poljem.`;
+DUŽINA:
+- Nedeljni izveštaj: 1-2 rečenice (cilj ~30-50 reči)
+- Mesečni izveštaj: 2-4 rečenice (cilj ~60-100 reči, jer ima više sadržaja)
+- Prazan period (0 časova): jedna rečenica koja konstatuje to. NE poziv Anthropic-u, samo statičan tekst.
+
+LICE:
+- Publika "parent" → 3. lice o učeniku ("Marko je...", "Razumeo je...")
+- Publika "student" → 2. lice direktno ("Prošao si...", "Naučio si...")
+
+ŠTA TREBA DA BUDE U UVODU:
+1. Glavni tok perioda — šta je RADIO, ne samo nabrajanje tema. Ako su beleške rekle "muči se sa formulom" pa kasnije "rešava samostalno", reci taj luk.
+2. Konkretan napredak ili problem — citiraj specifične stvari iz beleški (npr. "automatizacija primene formule", "identifikacija nepoznatih u tekstualnim zadacima"), NE generike kao "napreduje" ili "ide dobro".
+3. Ako je nešto otkazano ili je period bio slab, reci to iskreno ali konstruktivno.
+
+ŠTA SE NIKAD NE PIŠE:
+- "Drago mi je da javim...", "Sa zadovoljstvom..." — floskule.
+- Statistika ("održao 3 časa, prosek 4.5/5") — to je već ispod u tabeli, ne ponavljaj.
+- Generička pohvala bez sadržaja ("napreduje konstantno", "marljivo radi").
+- Emoji.
+- Reči "učenik" bez imena — uvek koristi ime.
+- Predugačke rečenice sa em-dash-evima koje sklapaju 4 ideje u jednu.
+
+PRIMERI DOBRO/LOŠE:
+
+LOŠE (korporativno, nabrajanje tema, citira statistiku):
+"Marko je ove nedelje pokrio kvadratne jednačine i sisteme jednačina, sa prosečnom ocenom 4.5/5, što ukazuje na vidljiv napredak u algebarskim sposobnostima."
+
+DOBRO (konkretno, prirodno, citira detalj iz beleški):
+"Marko je ove nedelje prešao prag — od „muči se sa kvadratnom formulom" stigao je do samostalnog rešavanja Vietovih formula. Tekstualni zadaci su nam i dalje slaba tačka: lakše rešava sistem nego što ga postavlja iz teksta."
+
+LOŠE (mesečni, opšte fraze):
+"Marko je u maju solidno napredovao kroz različite teme, sa vidljivim poboljšanjem u razumevanju gradiva i pozitivnom radnom atmosferom na časovima."
+
+DOBRO (mesečni, konkretne stvari iz beleški):
+"U maju je Marko pokrio kvadratne jednačine, Vietove formule i krenuo sa sistemima. Najveći skok desio se sredinom meseca — prelaz iz „pamti formulu uz pomoć" u „samostalno rešava". Diskriminantu razume, ali primena u brzim zadacima još traži vežbu, kao i tekstualni zadaci gde greši u označavanju nepoznatih. Sledeći korak: kontrolna iz sistema."
+
+Vraćaš ISKLJUČIVO strukturisan JSON sa "intro" poljem.`;
 
 export type GenerateReportInput = {
   kind: ReportKind;
@@ -137,7 +172,17 @@ export async function generateReport(
     })
     .reduce((sum, p) => sum + p.amount, 0);
 
-  // AI uvodni paragraf.
+  // AI uvodni paragraf — hronološke beleške pomažu modelu da napiše prirodan
+  // narativ (npr. "krajem nedelje je Marko prešao iz X u Y").
+  const lessonNotes = held
+    .filter((l) => l.progress_summary && l.progress_summary.trim())
+    .map((l) => ({
+      date: format(new Date(l.scheduled_at), "d. MMM", { locale: srLatn }),
+      rating: l.lesson_rating,
+      topics: l.topics_covered ?? [],
+      progressSummary: l.progress_summary!.trim(),
+    }));
+
   const ai = await generateIntro({
     audience: input.student.report_audience,
     studentName: input.student.full_name,
@@ -148,9 +193,7 @@ export async function generateReport(
     lessonsCancelled: cancelled.length,
     topTopics,
     avgRating,
-    progressSnippets: held
-      .map((l) => l.progress_summary)
-      .filter((s): s is string => !!s && s.trim().length > 0),
+    lessonNotes,
   });
 
   return {
@@ -188,7 +231,13 @@ type IntroInput = {
   lessonsCancelled: number;
   topTopics: string[];
   avgRating: number | null;
-  progressSnippets: string[];
+  /** Hronološki — od najstarijeg ka najnovijem. Pomaže AI da uhvati LUK perioda. */
+  lessonNotes: Array<{
+    date: string; // "2. maj"
+    rating: number | null;
+    topics: string[];
+    progressSummary: string;
+  }>;
 };
 
 async function generateIntro(input: IntroInput): Promise<{
@@ -208,23 +257,40 @@ async function generateIntro(input: IntroInput): Promise<{
   const userPrompt = buildIntroPrompt(input);
 
   const client = getAnthropic();
-  const response = await client.messages.parse({
-    model: EXERCISE_MODEL,
-    max_tokens: 400,
-    thinking: { type: "disabled" },
-    output_config: {
-      effort: "low",
-      format: zodOutputFormat(IntroSchema),
-    },
-    system: [
-      {
-        type: "text",
-        text: INTRO_SYSTEM_PROMPT,
-        cache_control: { type: "ephemeral" },
+  const callModel = (model: string) => {
+    // Haiku ne podržava `effort` parametar — samo Sonnet/Opus.
+    const supportsEffort = model.includes("sonnet") || model.includes("opus");
+    return client.messages.parse({
+      model,
+      max_tokens: 400,
+      thinking: { type: "disabled" },
+      output_config: {
+        ...(supportsEffort ? { effort: "low" as const } : {}),
+        format: zodOutputFormat(IntroSchema),
       },
-    ],
-    messages: [{ role: "user", content: userPrompt }],
-  });
+      system: [
+        {
+          type: "text",
+          text: INTRO_SYSTEM_PROMPT,
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: userPrompt }],
+    });
+  };
+
+  let response;
+  try {
+    response = await callModel(EXERCISE_MODEL);
+  } catch (err) {
+    // Fallback na Haiku ako je Sonnet preopterećen (529).
+    // Manji model, ali za uvodni paragraf je sasvim dovoljan.
+    if (isOverloadedError(err)) {
+      response = await callModel(FALLBACK_MODEL);
+    } else {
+      throw err;
+    }
+  }
 
   if (!response.parsed_output) {
     return {
@@ -261,10 +327,20 @@ function buildIntroPrompt(input: IntroInput): string {
     parts.push(`- Prosečna ocena časa: ${input.avgRating.toFixed(1)} / 5`);
   }
 
-  if (input.progressSnippets.length > 0) {
-    parts.push(``, `BELEŠKE PROFESORA PO ČASOVIMA:`);
-    for (const s of input.progressSnippets.slice(0, 12)) {
-      parts.push(`- ${s}`);
+  if (input.lessonNotes.length > 0) {
+    parts.push(
+      ``,
+      `BELEŠKE PROFESORA PO ČASOVIMA (hronološki — koristi za uhvatiti luk perioda):`,
+    );
+    for (const n of input.lessonNotes.slice(0, 16)) {
+      const meta = [
+        n.date,
+        n.rating !== null ? `★${n.rating}` : null,
+        n.topics.length > 0 ? n.topics.join(", ") : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      parts.push(`- [${meta}] ${n.progressSummary}`);
     }
   }
 

@@ -64,9 +64,9 @@ export type ReportLog = {
   audience: ReportAudience;
   period_start: string;
   period_end: string;
-  recipient_email: string;
+  recipient_email: string | null;
   resend_message_id: string | null;
-  status: "sent" | "failed" | "preview";
+  status: "sent" | "failed" | "preview" | "draft";
   error_message: string | null;
   subject: string;
   html_body: string;
@@ -75,4 +75,5 @@ export type ReportLog = {
   ai_output_tokens: number;
   sent_at: string;
   created_at: string;
+  updated_at: string;
 };

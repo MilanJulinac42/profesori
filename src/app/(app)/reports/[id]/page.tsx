@@ -76,10 +76,12 @@ export default async function ReportSnapshotPage({
               minute: "2-digit",
             })}
           </span>
-          <span className="inline-flex items-center gap-1">
-            <Mail className="size-3" strokeWidth={1.75} />
-            {log.recipient_email}
-          </span>
+          {log.recipient_email && (
+            <span className="inline-flex items-center gap-1">
+              <Mail className="size-3" strokeWidth={1.75} />
+              {log.recipient_email}
+            </span>
+          )}
           <span>·</span>
           <span>
             Period {log.period_start} → {log.period_end}

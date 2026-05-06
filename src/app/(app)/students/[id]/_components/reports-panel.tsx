@@ -12,6 +12,8 @@ import {
   Check,
   X,
   MessageCircle,
+  RefreshCw,
+  FileEdit,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,6 +54,7 @@ type PreviewState =
       html: string | null;
       subject: string | null;
       shareText: string | null;
+      cached: boolean;
     };
 
 function buildWhatsAppUrl(text: string, phone?: string | null): string {
@@ -91,7 +94,7 @@ export function ReportsPanel({
   const recipientReady =
     audience === "parent" ? hasParentEmail : hasStudentEmail;
 
-  function openPreview(kind: ReportKind) {
+  function openPreview(kind: ReportKind, force = false) {
     setPreview({
       open: true,
       kind,
@@ -100,12 +103,13 @@ export function ReportsPanel({
       html: null,
       subject: null,
       shareText: null,
+      cached: false,
     });
     setSendError(null);
     setSendOk(null);
 
     startTransition(async () => {
-      const res = await previewReportAction(studentId, kind, "past");
+      const res = await previewReportAction(studentId, kind, "current", force);
       if (!res.ok) {
         setPreview({
           open: true,
@@ -115,6 +119,7 @@ export function ReportsPanel({
           html: null,
           subject: null,
           shareText: null,
+          cached: false,
         });
         return;
       }
@@ -126,6 +131,7 @@ export function ReportsPanel({
         html: res.html,
         subject: res.subject,
         shareText: res.shareText,
+        cached: res.cached,
       });
     });
   }
@@ -136,7 +142,7 @@ export function ReportsPanel({
     setSendingKind(kind);
 
     startTransition(async () => {
-      const res = await sendReportAction(studentId, kind, "past");
+      const res = await sendReportAction(studentId, kind, "current");
       setSendingKind(null);
       if (!res.ok) {
         setSendError(res.error);
@@ -245,22 +251,47 @@ export function ReportsPanel({
         <DialogContent className="sm:max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden flex flex-col">
           {preview.open && (
             <>
-              <div className="px-5 pt-5 pb-4 border-b border-border">
-                <DialogHeader>
-                  <DialogTitle>
+              <div className="px-5 pt-5 pb-4 border-b border-border flex items-start justify-between gap-3">
+                <DialogHeader className="flex-1">
+                  <DialogTitle className="flex items-center gap-2">
                     Preview: {REPORT_KIND_LABELS[preview.kind]}
+                    {preview.cached && !preview.loading && (
+                      <Badge variant="secondary" className="font-normal text-[10px]">
+                        Keširan
+                      </Badge>
+                    )}
                   </DialogTitle>
                   <DialogDescription>
-                    Ovo se šalje email-om kad klikneš “Pošalji”.
+                    {preview.cached
+                      ? "Prikazana je sačuvana verzija. Klikni „Regeneriši“ za nov AI poziv."
+                      : "Ovo se šalje email-om kad klikneš „Pošalji“."}
                   </DialogDescription>
                 </DialogHeader>
+                {!preview.loading && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openPreview(preview.kind, true)}
+                    disabled={pending}
+                  >
+                    <RefreshCw
+                      className={cn(
+                        "size-3.5",
+                        pending && "animate-spin",
+                      )}
+                      strokeWidth={1.75}
+                    />
+                    Regeneriši
+                  </Button>
+                )}
               </div>
 
               <div className="flex-1 overflow-auto bg-[#f6f6f4]">
                 {preview.loading ? (
                   <div className="flex items-center gap-2 p-8 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-                    Generišem izveštaj... (~5s)
+                    Učitavam izveštaj... (~5s ako se generiše svež)
                   </div>
                 ) : preview.error ? (
                   <div className="p-6 text-sm text-destructive">
@@ -407,16 +438,20 @@ function LogRow({
   studentName: string;
   parentPhone: string | null;
 }) {
-  const sentDt = new Date(log.sent_at);
+  const updatedDt = new Date(log.updated_at ?? log.sent_at);
   const shareText =
     typeof log.data_snapshot?.shareText === "string"
       ? (log.data_snapshot.shareText as string)
+      : null;
+  const periodLabel =
+    typeof log.data_snapshot?.periodLabel === "string"
+      ? (log.data_snapshot.periodLabel as string)
       : null;
 
   return (
     <li className="px-5 py-3 flex items-center gap-3">
       <div className="text-xs tabular-nums text-muted-foreground w-24 shrink-0">
-        {sentDt.toLocaleDateString("sr-Latn-RS", {
+        {updatedDt.toLocaleDateString("sr-Latn-RS", {
           day: "numeric",
           month: "short",
           year: "2-digit",
@@ -425,10 +460,21 @@ function LogRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium truncate">
           {REPORT_KIND_LABELS[log.kind]}
+          {periodLabel && (
+            <span className="ml-1.5 font-normal text-muted-foreground">
+              · {periodLabel}
+            </span>
+          )}
         </div>
         <div className="text-xs text-muted-foreground truncate inline-flex items-center gap-1.5">
-          <Mail className="size-3" strokeWidth={1.75} />
-          {log.recipient_email}
+          {log.recipient_email ? (
+            <>
+              <Mail className="size-3" strokeWidth={1.75} />
+              {log.recipient_email}
+            </>
+          ) : (
+            <span>nije poslat</span>
+          )}
         </div>
       </div>
       <StatusBadge status={log.status} />
@@ -474,6 +520,14 @@ function StatusBadge({ status }: { status: ReportLog["status"] }) {
       >
         <X className="size-2.5" strokeWidth={2.5} />
         Greška
+      </Badge>
+    );
+  }
+  if (status === "draft") {
+    return (
+      <Badge variant="secondary" className="font-normal text-[10px] gap-1">
+        <FileEdit className="size-2.5" strokeWidth={2} />
+        Nacrt
       </Badge>
     );
   }
