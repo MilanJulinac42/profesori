@@ -5,6 +5,7 @@ import { Topbar } from "@/components/layout/topbar";
 import { countNewBookings } from "@/lib/booking/queries";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AssistantWidget } from "@/components/assistant/widget";
 
 export default async function AppLayout({
   children,
@@ -51,6 +52,7 @@ export default async function AppLayout({
             </footer>
           </div>
         </div>
+        <AssistantWidget />
       </TourProvider>
     </ThemeProvider>
   );

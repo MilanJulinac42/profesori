@@ -12,6 +12,7 @@ import {
   Inbox,
   Settings,
   MessageCircle,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const NAV: NavItem[] = [
   { href: "/billing", label: "Naplata", icon: Banknote },
   { href: "/exercises", label: "Zadaci", icon: Sparkles },
   { href: "/poruke", label: "Poruke", icon: MessageCircle },
+  { href: "/asistent", label: "Asistent", icon: Bot },
   { href: "/profile", label: "Javni profil", icon: Globe },
   {
     href: "/profile/inbox",
