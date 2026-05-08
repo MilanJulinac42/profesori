@@ -1,3 +1,35 @@
+export type Subject =
+  | "matematika"
+  | "fizika"
+  | "hemija"
+  | "srpski"
+  | "engleski";
+
+export const SUBJECT_LABELS: Record<Subject, string> = {
+  matematika: "Matematika",
+  fizika: "Fizika",
+  hemija: "Hemija",
+  srpski: "Srpski jezik",
+  engleski: "Engleski jezik",
+};
+
+export const SUBJECT_OPTIONS: { value: Subject; label: string }[] = [
+  { value: "matematika", label: "Matematika" },
+  { value: "fizika", label: "Fizika" },
+  { value: "hemija", label: "Hemija" },
+  { value: "srpski", label: "Srpski jezik" },
+  { value: "engleski", label: "Engleski jezik" },
+];
+
+/** Da li predmet koristi LaTeX/KaTeX render za formule. */
+export const SUBJECT_HAS_MATH: Record<Subject, boolean> = {
+  matematika: true,
+  fizika: true,
+  hemija: false, // hemijske formule su drugačije, KaTeX ih ne renderuje lepo
+  srpski: false,
+  engleski: false,
+};
+
 export type Difficulty = "lako" | "srednje" | "tesko" | "mesano";
 
 export const DIFFICULTY_LABELS: Record<Difficulty, string> = {
@@ -39,7 +71,7 @@ export type ExerciseSet = {
   id: string;
   organization_id: string;
   title: string;
-  subject: "matematika";
+  subject: Subject;
   grade_level: string;
   topic: string;
   difficulty: Difficulty;

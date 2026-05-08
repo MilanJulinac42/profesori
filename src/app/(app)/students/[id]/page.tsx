@@ -41,6 +41,7 @@ import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
 import { ReportsPanel } from "./_components/reports-panel";
 import { HomeworkPanel } from "./_components/homework-panel";
+import { ParentLinkButton } from "./_components/parent-link-button";
 
 export default async function StudentPage({
   params,
@@ -133,6 +134,15 @@ export default async function StudentPage({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <ParentLinkButton
+            studentId={s.id}
+            studentName={s.full_name}
+            initialToken={s.parent_portal_token}
+            parentName={s.parent_name}
+            parentPhone={s.parent_phone}
+            parentEmail={s.parent_email}
+            appBaseUrl={appBaseUrl}
+          />
           <Link
             href={`/students/${s.id}/edit`}
             className={buttonVariants({ variant: "outline", size: "sm" })}

@@ -27,6 +27,8 @@ import {
   DIFFICULTY_LABELS,
   DIFFICULTY_OPTIONS,
   GRADE_PRESETS,
+  SUBJECT_LABELS,
+  SUBJECT_OPTIONS,
 } from "@/lib/exercises/types";
 
 export function GeneratorWizard() {
@@ -55,6 +57,31 @@ function ParamsForm({
 }) {
   return (
     <form action={formAction} className="space-y-6 rounded-xl border border-border bg-card p-6">
+      <div className="space-y-1.5">
+        <Label htmlFor="subject" className="text-xs">
+          Predmet <span className="text-destructive">*</span>
+        </Label>
+        <Select name="subject" defaultValue="matematika">
+          <SelectTrigger id="subject" className="w-full">
+            <SelectValue>
+              {(value: string) =>
+                SUBJECT_LABELS[value as keyof typeof SUBJECT_LABELS] ?? "Predmet"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {SUBJECT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {state?.fieldErrors?.subject && (
+          <p className="text-xs text-destructive">{state.fieldErrors.subject}</p>
+        )}
+      </div>
+
       <div className="space-y-1.5">
         <Label htmlFor="grade_level" className="text-xs">
           Razred / nivo <span className="text-destructive">*</span>

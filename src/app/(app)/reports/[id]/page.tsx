@@ -106,7 +106,66 @@ export default async function ReportSnapshotPage({
           className="w-full h-[80vh] border-0 bg-white"
         />
       </div>
+
+      <CommentsSection reportLogId={id} />
     </div>
+  );
+}
+
+async function CommentsSection({ reportLogId }: { reportLogId: string }) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("report_comments")
+    .select("id, author, body, created_at, read_by_teacher_at")
+    .eq("report_log_id", reportLogId)
+    .order("created_at", { ascending: true });
+
+  const comments = (data ?? []) as Array<{
+    id: string;
+    author: string;
+    body: string;
+    created_at: string;
+    read_by_teacher_at: string | null;
+  }>;
+
+  if (comments.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-4 border-b border-border">
+        <h3 className="text-sm font-medium">
+          Komentari roditelja ({comments.length})
+        </h3>
+      </div>
+      <ul className="divide-y divide-border">
+        {comments.map((c) => (
+          <li key={c.id} className="px-5 py-3">
+            <div className="flex items-baseline justify-between gap-2 mb-1">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                {c.author === "parent" ? "Roditelj" : "Profesor"}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {new Date(c.created_at).toLocaleString("sr-Latn-RS", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+              {c.body}
+            </p>
+            {!c.read_by_teacher_at && c.author === "parent" && (
+              <p className="text-[10px] text-amber-700 mt-1.5 uppercase tracking-wider">
+                Nepročitano
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

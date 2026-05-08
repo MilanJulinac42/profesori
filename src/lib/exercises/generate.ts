@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { EXERCISE_MODEL, getAnthropic } from "@/lib/ai/anthropic";
-import type { Difficulty, Exercise } from "./types";
+import type { Difficulty, Exercise, Subject } from "./types";
+import { SUBJECT_LABELS } from "./types";
 
 const ExerciseSchema = z.object({
   question: z.string().min(1),
@@ -16,9 +17,9 @@ const ResponseSchema = z.object({
 
 /**
  * Veliki, stabilan sistem prompt — keširan preko cache_control: ephemeral.
- * Sve volatilno (razred, tema, težina) ide u user poruku — ne ovde.
+ * Sve volatilno (predmet, razred, tema, težina) ide u user poruku — ne ovde.
  */
-const SYSTEM_PROMPT = `Ti si iskusan profesor matematike u Srbiji koji generiše zadatke za privatne časove. Pišeš na srpskom (latinica), koristeći matematičku terminologiju koja se koristi u srpskim školama.
+const SYSTEM_PROMPT = `Ti si iskusan profesor u Srbiji koji generiše zadatke za privatne časove iz različitih predmeta (matematika, fizika, hemija, srpski jezik, engleski jezik). Pišeš na srpskom (latinica), koristeći terminologiju koja se koristi u srpskim školama.
 
 PRAVILA ZA ZADATKE:
 
@@ -30,10 +31,12 @@ PRAVILA ZA ZADATKE:
 
 PRAVILA ZA REŠENJA I OBJAŠNJENJA:
 
-- "solution" = konačan odgovor, kratak i precizan (npr. "$x = 3$ ili $x = -2$", "$P = 24 \\,\\text{cm}^2$", "$n = 7$").
+- "solution" = konačan odgovor, kratak i precizan.
 - "explanation" = postupak rešavanja, korak po korak. Piši kao da objašnjavaš učeniku — svaki bitan korak na novom redu. Koristi prazan red između većih koraka.
 
-MATEMATIČKI IZRAZI — KORISTI LaTeX UNUTAR DOLARA ($...$):
+PRAVILA PO PREDMETU:
+
+**MATEMATIKA i FIZIKA** — koristi LaTeX unutar dolara ($...$ inline ili $$...$$ display) za sve formule:
 
 - Inline math: $x^2 + 2x - 3 = 0$, $\\sqrt{2}$, $\\frac{a}{b}$, $x_1$, $\\Delta$, $\\pi$
 - Display math (kad je formula velika ili centralna): $$x_{1,2} = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
@@ -49,9 +52,19 @@ MATEMATIČKI IZRAZI — KORISTI LaTeX UNUTAR DOLARA ($...$):
 - Sistemi: $\\begin{cases} x + y = 5 \\\\ x - y = 1 \\end{cases}$
 - Jedinice OUTSIDE math: pišu se kao običan tekst posle formule ("Površina je $24 \\,\\text{cm}^2$" ili "P = $24$ cm²")
 
-VAŽNO O LaTeX-u:
-- Sve formule MORAJU biti u $...$ (inline) ili $$...$$ (display). Plain tekst kao "x^2" ili "(2x+1)/(x-3)" se NEĆE renderovati i izgledaće ružno u štampi.
-- LaTeX naredbe pišeš normalno (npr. \\frac{a}{b}, \\sqrt{2}). JSON escaping je automatski.
+**HEMIJA** — koristi plain tekst sa standardnom hemijskom notacijom:
+- Formule: H2SO4, CaCO3, Fe(OH)3 (sa stepenima u zagradama ako je nužno: H₂SO₄ koristi Unicode subscript)
+- Reakcije: 2H2 + O2 → 2H2O
+- NE koristi LaTeX/math mode za hemijske formule.
+
+**SRPSKI JEZIK** — plain tekst, bez specijalne notacije:
+- Gramatika, padeži, pravopis, književnost — formuliši kao klasične školske zadatke
+- Citat iz teksta? Stavi u navodnike.
+- Ako je zadatak rečenica za analizu, daj rečenicu kao question.
+
+**ENGLESKI JEZIK** — kombinacija srpskog i engleskog:
+- Pitanje na srpskom (ili na engleskom za naprednije nivoe), odgovor isto.
+- Vocabulary, grammar, translation, reading comprehension — common school exercise types.
 
 PRAVILA ZA NASLOV SETA:
 - Kratak, opisan, format: "[Tema] — [Razred] — [Broj] zadataka"
@@ -63,6 +76,7 @@ VAŽNO:
 - Generiši TAČNO onoliko zadataka koliko je traženo.`;
 
 export type GenerateInput = {
+  subject: Subject;
   gradeLevel: string;
   topic: string;
   difficulty: Difficulty;
@@ -141,13 +155,17 @@ export async function generateExerciseSet(
 }
 
 function buildUserPrompt(input: GenerateInput): string {
+  const subjectLabel = SUBJECT_LABELS[input.subject];
   const parts = [
-    `Generiši set zadataka iz matematike sa sledećim parametrima:`,
+    `Generiši set zadataka iz predmeta: ${subjectLabel}.`,
     ``,
+    `- Predmet: ${subjectLabel}`,
     `- Razred / nivo: ${input.gradeLevel}`,
     `- Tema: ${input.topic}`,
     `- Težina: ${DIFFICULTY_LABELS_FOR_PROMPT[input.difficulty]}`,
     `- Broj zadataka: tačno ${input.count}`,
+    ``,
+    `Sledi striktno pravila za ovaj predmet (LaTeX za matematiku/fiziku, plain tekst za hemiju/srpski/engleski).`,
   ];
 
   if (input.teacherNotes && input.teacherNotes.trim()) {

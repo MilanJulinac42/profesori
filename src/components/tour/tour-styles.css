@@ -1,0 +1,133 @@
+/**
+ * Override driver.js default styles da matchuje dizajn app-a.
+ */
+
+/* Overlay — laksi tako da se ostatak strane VIDI i može klik */
+.driver-overlay {
+  background: rgba(15, 15, 15, 0.32) !important;
+}
+
+/* Popover — match app card style */
+.driver-popover {
+  background: var(--card) !important;
+  color: var(--card-foreground) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 14px !important;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.12) !important;
+  padding: 18px 20px !important;
+  max-width: 360px !important;
+  font-family: inherit !important;
+}
+
+/* Title */
+.driver-popover-title {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin-bottom: 8px !important;
+  color: var(--foreground) !important;
+}
+
+/* Description */
+.driver-popover-description {
+  font-size: 13.5px !important;
+  line-height: 1.55 !important;
+  color: var(--muted-foreground) !important;
+}
+
+/* Footer — clean separator */
+.driver-popover-footer {
+  margin-top: 16px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid var(--border) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+
+/* Progress text — subtle */
+.driver-popover-progress-text {
+  font-size: 11px !important;
+  color: var(--muted-foreground) !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Buttons */
+.driver-popover-prev-btn,
+.driver-popover-next-btn,
+.driver-popover-close-btn {
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid transparent !important;
+  cursor: pointer !important;
+  transition:
+    background 120ms,
+    border-color 120ms,
+    opacity 120ms !important;
+  text-shadow: none !important;
+}
+
+.driver-popover-prev-btn {
+  background: transparent !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+.driver-popover-prev-btn:hover {
+  background: var(--secondary) !important;
+}
+
+.driver-popover-next-btn {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+}
+.driver-popover-next-btn:hover {
+  opacity: 0.88 !important;
+}
+
+/* Close X — top right */
+.driver-popover-close-btn {
+  position: absolute !important;
+  top: 8px !important;
+  right: 10px !important;
+  padding: 4px 8px !important;
+  font-size: 18px !important;
+  line-height: 1 !important;
+  background: transparent !important;
+  color: var(--muted-foreground) !important;
+  border-color: transparent !important;
+}
+.driver-popover-close-btn:hover {
+  background: var(--secondary) !important;
+  color: var(--foreground) !important;
+}
+
+/* Arrow caret */
+.driver-popover-arrow-side-bottom {
+  border-bottom-color: var(--card) !important;
+}
+.driver-popover-arrow-side-top {
+  border-top-color: var(--card) !important;
+}
+.driver-popover-arrow-side-left {
+  border-left-color: var(--card) !important;
+}
+.driver-popover-arrow-side-right {
+  border-right-color: var(--card) !important;
+}
+
+/* Highlighted element — jasan ring (NE menjamo background, da dugmiće ostanu sa svojom bojom) */
+.driver-active-element {
+  outline: 3px solid var(--foreground) !important;
+  outline-offset: 3px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 10001;
+}

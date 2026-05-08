@@ -20,6 +20,9 @@ export type Student = {
   notes: string | null;
   tags: string[];
   status: StudentStatus;
+  parent_portal_token: string | null;
+  parent_portal_token_created_at: string | null;
+  parent_portal_revoked_at: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;

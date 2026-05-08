@@ -36,6 +36,8 @@ import {
   countSubmittedHomework,
   listSubmittedHomework,
 } from "@/lib/homework/queries";
+import { getAppValueStats } from "@/lib/dashboard/app-value";
+import { AppValueWidget } from "./_components/app-value-widget";
 import { AnalyticsSection } from "./_components/analytics-section";
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
@@ -79,6 +81,7 @@ export default async function DashboardPage({
     recentActivity,
     submittedHomeworkCount,
     submittedHomework,
+    appValueStats,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -101,6 +104,7 @@ export default async function DashboardPage({
     getRecentActivity(supabase, 8),
     countSubmittedHomework(supabase),
     listSubmittedHomework(supabase, 3),
+    getAppValueStats(supabase, org!.id, 7),
   ]);
 
   const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
@@ -220,6 +224,9 @@ export default async function DashboardPage({
       {recentBookings.length > 0 && (
         <BookingsPreview bookings={recentBookings} />
       )}
+
+      {/* App value widget — "Šta je app uradio za tebe" */}
+      <AppValueWidget stats={appValueStats} />
 
       {/* Debt + missing-notes + homework callouts */}
       {(debtors.totalDebt > 0 ||

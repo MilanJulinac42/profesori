@@ -110,6 +110,7 @@ export function WeekView({
           actions={
             <Button
               size="sm"
+              data-tour="schedule-create"
               onClick={() => {
                 const today = new Date();
                 const target = days.some((d) => isSameDay(d, today))
@@ -168,7 +169,7 @@ export function WeekView({
         )}
 
         {!noStudents && (
-          <>
+          <div data-tour="schedule-week">
             {/* Mobile day picker */}
             <div className="md:hidden flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
               {days.map((day) => {
@@ -221,7 +222,7 @@ export function WeekView({
                 onLessonClick={(l) => setDialog({ mode: "edit", lesson: l })}
               />
             </div>
-          </>
+          </div>
         )}
       </div>
 

@@ -166,9 +166,10 @@ function StudentsTable({ students }: { students: Student[] }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {students.map((s) => (
+          {students.map((s, idx) => (
             <tr
               key={s.id}
+              data-tour={idx === 0 ? "students-first-row" : undefined}
               className="hover:bg-secondary/30 transition-colors group"
             >
               <td className="px-4 py-3">

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { generateExerciseSet } from "./generate";
-import type { Difficulty } from "./types";
+import type { Difficulty, Subject } from "./types";
 import { COUNT_OPTIONS } from "./types";
 
 export type GenerateFormState =
@@ -13,6 +13,7 @@ export type GenerateFormState =
       fieldErrors?: Partial<Record<string, string>>;
       preview?: {
         title: string;
+        subject: Subject;
         gradeLevel: string;
         topic: string;
         difficulty: Difficulty;
@@ -30,6 +31,13 @@ export type GenerateFormState =
   | undefined;
 
 const DIFFICULTY_VALUES: Difficulty[] = ["lako", "srednje", "tesko", "mesano"];
+const SUBJECT_VALUES: Subject[] = [
+  "matematika",
+  "fizika",
+  "hemija",
+  "srpski",
+  "engleski",
+];
 
 async function getOrgId() {
   const supabase = await createClient();
@@ -53,6 +61,7 @@ export async function generateExerciseSetAction(
   _prev: GenerateFormState,
   formData: FormData,
 ): Promise<GenerateFormState> {
+  const subject = String(formData.get("subject") ?? "matematika").trim() as Subject;
   const gradeLevel = String(formData.get("grade_level") ?? "").trim();
   const topic = String(formData.get("topic") ?? "").trim();
   const difficulty = String(formData.get("difficulty") ?? "").trim() as Difficulty;
@@ -60,6 +69,8 @@ export async function generateExerciseSetAction(
   const teacherNotes = String(formData.get("teacher_notes") ?? "").trim();
 
   const fieldErrors: Record<string, string> = {};
+  if (!SUBJECT_VALUES.includes(subject))
+    fieldErrors.subject = "Izaberi predmet.";
   if (!gradeLevel) fieldErrors.grade_level = "Razred je obavezan.";
   if (!topic) fieldErrors.topic = "Tema je obavezna.";
   if (!DIFFICULTY_VALUES.includes(difficulty))
@@ -74,6 +85,7 @@ export async function generateExerciseSetAction(
 
   try {
     const result = await generateExerciseSet({
+      subject,
       gradeLevel,
       topic,
       difficulty,
@@ -84,6 +96,7 @@ export async function generateExerciseSetAction(
     return {
       preview: {
         title: result.title,
+        subject,
         gradeLevel,
         topic,
         difficulty,
@@ -109,6 +122,7 @@ export async function saveExerciseSetAction(formData: FormData): Promise<void> {
 
   const payload = JSON.parse(payloadRaw) as {
     title: string;
+    subject: Subject;
     gradeLevel: string;
     topic: string;
     difficulty: Difficulty;
@@ -131,7 +145,7 @@ export async function saveExerciseSetAction(formData: FormData): Promise<void> {
     .insert({
       organization_id: orgId,
       title: payload.title,
-      subject: "matematika",
+      subject: payload.subject,
       grade_level: payload.gradeLevel,
       topic: payload.topic,
       difficulty: payload.difficulty,

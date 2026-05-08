@@ -15,6 +15,7 @@ import { PAYMENT_METHOD_LABELS, type Payment } from "@/lib/payments/types";
 import { deletePayment } from "@/lib/payments/actions";
 import type { Lesson } from "@/lib/lessons/types";
 import { cn } from "@/lib/utils";
+import { MonthlyBillButton } from "./monthly-bill-button";
 import { PaymentDialog } from "./payment-dialog";
 import { ReminderDialog } from "@/components/reminder-dialog";
 import {
@@ -77,6 +78,7 @@ export function BillingSection({
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <MonthlyBillButton studentId={studentId} />
               {debt > 0 && (
                 <Button
                   size="sm"

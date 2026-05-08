@@ -155,7 +155,10 @@ export function ReportsPanel({
 
   return (
     <>
-      <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <section
+        data-tour="reports-panel"
+        className="rounded-xl border border-border bg-card overflow-hidden"
+      >
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
           <div>
             <h2 className="text-sm font-medium">Izveštaji</h2>

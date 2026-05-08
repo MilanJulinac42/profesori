@@ -2,6 +2,7 @@ import { signOut } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { MobileNav } from "./mobile-nav";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { HelpButton } from "@/components/tour/help-button";
 
 export function Topbar({
   userName,
@@ -19,6 +20,7 @@ export function Topbar({
           <span className="text-sm text-muted-foreground hidden sm:inline mr-2">
             {userName}
           </span>
+          <HelpButton />
           <ThemeToggle />
           <form action={signOut}>
             <Button type="submit" variant="ghost" size="sm">

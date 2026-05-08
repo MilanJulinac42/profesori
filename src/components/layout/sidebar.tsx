@@ -11,6 +11,7 @@ import {
   Globe,
   Inbox,
   Settings,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const NAV: NavItem[] = [
   { href: "/schedule", label: "Raspored", icon: CalendarDays },
   { href: "/billing", label: "Naplata", icon: Banknote },
   { href: "/exercises", label: "Zadaci", icon: Sparkles },
+  { href: "/poruke", label: "Poruke", icon: MessageCircle },
   { href: "/profile", label: "Javni profil", icon: Globe },
   {
     href: "/profile/inbox",
@@ -58,10 +60,21 @@ export function Sidebar({
             pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
+          // Tour anchors — koriste se za driver.js step-ove
+          const tourKey = item.href.startsWith("/students")
+            ? "nav-students"
+            : item.href.startsWith("/schedule")
+              ? "nav-schedule"
+              : item.href.startsWith("/exercises")
+                ? "nav-exercises"
+                : item.href.startsWith("/billing")
+                  ? "nav-billing"
+                  : undefined;
           return (
             <Link
               key={item.href}
               href={item.href}
+              data-tour={tourKey}
               className={cn(
                 "flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] transition-colors",
                 active
