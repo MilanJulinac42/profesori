@@ -41,6 +41,7 @@ import { TopicInput } from "@/components/topic-input";
 import { StarRating } from "@/components/star-rating";
 import { AINoteCapture, type FilledDraft } from "@/components/ai-note-capture";
 import { HomeworkSection } from "./homework-section";
+import { NextTopicSuggestion } from "./next-topic-suggestion";
 import {
   LESSON_STATUS_LABELS,
   RECURRENCE_FREQ_LABELS,
@@ -248,6 +249,7 @@ function CreateForm({
                 ` · ${parasToRsd(selectedStudent.default_price_per_lesson)} RSD/čas`}
             </p>
           )}
+          {studentId && <NextTopicSuggestion studentId={studentId} />}
         </div>
 
         {/* Date + Time */}

@@ -84,7 +84,7 @@ ${
         (t) =>
           `<span style="display:inline-block;background:#f0efe9;border-radius:6px;padding:3px 10px;margin:0 4px 4px 0;font-size:13px;">${escapeHtml(t)}</span>`,
       )
-      .join("")}
+      .join(" ")}
   </p>
 </td></tr>`
     : ""

@@ -27,6 +27,37 @@ const IntroSchema = z.object({
     ),
 });
 
+const NextStepsSchema = z.object({
+  next_summary: z
+    .string()
+    .min(10)
+    .max(400)
+    .describe(
+      "1-2 rečenice o tome šta sledi, formulisane ZA RODITELJA (ne za profesora). Bez instrukcija profesoru, bez 'roditeljima preporučujemo da...'.",
+    ),
+});
+
+const NEXT_STEPS_SYSTEM = `Ti pišeš sekciju "Šta sledi" izveštaja koji ide roditelju. Imaš na raspolaganju profesorske beleške "next_lesson_plan" sa više časova u periodu. Tvoj zadatak je da iz njih izvučeš 1-2 rečenice ZA RODITELJA.
+
+PRAVILA:
+- Pišeš šta će učenik raditi sledeće nedelje/mesec, ne profesor.
+- Roditelju je interesantna OBLAST i CILJ, ne mikro-instrukcije ("str. 163 zad. 6").
+- Ako više beleški govori slično, sažimaj. Ako su raznolike, izvuci dominantan pravac.
+- Bez instrukcija roditelju ("preporučujemo da sedite sa Markom") — to je nelagodno.
+- Bez fraza tipa "Učenik će..." — koristi 3. lice ime ako je publika roditelj, 2. lice ako je sam učenik.
+- Ton: kratko, profesionalno, smireno.
+
+PRIMERI:
+
+LOŠE (sirov plan, prelong, instrukcije profesoru i roditelju):
+"Marko rešava tri zadatka bez ikakve pomoći — jedan tekstualni (str. 163 zad. 6), jedan sa određivanjem broja rešenja i jedan sa Vietovim formulama (str. 160 zad. 3). Težište ostaje na koraku izračunavanja diskriminante kada je c negativno. Roditeljima preporučiti da sede sa Markom dok ne uradi zadatke."
+
+DOBRO (sažeto, ka roditelju):
+"Sledeća nedelja je posvećena pripremi za kontrolnu — Marko će samostalno rešavati zadatke iz kvadratnih jednačina i Vietovih formula, sa fokusom na ispravljanje greške koja se ponavlja više časova zaredom."
+
+Vraćaš ISKLJUČIVO JSON sa "next_summary" poljem.`;
+
+
 const INTRO_SYSTEM_PROMPT = `Ti pišeš uvodni paragraf za izveštaj profesora privatnih časova roditelju (ili učeniku odraslom) u Srbiji.
 
 CILJ: Roditelj/učenik za 10 sekundi razume šta se desilo i kako je išlo. Konkretno, toplo, bez korporativnog tona.
@@ -151,12 +182,12 @@ export async function generateReport(
       ? ratings.reduce((s, r) => s + r, 0) / ratings.length
       : null;
 
-  // Plan za sledeći put — iz POSLEDNJEG časa koji ima next_lesson_plan.
-  const nextLessonPlan =
-    [...lessonsRaw]
-      .reverse()
-      .find((l) => l.next_lesson_plan && l.next_lesson_plan.trim())
-      ?.next_lesson_plan?.trim() ?? null;
+  // Plan za sledeći put — sakupimo SVE next_lesson_plan-ove iz perioda
+  // (najnoviji ka najstarijem) pa AI sažima za roditelja.
+  const allNextPlans = [...lessonsRaw]
+    .reverse()
+    .map((l) => l.next_lesson_plan?.trim())
+    .filter((p): p is string => !!p && p.length > 0);
 
   // Naplata.
   const settings = await getOrgSettings(supabase, input.student.organization_id);
@@ -180,6 +211,13 @@ export async function generateReport(
     period.start,
     period.end,
   );
+
+  // AI sažet "Šta sledi" za roditelja (preuzima sirove plan-ove i piše 1-2 rec).
+  const nextSummary = await summarizeNextSteps({
+    plans: allNextPlans,
+    audience: input.student.report_audience,
+    studentName: input.student.full_name,
+  });
 
   // AI uvodni paragraf — hronološke beleške pomažu modelu da napiše prirodan
   // narativ (npr. "krajem nedelje je Marko prešao iz X u Y").
@@ -223,7 +261,7 @@ export async function generateReport(
     topTopics,
     avgRating,
     lessons,
-    nextLessonPlan,
+    nextLessonPlan: nextSummary,
     paidThisPeriod,
     totalDebtNow: billing.debt,
     homeworkAssigned: homeworkStats.assigned,
@@ -370,4 +408,74 @@ function buildIntroPrompt(input: IntroInput): string {
     `Napiši 1-2 rečenice uvodnog rezimea u skladu sa pravilima.`,
   );
   return parts.join("\n");
+}
+
+/**
+ * Sažima više `next_lesson_plan` zapisa u 1-2 rečenice za roditelja/učenika.
+ * Ako nema planova → null. Ako je samo jedan KRATAK plan, vrati njega bez AI.
+ */
+async function summarizeNextSteps(input: {
+  plans: string[];
+  audience: ReportAudience;
+  studentName: string;
+}): Promise<string | null> {
+  if (input.plans.length === 0) return null;
+
+  // Optimizacija: ako je samo jedan plan i kratak je, ne troši Anthropic.
+  if (input.plans.length === 1 && input.plans[0]!.length <= 180) {
+    return input.plans[0]!;
+  }
+
+  const userPrompt = [
+    `PUBLIKA: ${input.audience}`,
+    `UČENIK: ${input.studentName}`,
+    ``,
+    `PROFESORSKE BELEŠKE "ŠTA SLEDI" (najnovije prvo):`,
+    ...input.plans.slice(0, 8).map((p, i) => `${i + 1}. ${p}`),
+    ``,
+    `Sažmi u 1-2 rečenice ZA ${
+      input.audience === "parent" ? "roditelja" : "samog učenika"
+    } u skladu sa pravilima.`,
+  ].join("\n");
+
+  try {
+    const client = getAnthropic();
+    const callModel = (model: string) => {
+      const supportsEffort = model.includes("sonnet") || model.includes("opus");
+      return client.messages.parse({
+        model,
+        max_tokens: 300,
+        thinking: { type: "disabled" },
+        output_config: {
+          ...(supportsEffort ? { effort: "low" as const } : {}),
+          format: zodOutputFormat(NextStepsSchema),
+        },
+        system: [
+          {
+            type: "text",
+            text: NEXT_STEPS_SYSTEM,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
+        messages: [{ role: "user", content: userPrompt }],
+      });
+    };
+
+    let response;
+    try {
+      response = await callModel(EXERCISE_MODEL);
+    } catch (err) {
+      if (isOverloadedError(err)) response = await callModel(FALLBACK_MODEL);
+      else throw err;
+    }
+
+    if (!response.parsed_output) {
+      // Fallback: vrati najnoviji plan kao raw.
+      return input.plans[0] ?? null;
+    }
+    return response.parsed_output.next_summary;
+  } catch {
+    // Tihi fallback — bolje sirov plan nego nista.
+    return input.plans[0] ?? null;
+  }
 }
