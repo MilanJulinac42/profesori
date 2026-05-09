@@ -11,6 +11,7 @@ import {
   type LessonContext,
   type LessonDraft,
 } from "./transcribe";
+import { syncLessonAfterChange } from "@/lib/google/sync";
 
 export type LessonFormState = {
   error?: string;
@@ -133,16 +134,25 @@ export async function createLesson(
     return { fieldErrors: { time: formatConflictMessage(conflict) } };
   }
 
-  const { error } = await supabase.from("lessons").insert({
-    organization_id: orgId,
-    student_id: studentId,
-    scheduled_at: scheduledAt.toISOString(),
-    duration_minutes: duration,
-    price: pricePara,
-    status: "scheduled",
-  });
+  const { data: inserted, error } = await supabase
+    .from("lessons")
+    .insert({
+      organization_id: orgId,
+      student_id: studentId,
+      scheduled_at: scheduledAt.toISOString(),
+      duration_minutes: duration,
+      price: pricePara,
+      status: "scheduled",
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  // Push u Google Calendar ako je profesor povezan (fail-safe)
+  if (inserted?.id) {
+    await syncLessonAfterChange(supabase, orgId, inserted.id as string);
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
@@ -382,6 +392,20 @@ export async function updateLesson(
   const { error } = await supabase.from("lessons").update(update).eq("id", lessonId);
   if (error) return { error: error.message };
 
+  // Sync u Google Calendar (fail-safe)
+  const { data: orgRow } = await supabase
+    .from("lessons")
+    .select("organization_id")
+    .eq("id", lessonId)
+    .maybeSingle();
+  if (orgRow?.organization_id) {
+    await syncLessonAfterChange(
+      supabase,
+      orgRow.organization_id as string,
+      lessonId,
+    );
+  }
+
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
   if (existing?.student_id) revalidatePath(`/students/${existing.student_id}`);
@@ -389,11 +413,11 @@ export async function updateLesson(
 }
 
 export async function setLessonStatus(lessonId: string, status: LessonStatus) {
-  const { supabase } = await getOrgId();
+  const { supabase, orgId } = await getOrgId();
 
   const { data: existing } = await supabase
     .from("lessons")
-    .select("student_id")
+    .select("student_id, organization_id")
     .eq("id", lessonId)
     .single();
 
@@ -402,6 +426,8 @@ export async function setLessonStatus(lessonId: string, status: LessonStatus) {
     .update({ status })
     .eq("id", lessonId);
   if (error) throw new Error(error.message);
+
+  if (orgId) await syncLessonAfterChange(supabase, orgId, lessonId);
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
@@ -577,12 +603,12 @@ export async function deleteFutureLessonsInGroup(
 }
 
 export async function deleteLesson(lessonId: string) {
-  const { supabase } = await getOrgId();
+  const { supabase, orgId } = await getOrgId();
 
-  // Read student_id BEFORE we set deleted_at (after that, RLS hides the row).
+  // Read student_id + google_event_id BEFORE we set deleted_at (RLS hides after).
   const { data: existing } = await supabase
     .from("lessons")
-    .select("student_id")
+    .select("student_id, google_event_id, organization_id")
     .eq("id", lessonId)
     .single();
 
@@ -591,6 +617,11 @@ export async function deleteLesson(lessonId: string) {
     .update({ deleted_at: new Date().toISOString() })
     .eq("id", lessonId);
   if (error) throw new Error(error.message);
+
+  // Brišem GCal event (mora se uraditi pre nego što RLS sakrije row)
+  if (orgId) {
+    await syncLessonAfterChange(supabase, orgId, lessonId, { wasDeleted: true });
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

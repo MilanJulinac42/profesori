@@ -20,6 +20,7 @@
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "driver.js": "^1.4.0",
+    "googleapis": "^171.4.0",
     "katex": "^0.16.45",
     "lucide-react": "^1.11.0",
     "motion": "^12.38.0",

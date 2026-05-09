@@ -8,15 +8,25 @@ import { PersonalInfoCard } from "./_components/personal-info-form";
 import { OrgSettingsForm } from "./_components/org-settings-form";
 import { DataExportCard } from "./_components/data-export";
 import { DangerZone } from "./_components/danger-zone";
+import { GoogleCalendarCard } from "./_components/google-calendar-card";
+import { getConnectionForUser } from "@/lib/google/calendar";
 
-export default async function SettingsPage() {
+type Search = { google_connected?: string; google_error?: string };
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Search>;
+}) {
   const { profile } = await requireUser();
   const supabase = await createClient();
   const org = Array.isArray(profile.organizations)
     ? profile.organizations[0]
     : profile.organizations;
 
+  const params = (await searchParams) ?? {};
   const settings = await getOrgSettings(supabase, org!.id);
+  const googleConnection = await getConnectionForUser(supabase, profile.id);
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-3xl mx-auto w-full">
@@ -34,6 +44,21 @@ export default async function SettingsPage() {
       />
 
       <OrgSettingsForm initial={settings} />
+
+      <GoogleCalendarCard
+        connected={!!googleConnection}
+        googleEmail={googleConnection?.google_email ?? null}
+        calendarId={googleConnection?.calendar_id ?? null}
+        calendarName={googleConnection?.calendar_name ?? null}
+        bannerKind={
+          params.google_connected
+            ? "connected"
+            : params.google_error
+              ? "error"
+              : null
+        }
+        bannerError={params.google_error ?? null}
+      />
 
       <SubscriptionCard
         plan={org?.subscription_tier ?? "start"}
