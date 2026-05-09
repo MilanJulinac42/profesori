@@ -7,6 +7,10 @@ import {
   Sparkles,
   Check,
   Clock,
+  Banknote,
+  StickyNote,
+  ClipboardCheck,
+  Mic,
 } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -42,9 +46,24 @@ import { AnalyticsSection } from "./_components/analytics-section";
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
 import { RecentActivity } from "./_components/recent-activity";
-import { StickyNote } from "lucide-react";
 
 type Search = { period?: string };
+
+type UpcomingLesson = {
+  id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  status: string;
+  students: { full_name: string } | null;
+};
+
+type SubmittedHomework = {
+  id: string;
+  title: string;
+  student_name: string;
+  submitted_at: string | null;
+  student_id: string;
+};
 
 export default async function DashboardPage({
   searchParams,
@@ -68,7 +87,6 @@ export default async function DashboardPage({
   const settings = await getOrgSettings(supabase, org!.id);
   const billableStatuses = computeBillableStatuses(settings);
 
-  // Concurrent queries.
   const range = getRangeForPeriod(period);
   const [
     { count: activeStudents },
@@ -112,351 +130,393 @@ export default async function DashboardPage({
   const completeness = computeProfileCompleteness(publicProfile);
   const firstName = profile.full_name?.split(" ")[0] ?? "profesore";
 
-  // Trial countdown.
   const trialEnd = org?.trial_ends_at ? new Date(org.trial_ends_at) : null;
   const daysLeft = trialEnd
     ? Math.max(
         0,
-        Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+        Math.ceil(
+          // eslint-disable-next-line react-hooks/purity
+          (trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+        ),
       )
     : 14;
-  const trialProgress = Math.min(100, Math.max(0, ((14 - daysLeft) / 14) * 100));
 
-  // Today.
   const today = new Date();
   const dayName = today.toLocaleDateString("sr-Latn-RS", { weekday: "long" });
   const dayNum = today.getDate();
   const monthName = today.toLocaleDateString("sr-Latn-RS", { month: "long" });
 
-  // Show onboarding only if user has no students and no lessons.
+  const upcomingLessons = (upcoming as UpcomingLesson[] | null) ?? [];
   const showOnboarding = (activeStudents ?? 0) === 0;
+  const profileNeedsAttention =
+    !publicProfile?.published || completeness.score < 80;
+
+  const pendingItems = buildPendingItems({
+    debtors,
+    missingNotesCount,
+    oldestNeedingNotes,
+    submittedHomeworkCount,
+    submittedHomework,
+  });
 
   return (
-    <div className="px-4 sm:px-8 py-6 space-y-6 max-w-6xl mx-auto w-full">
-      {/* Welcome hero */}
-      <section className="relative overflow-hidden rounded-2xl border border-border bg-card">
-        <div
-          className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_80%_60%_at_100%_0%,var(--secondary)_0%,transparent_60%),radial-gradient(ellipse_50%_40%_at_0%_100%,var(--secondary)_0%,transparent_50%)]"
-        />
-        <div
-          className="absolute inset-0 opacity-[0.5] pointer-events-none bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] [background-size:32px_32px] [mask-image:radial-gradient(ellipse_70%_80%_at_50%_50%,black_30%,transparent_80%)]"
-        />
-
-        <div className="relative grid lg:grid-cols-[1fr_auto] gap-6 p-6 sm:p-8">
-          <div className="space-y-5">
-            <div className="space-y-1.5">
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                {dayName}, {dayNum}. {monthName}
-              </p>
-              <h1 className="text-3xl sm:text-4xl font-medium tracking-tight">
-                Dobar dan, {firstName}.
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                {(activeStudents ?? 0) > 0
-                  ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih časova u periodu`
-                  : "Spremno je za nedelju koja dolazi."}
-              </p>
-            </div>
-
-            <div className="max-w-sm space-y-2">
-              <div className="flex items-baseline justify-between text-xs">
-                <span className="text-muted-foreground inline-flex items-center gap-1.5">
-                  <Clock className="size-3" strokeWidth={2} />
-                  Probni period
-                </span>
-                <span className="font-medium tabular-nums">
-                  {daysLeft} {daysLeft === 1 ? "dan" : "dana"} preostalo
-                </span>
-              </div>
-              <div className="h-1 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className="h-full bg-foreground transition-all"
-                  style={{ width: `${trialProgress}%` }}
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Plan:{" "}
-                <span className="font-medium text-foreground">
-                  {org?.subscription_tier}
-                </span>
-                {" · "}
-                <Link href="/settings" className="underline underline-offset-2">
-                  Nadogradi
-                </Link>
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Link
-                href="/students/new"
-                className={buttonVariants({ size: "sm" })}
-              >
-                <Plus className="size-3.5" strokeWidth={2} />
-                Dodaj učenika
-              </Link>
-              <Link
-                href="/schedule"
-                className={buttonVariants({ size: "sm", variant: "outline" })}
-              >
-                Otvori raspored
-              </Link>
-            </div>
+    <div className="px-4 sm:px-8 py-6 max-w-7xl mx-auto w-full space-y-5">
+      {/* Trial banner — only when relevant */}
+      {daysLeft <= 7 && (
+        <div className="rounded-lg border border-border bg-secondary/40 px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <Clock className="size-3.5 text-muted-foreground shrink-0" strokeWidth={2} />
+            <span className="truncate">
+              <span className="font-medium">
+                {daysLeft} {daysLeft === 1 ? "dan" : "dana"} probnog perioda
+              </span>
+              <span className="text-muted-foreground">
+                {" "}
+                preostalo · plan{" "}
+                <span className="text-foreground">{org?.subscription_tier}</span>
+              </span>
+            </span>
           </div>
-
-          <div className="hidden lg:flex flex-col items-end justify-between text-right">
-            <div className="rounded-xl border border-border bg-background/60 backdrop-blur-sm p-4 w-32">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Danas
-              </p>
-              <p className="text-5xl font-medium tracking-tight tabular-nums mt-1">
-                {String(dayNum).padStart(2, "0")}
-              </p>
-              <p className="text-xs text-muted-foreground capitalize mt-0.5">
-                {monthName}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground mt-4">{org?.name}</p>
-          </div>
+          <Link
+            href="/settings"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            Nadogradi
+          </Link>
         </div>
-      </section>
-
-      {/* New bookings preview (only if there are new requests) */}
-      {recentBookings.length > 0 && (
-        <BookingsPreview bookings={recentBookings} />
       )}
 
-      {/* App value widget — "Šta je app uradio za tebe" */}
-      <AppValueWidget stats={appValueStats} />
+      {/* Header — single row: greeting + actions */}
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-2">
+        <div className="space-y-1">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {dayName}, {dayNum}. {monthName}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
+            Dobar dan, {firstName}.
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {(activeStudents ?? 0) > 0
+              ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih u periodu`
+              : "Spremno je za nedelju koja dolazi."}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/students/new"
+            className={buttonVariants({ size: "sm" })}
+          >
+            <Plus className="size-3.5" strokeWidth={2} />
+            Učenik
+          </Link>
+          <Link
+            href="/schedule"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            <CalendarDays className="size-3.5" strokeWidth={1.75} />
+            Raspored
+          </Link>
+          <Link
+            href="/exercises/new"
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            <Sparkles className="size-3.5" strokeWidth={1.75} />
+            Zadaci
+          </Link>
+        </div>
+      </header>
 
-      {/* Debt + missing-notes + homework callouts */}
-      {(debtors.totalDebt > 0 ||
-        missingNotesCount > 0 ||
-        submittedHomeworkCount > 0) && (
-        <section className="grid gap-3 lg:grid-cols-2">
-          {debtors.totalDebt > 0 && <DebtCallout debtors={debtors} />}
-          {missingNotesCount > 0 && (
-            <MissingNotesCallout
-              count={missingNotesCount}
-              oldest={oldestNeedingNotes}
-            />
-          )}
-          {submittedHomeworkCount > 0 && (
-            <HomeworkCallout
-              count={submittedHomeworkCount}
-              recent={submittedHomework}
-            />
-          )}
-        </section>
-      )}
-
-      {/* Analytics */}
-      <AnalyticsSection stats={analytics} period={period} />
-
-      {/* Public profile widget */}
-      <ProfileWidget
-        slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
-        published={publicProfile?.published ?? false}
-        availableForNewStudents={
-          publicProfile?.available_for_new_students ?? true
-        }
-        completeness={completeness}
-      />
-
-      {/* Activity + Upcoming + Onboarding */}
-      <section className="grid gap-3 lg:grid-cols-2">
-        <RecentActivity events={recentActivity} />
-        <div className="space-y-3">
+      {/* Main 8/4 grid */}
+      <div className="grid gap-5 lg:grid-cols-12">
+        {/* Main column */}
+        <div className="lg:col-span-8 space-y-5 min-w-0">
           {showOnboarding && <NextStepsCard />}
-          <UpcomingCard
-            lessons={
-              (upcoming as
-                | {
-                    id: string;
-                    scheduled_at: string;
-                    duration_minutes: number;
-                    status: string;
-                    students: { full_name: string } | null;
-                  }[]
-                | null) ?? []
-            }
-          />
+
+          {/* Pending work — top of main column */}
+          {pendingItems.length > 0 && <PendingWork items={pendingItems} />}
+
+          {/* Upcoming lessons — primary work surface */}
+          <UpcomingCard lessons={upcomingLessons} />
+
+          {/* Activity */}
+          <RecentActivity events={recentActivity} />
+
+          {/* Analytics */}
+          <AnalyticsSection stats={analytics} period={period} />
         </div>
-      </section>
+
+        {/* Side rail */}
+        <aside className="lg:col-span-4 space-y-5 min-w-0">
+          {recentBookings.length > 0 && (
+            <BookingsPreview bookings={recentBookings} />
+          )}
+
+          {/* Mini snapshot — debt + notes inline */}
+          <SideSnapshot
+            debt={debtors.totalDebt}
+            debtorCount={debtors.debtors.length}
+            missingNotes={missingNotesCount}
+            submittedHomework={submittedHomeworkCount}
+          />
+
+          {profileNeedsAttention && (
+            <ProfileWidget
+              slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
+              published={publicProfile?.published ?? false}
+              availableForNewStudents={
+                publicProfile?.available_for_new_students ?? true
+              }
+              completeness={completeness}
+            />
+          )}
+
+          <AppValueWidget stats={appValueStats} />
+        </aside>
+      </div>
     </div>
   );
 }
 
-/* ---------- debt callout ---------- */
-function DebtCallout({
+/* ---------- pending work (unified) ---------- */
+type PendingItem = {
+  key: string;
+  icon: typeof StickyNote;
+  title: string;
+  detail?: string;
+  count: number;
+  countLabel?: string;
+  href: string;
+  cta: string;
+  ctaIcon?: typeof StickyNote;
+  tone?: "default" | "warning";
+};
+
+function buildPendingItems({
   debtors,
+  missingNotesCount,
+  oldestNeedingNotes,
+  submittedHomeworkCount,
+  submittedHomework,
 }: {
   debtors: Awaited<ReturnType<typeof getOrgDebtors>>;
-}) {
-  const top = debtors.debtors.slice(0, 3);
+  missingNotesCount: number;
+  oldestNeedingNotes: LessonNeedingNote | null;
+  submittedHomeworkCount: number;
+  submittedHomework: SubmittedHomework[];
+}): PendingItem[] {
+  const items: PendingItem[] = [];
+
+  if (debtors.totalDebt > 0) {
+    const top = debtors.debtors[0];
+    items.push({
+      key: "debt",
+      icon: Banknote,
+      title: `${formatRsd(debtors.totalDebt)} duga`,
+      detail:
+        debtors.debtors.length > 1
+          ? `${debtors.debtors.length} učenika · najveći ${top?.full_name}`
+          : top?.full_name,
+      count: debtors.debtors.length,
+      countLabel:
+        debtors.debtors.length === 1 ? "učenik" : "učenika",
+      href: "/billing",
+      cta: "Naplati",
+      tone: "warning",
+    });
+  }
+
+  if (missingNotesCount > 0 && oldestNeedingNotes) {
+    const dt = new Date(oldestNeedingNotes.scheduled_at);
+    items.push({
+      key: "notes",
+      icon: StickyNote,
+      title: `${missingNotesCount} ${missingNotesCount === 1 ? "čas bez beleške" : "časova bez beleške"}`,
+      detail: `${oldestNeedingNotes.student_name} · ${dt.toLocaleDateString("sr-Latn-RS", { day: "numeric", month: "short" })}`,
+      count: missingNotesCount,
+      href: `/lessons/${oldestNeedingNotes.id}/note`,
+      cta: "Snimi za poslednji",
+      ctaIcon: Mic,
+    });
+  }
+
+  if (submittedHomeworkCount > 0) {
+    const top = submittedHomework[0];
+    items.push({
+      key: "homework",
+      icon: ClipboardCheck,
+      title: `${submittedHomeworkCount} ${submittedHomeworkCount === 1 ? "domaći" : "domaća"} za pregled`,
+      detail: top ? `${top.student_name} · ${top.title}` : undefined,
+      count: submittedHomeworkCount,
+      href: top ? `/students/${top.student_id}` : "/students",
+      cta: "Pregledaj",
+      ctaIcon: Check,
+    });
+  }
+
+  return items;
+}
+
+function PendingWork({ items }: { items: PendingItem[] }) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Naplata
-          </p>
-          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
-            {formatRsd(debtors.totalDebt)}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {debtors.debtors.length}{" "}
-            {debtors.debtors.length === 1
-              ? "učenik duguje"
-              : "učenika duguju"}
-          </p>
-        </div>
-        <Link
-          href="/billing"
-          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-        >
-          Otvori naplatu
-          <ArrowRight className="size-3" strokeWidth={1.75} />
-        </Link>
+    <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+        <h2 className="text-sm font-medium">Akcije danas</h2>
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
+          {items.length} {items.length === 1 ? "stavka" : "stavki"}
+        </span>
       </div>
-      <ul className="grid sm:grid-cols-3 gap-2 mt-4 pt-4 border-t border-border">
-        {top.map((d) => (
-          <li key={d.student_id}>
-            <Link
-              href={`/students/${d.student_id}`}
-              className="flex items-center justify-between gap-2 rounded-md hover:bg-secondary/40 px-2 py-1.5 transition-colors"
+      <ul className="divide-y divide-border">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const CtaIcon = item.ctaIcon;
+          return (
+            <li
+              key={item.key}
+              className="px-5 py-3.5 flex items-center gap-3"
             >
-              <span className="text-xs truncate">{d.full_name}</span>
-              <span className="text-xs font-medium tabular-nums">
-                {formatRsd(d.debt)}
-              </span>
-            </Link>
-          </li>
-        ))}
+              <div
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-md shrink-0",
+                  item.tone === "warning"
+                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                    : "bg-secondary text-muted-foreground",
+                )}
+              >
+                <Icon className="size-4" strokeWidth={1.75} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{item.title}</p>
+                {item.detail && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {item.detail}
+                  </p>
+                )}
+              </div>
+              <Link
+                href={item.href}
+                className={cn(
+                  buttonVariants({ size: "sm", variant: "outline" }),
+                  "shrink-0",
+                )}
+              >
+                {CtaIcon && <CtaIcon className="size-3.5" strokeWidth={1.75} />}
+                {item.cta}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
 }
 
-/* ---------- missing notes callout ---------- */
-function MissingNotesCallout({
-  count,
-  oldest,
+/* ---------- side snapshot ---------- */
+function SideSnapshot({
+  debt,
+  debtorCount,
+  missingNotes,
+  submittedHomework,
 }: {
-  count: number;
-  oldest: LessonNeedingNote | null;
+  debt: number;
+  debtorCount: number;
+  missingNotes: number;
+  submittedHomework: number;
 }) {
-  const oldestDt = oldest ? new Date(oldest.scheduled_at) : null;
-  return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Beleške
-          </p>
-          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
-            {count}
-          </p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {count === 1
-              ? "održan čas bez beleški"
-              : count < 5
-                ? "održana časa bez beleški"
-                : "održanih časova bez beleški"}
-          </p>
-        </div>
-        {oldest && oldestDt ? (
-          <Link
-            href={`/lessons/${oldest.id}/note`}
-            className={cn(
-              buttonVariants({ size: "sm" }),
-              "shrink-0",
-            )}
-          >
-            <Sparkles className="size-3.5" strokeWidth={2} />
-            Snimi za poslednji
-          </Link>
-        ) : (
-          <Link
-            href="/schedule"
-            className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-          >
-            Otvori raspored
-            <ArrowRight className="size-3" strokeWidth={1.75} />
-          </Link>
-        )}
-      </div>
-      {oldest && oldestDt && (
-        <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
-          <StickyNote className="size-3" strokeWidth={1.75} />
-          {oldest.student_name} ·{" "}
-          {oldestDt.toLocaleDateString("sr-Latn-RS", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          })}{" "}
-          u{" "}
-          {oldestDt.toLocaleTimeString("sr-Latn-RS", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      )}
-    </section>
-  );
-}
+  const allClear = debt === 0 && missingNotes === 0 && submittedHomework === 0;
 
-/* ---------- homework callout (čeka pregled) ---------- */
-function HomeworkCallout({
-  count,
-  recent,
-}: {
-  count: number;
-  recent: { id: string; title: string; student_name: string; submitted_at: string | null; student_id: string }[];
-}) {
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            Domaći za pregled
-          </p>
-          <p className="text-2xl font-medium tracking-tight tabular-nums mt-1">
-            {count}
-          </p>
+    <section className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+        <h2 className="text-sm font-medium">Trenutno stanje</h2>
+      </div>
+      {allClear ? (
+        <div className="px-5 py-6 text-center">
+          <div className="inline-flex size-9 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 mb-2">
+            <Check className="size-4" strokeWidth={2} />
+          </div>
+          <p className="text-sm font-medium">Sve čisto.</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            {count === 1
-              ? "predat domaći čeka ocenu"
-              : count < 5
-                ? "predata domaća čekaju ocenu"
-                : "predatih domaćih čeka ocenu"}
+            Nema dugova, beleški ni domaćih da te čeka.
           </p>
         </div>
-        {recent[0] && (
-          <Link
-            href={`/students/${recent[0].student_id}`}
-            className={cn(buttonVariants({ size: "sm" }), "shrink-0")}
-          >
-            <Check className="size-3.5" strokeWidth={2} />
-            Pregled
-          </Link>
-        )}
-      </div>
-      {recent.length > 0 && (
-        <ul className="mt-3 space-y-1 text-[11px] text-muted-foreground">
-          {recent.map((r) => (
-            <li key={r.id} className="truncate">
-              <span className="font-medium text-foreground">{r.student_name}</span>
-              {" — "}
-              {r.title}
-            </li>
-          ))}
+      ) : (
+        <ul className="divide-y divide-border">
+          <SnapshotRow
+            href="/billing"
+            label="Dug"
+            value={debt > 0 ? formatRsd(debt) : "—"}
+            hint={
+              debt > 0
+                ? `${debtorCount} ${debtorCount === 1 ? "učenik" : "učenika"}`
+                : "Nema dugovanja"
+            }
+            tone={debt > 0 ? "warning" : "muted"}
+          />
+          <SnapshotRow
+            href="/schedule"
+            label="Beleške fale"
+            value={missingNotes > 0 ? String(missingNotes) : "—"}
+            hint={missingNotes > 0 ? "održanih časova" : "Sve popunjeno"}
+            tone={missingNotes > 0 ? "warning" : "muted"}
+          />
+          <SnapshotRow
+            href="/students"
+            label="Domaći za pregled"
+            value={submittedHomework > 0 ? String(submittedHomework) : "—"}
+            hint={
+              submittedHomework > 0
+                ? `${submittedHomework === 1 ? "predat" : "predata"} čeka ocenu`
+                : "Nema neocenjenih"
+            }
+            tone={submittedHomework > 0 ? "warning" : "muted"}
+          />
         </ul>
       )}
     </section>
   );
 }
 
-/* ---------- next steps card ---------- */
+function SnapshotRow({
+  href,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  href: string;
+  label: string;
+  value: string;
+  hint: string;
+  tone: "warning" | "muted";
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex items-baseline justify-between gap-3 px-5 py-3 hover:bg-secondary/40 transition-colors group"
+      >
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground">
+            {label}
+          </p>
+          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+            {hint}
+          </p>
+        </div>
+        <span
+          className={cn(
+            "text-lg font-medium tabular-nums shrink-0",
+            tone === "muted" && "text-muted-foreground",
+          )}
+        >
+          {value}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+/* ---------- next steps card (onboarding) ---------- */
 function NextStepsCard() {
   const steps = [
     {
@@ -547,20 +607,10 @@ function NextStepsCard() {
 }
 
 /* ---------- upcoming card ---------- */
-function UpcomingCard({
-  lessons,
-}: {
-  lessons: {
-    id: string;
-    scheduled_at: string;
-    duration_minutes: number;
-    status: string;
-    students: { full_name: string } | null;
-  }[];
-}) {
+function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
         <h2 className="text-sm font-medium">Sledeći časovi</h2>
         <Link
           href="/schedule"
@@ -594,19 +644,30 @@ function UpcomingCard({
               minute: "2-digit",
             });
             return (
-              <li key={l.id} className="px-5 py-3 flex items-center gap-3">
-                <div className="text-xs tabular-nums text-muted-foreground w-20 shrink-0">
-                  <div>{dateLabel}</div>
-                  <div className="text-foreground font-medium">{timeLabel}</div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">
-                    {l.students?.full_name ?? "Učenik"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {l.duration_minutes} min
-                  </p>
-                </div>
+              <li key={l.id}>
+                <Link
+                  href={`/schedule?lesson=${l.id}`}
+                  className="px-5 py-3 flex items-center gap-3 hover:bg-secondary/40 transition-colors"
+                >
+                  <div className="text-xs tabular-nums w-20 shrink-0">
+                    <div className="text-muted-foreground">{dateLabel}</div>
+                    <div className="text-foreground font-medium">
+                      {timeLabel}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {l.students?.full_name ?? "Učenik"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {l.duration_minutes} min
+                    </p>
+                  </div>
+                  <ArrowRight
+                    className="size-3.5 text-muted-foreground/40"
+                    strokeWidth={1.75}
+                  />
+                </Link>
               </li>
             );
           })}
@@ -615,4 +676,3 @@ function UpcomingCard({
     </div>
   );
 }
-
