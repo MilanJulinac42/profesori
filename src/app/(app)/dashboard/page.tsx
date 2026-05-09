@@ -42,7 +42,11 @@ import {
 } from "@/lib/homework/queries";
 import { getAppValueStats } from "@/lib/dashboard/app-value";
 import { AppValueWidget } from "./_components/app-value-widget";
-import { AnalyticsSection } from "./_components/analytics-section";
+import {
+  AnalyticsTopStrip,
+  CancellationBreakdown,
+  TopStudents,
+} from "./_components/analytics-section";
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
 import { RecentActivity } from "./_components/recent-activity";
@@ -119,7 +123,7 @@ export default async function DashboardPage({
     countLessonsMissingNotes(supabase),
     getOwnPublicProfile(supabase, org!.id),
     getRecentNewBookings(supabase, 4),
-    getRecentActivity(supabase, 8),
+    getRecentActivity(supabase, 12),
     countSubmittedHomework(supabase),
     listSubmittedHomework(supabase, 3),
     getAppValueStats(supabase, org!.id, 7),
@@ -187,7 +191,7 @@ export default async function DashboardPage({
       )}
 
       {/* Header — single row: greeting + actions */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-2">
+      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-1">
         <div className="space-y-1">
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {dayName}, {dayNum}. {monthName}
@@ -226,39 +230,39 @@ export default async function DashboardPage({
         </div>
       </header>
 
+      {/* Onboarding (only if no students yet) */}
+      {showOnboarding && <NextStepsCard />}
+
+      {/* Performance strip — at the top */}
+      <AnalyticsTopStrip stats={analytics} period={period} />
+
+      {/* New bookings — full width when present */}
+      {recentBookings.length > 0 && (
+        <BookingsPreview bookings={recentBookings} />
+      )}
+
       {/* Main 8/4 grid */}
       <div className="grid gap-5 lg:grid-cols-12">
         {/* Main column */}
         <div className="lg:col-span-8 space-y-5 min-w-0">
-          {showOnboarding && <NextStepsCard />}
+          {/* Akcije danas */}
+          {pendingItems.length > 0 ? (
+            <PendingWork items={pendingItems} />
+          ) : (
+            <AllClearCard />
+          )}
 
-          {/* Pending work — top of main column */}
-          {pendingItems.length > 0 && <PendingWork items={pendingItems} />}
-
-          {/* Upcoming lessons — primary work surface */}
+          {/* Upcoming lessons */}
           <UpcomingCard lessons={upcomingLessons} />
 
           {/* Activity */}
           <RecentActivity events={recentActivity} />
-
-          {/* Analytics */}
-          <AnalyticsSection stats={analytics} period={period} />
         </div>
 
-        {/* Side rail */}
+        {/* Side rail — analytics detail */}
         <aside className="lg:col-span-4 space-y-5 min-w-0">
-          {recentBookings.length > 0 && (
-            <BookingsPreview bookings={recentBookings} />
-          )}
-
-          {/* Mini snapshot — debt + notes inline */}
-          <SideSnapshot
-            debt={debtors.totalDebt}
-            debtorCount={debtors.debtors.length}
-            missingNotes={missingNotesCount}
-            submittedHomework={submittedHomeworkCount}
-          />
-
+          <TopStudents students={analytics.topStudents} />
+          <CancellationBreakdown stats={analytics} />
           {profileNeedsAttention && (
             <ProfileWidget
               slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
@@ -269,10 +273,11 @@ export default async function DashboardPage({
               completeness={completeness}
             />
           )}
-
-          <AppValueWidget stats={appValueStats} />
         </aside>
       </div>
+
+      {/* Footer strip — app value */}
+      <AppValueWidget stats={appValueStats} />
     </div>
   );
 }
@@ -283,11 +288,10 @@ type PendingItem = {
   icon: typeof StickyNote;
   title: string;
   detail?: string;
-  count: number;
-  countLabel?: string;
   href: string;
   cta: string;
   ctaIcon?: typeof StickyNote;
+  primary?: boolean;
   tone?: "default" | "warning";
 };
 
@@ -316,12 +320,10 @@ function buildPendingItems({
         debtors.debtors.length > 1
           ? `${debtors.debtors.length} učenika · najveći ${top?.full_name}`
           : top?.full_name,
-      count: debtors.debtors.length,
-      countLabel:
-        debtors.debtors.length === 1 ? "učenik" : "učenika",
       href: "/billing",
       cta: "Naplati",
       tone: "warning",
+      primary: true,
     });
   }
 
@@ -332,9 +334,8 @@ function buildPendingItems({
       icon: StickyNote,
       title: `${missingNotesCount} ${missingNotesCount === 1 ? "čas bez beleške" : "časova bez beleške"}`,
       detail: `${oldestNeedingNotes.student_name} · ${dt.toLocaleDateString("sr-Latn-RS", { day: "numeric", month: "short" })}`,
-      count: missingNotesCount,
       href: `/lessons/${oldestNeedingNotes.id}/note`,
-      cta: "Snimi za poslednji",
+      cta: "Snimi belešku",
       ctaIcon: Mic,
     });
   }
@@ -346,7 +347,6 @@ function buildPendingItems({
       icon: ClipboardCheck,
       title: `${submittedHomeworkCount} ${submittedHomeworkCount === 1 ? "domaći" : "domaća"} za pregled`,
       detail: top ? `${top.student_name} · ${top.title}` : undefined,
-      count: submittedHomeworkCount,
       href: top ? `/students/${top.student_id}` : "/students",
       cta: "Pregledaj",
       ctaIcon: Check,
@@ -360,15 +360,18 @@ function PendingWork({ items }: { items: PendingItem[] }) {
   return (
     <section className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-medium">Akcije danas</h2>
-        <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
-          {items.length} {items.length === 1 ? "stavka" : "stavki"}
-        </span>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium">Akcije danas</h2>
+          <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
+            {items.length} {items.length === 1 ? "stavka" : "stavki"}
+          </span>
+        </div>
       </div>
       <ul className="divide-y divide-border">
-        {items.map((item) => {
+        {items.map((item, i) => {
           const Icon = item.icon;
           const CtaIcon = item.ctaIcon;
+          const variant = i === 0 && item.primary ? "default" : "outline";
           return (
             <li
               key={item.key}
@@ -376,7 +379,7 @@ function PendingWork({ items }: { items: PendingItem[] }) {
             >
               <div
                 className={cn(
-                  "flex size-8 items-center justify-center rounded-md shrink-0",
+                  "flex size-9 items-center justify-center rounded-md shrink-0",
                   item.tone === "warning"
                     ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
                     : "bg-secondary text-muted-foreground",
@@ -395,7 +398,7 @@ function PendingWork({ items }: { items: PendingItem[] }) {
               <Link
                 href={item.href}
                 className={cn(
-                  buttonVariants({ size: "sm", variant: "outline" }),
+                  buttonVariants({ size: "sm", variant }),
                   "shrink-0",
                 )}
               >
@@ -410,109 +413,20 @@ function PendingWork({ items }: { items: PendingItem[] }) {
   );
 }
 
-/* ---------- side snapshot ---------- */
-function SideSnapshot({
-  debt,
-  debtorCount,
-  missingNotes,
-  submittedHomework,
-}: {
-  debt: number;
-  debtorCount: number;
-  missingNotes: number;
-  submittedHomework: number;
-}) {
-  const allClear = debt === 0 && missingNotes === 0 && submittedHomework === 0;
-
+function AllClearCard() {
   return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-        <h2 className="text-sm font-medium">Trenutno stanje</h2>
+    <section className="rounded-xl border border-border bg-card px-5 py-6 flex items-center gap-4">
+      <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shrink-0">
+        <Check className="size-5" strokeWidth={2} />
       </div>
-      {allClear ? (
-        <div className="px-5 py-6 text-center">
-          <div className="inline-flex size-9 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 mb-2">
-            <Check className="size-4" strokeWidth={2} />
-          </div>
-          <p className="text-sm font-medium">Sve čisto.</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Nema dugova, beleški ni domaćih da te čeka.
-          </p>
-        </div>
-      ) : (
-        <ul className="divide-y divide-border">
-          <SnapshotRow
-            href="/billing"
-            label="Dug"
-            value={debt > 0 ? formatRsd(debt) : "—"}
-            hint={
-              debt > 0
-                ? `${debtorCount} ${debtorCount === 1 ? "učenik" : "učenika"}`
-                : "Nema dugovanja"
-            }
-            tone={debt > 0 ? "warning" : "muted"}
-          />
-          <SnapshotRow
-            href="/schedule"
-            label="Beleške fale"
-            value={missingNotes > 0 ? String(missingNotes) : "—"}
-            hint={missingNotes > 0 ? "održanih časova" : "Sve popunjeno"}
-            tone={missingNotes > 0 ? "warning" : "muted"}
-          />
-          <SnapshotRow
-            href="/students"
-            label="Domaći za pregled"
-            value={submittedHomework > 0 ? String(submittedHomework) : "—"}
-            hint={
-              submittedHomework > 0
-                ? `${submittedHomework === 1 ? "predat" : "predata"} čeka ocenu`
-                : "Nema neocenjenih"
-            }
-            tone={submittedHomework > 0 ? "warning" : "muted"}
-          />
-        </ul>
-      )}
+      <div className="min-w-0">
+        <p className="text-sm font-medium">Sve čisto.</p>
+        <p className="text-xs text-muted-foreground">
+          Nema dugova, beleški ni domaćih da te čeka. Otvori raspored ili
+          dodaj učenika.
+        </p>
+      </div>
     </section>
-  );
-}
-
-function SnapshotRow({
-  href,
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  href: string;
-  label: string;
-  value: string;
-  hint: string;
-  tone: "warning" | "muted";
-}) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="flex items-baseline justify-between gap-3 px-5 py-3 hover:bg-secondary/40 transition-colors group"
-      >
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {label}
-          </p>
-          <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-            {hint}
-          </p>
-        </div>
-        <span
-          className={cn(
-            "text-lg font-medium tabular-nums shrink-0",
-            tone === "muted" && "text-muted-foreground",
-          )}
-        >
-          {value}
-        </span>
-      </Link>
-    </li>
   );
 }
 
@@ -621,7 +535,7 @@ function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
         </Link>
       </div>
       {lessons.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10">
+        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-8">
           <div className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
             <CalendarDays className="size-4" strokeWidth={1.75} />
           </div>
@@ -647,7 +561,7 @@ function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
               <li key={l.id}>
                 <Link
                   href={`/schedule?lesson=${l.id}`}
-                  className="px-5 py-3 flex items-center gap-3 hover:bg-secondary/40 transition-colors"
+                  className="px-5 py-2.5 flex items-center gap-3 hover:bg-secondary/40 transition-colors"
                 >
                   <div className="text-xs tabular-nums w-20 shrink-0">
                     <div className="text-muted-foreground">{dateLabel}</div>
@@ -659,7 +573,7 @@ function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
                     <p className="text-sm font-medium truncate">
                       {l.students?.full_name ?? "Učenik"}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[11px] text-muted-foreground">
                       {l.duration_minutes} min
                     </p>
                   </div>

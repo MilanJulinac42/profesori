@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Inbox, Mail, Phone } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
-import { sr } from "date-fns/locale";
+import { srLatn } from "date-fns/locale";
 import type { RecentBooking } from "@/lib/dashboard/queries";
 
 export function BookingsPreview({
@@ -48,7 +48,7 @@ export function BookingsPreview({
                 </p>
                 <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
                   {formatDistanceToNowStrict(new Date(b.created_at), {
-                    locale: sr,
+                    locale: srLatn,
                     addSuffix: true,
                   })}
                 </span>
