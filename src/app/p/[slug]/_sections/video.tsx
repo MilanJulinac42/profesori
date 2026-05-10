@@ -23,11 +23,7 @@ export function VideoSection({ profile }: { profile: PublicProfile }) {
   const src = `https://www.youtube.com/embed/${ytId}${params.toString() ? "?" + params.toString() : ""}`;
 
   return (
-    <section className="space-y-4 max-w-4xl">
-      <div className="flex items-center gap-2">
-        <Play className="size-4 text-muted-foreground" strokeWidth={1.75} />
-        <h2 className="text-base font-medium">Video predstavljanje</h2>
-      </div>
+    <section className="max-w-4xl">
       <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-card aspect-video">
         <iframe
           src={src}

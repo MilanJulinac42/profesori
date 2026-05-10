@@ -7,7 +7,7 @@ import {
   MessageCircle,
   ExternalLink,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/empty-state";
 import { CopyLinkButton } from "./copy-link-button";
 import {
   HOMEWORK_STATUS_LABELS,
@@ -31,30 +31,32 @@ export function HomeworkPanel({
 }: Props) {
   if (items.length === 0) {
     return (
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="text-sm font-medium inline-flex items-center gap-2">
-          <ClipboardList className="size-3.5" strokeWidth={1.75} />
-          Domaći zadaci
-        </h2>
-        <p className="text-sm text-muted-foreground mt-2">
-          Još nije zadato nijedno domaći zadatak. Dodaj domaći iz dialog-a časa
-          (Raspored → klikni čas → sekcija „Domaći za sledeći put").
-        </p>
+      <section className="card-elevated card-glow rounded-2xl py-8">
+        <EmptyState
+          icon={ClipboardList}
+          tile="violet"
+          title="Još nema domaćih zadataka"
+          description="Dodaj domaći iz dialog-a časa (Raspored → klikni čas → sekcija „Domaći za sledeći put“)."
+        />
       </section>
     );
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
+    <section className="card-elevated card-glow rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-medium inline-flex items-center gap-2">
-            <ClipboardList className="size-3.5" strokeWidth={1.75} />
-            Domaći zadaci
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {items.length} ukupno
-          </p>
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-xl tile-violet shrink-0">
+            <ClipboardList className="size-4" strokeWidth={2} />
+          </div>
+          <div>
+            <h2 className="font-display text-xl text-foreground">
+              Domaći zadaci
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {items.length} ukupno
+            </p>
+          </div>
         </div>
       </div>
       <ul className="divide-y divide-border">
@@ -115,11 +117,13 @@ function Row({
     : `https://wa.me/?text=${encodeURIComponent(shareText)}`;
 
   return (
-    <li className="px-5 py-4 space-y-2.5">
+    <li className="px-5 py-4 space-y-3 hover:bg-secondary/20 transition-colors">
       <div className="space-y-1.5">
-        <p className="text-sm font-medium">{hw.title}</p>
+        <p className="text-[0.95rem] font-semibold text-foreground">
+          {hw.title}
+        </p>
         {hw.description && (
-          <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+          <p className="text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
             {hw.description}
           </p>
         )}
@@ -132,20 +136,20 @@ function Row({
             </span>
           )}
           {submittedLabel && (
-            <span className="inline-flex items-center gap-1">
-              <Check className="size-3" strokeWidth={1.75} />
+            <span className="inline-flex items-center gap-1 text-emerald-500 dark:text-emerald-400 font-medium">
+              <Check className="size-3" strokeWidth={2} />
               Predato {submittedLabel}
             </span>
           )}
           {hw.teacher_grade !== null && (
-            <span className="inline-flex items-center gap-1">
-              <Award className="size-3" strokeWidth={1.75} />
+            <span className="inline-flex items-center gap-1 text-amber-500 dark:text-amber-400 font-semibold">
+              <Award className="size-3" strokeWidth={2} />
               {hw.teacher_grade}/5
             </span>
           )}
         </div>
         {hw.submission_note && (
-          <p className="text-xs text-muted-foreground italic mt-1 border-l-2 border-border pl-2">
+          <p className="text-xs text-muted-foreground italic mt-1 border-l-2 border-brand pl-2.5 leading-relaxed">
             „{hw.submission_note}"
           </p>
         )}
@@ -177,17 +181,17 @@ function Row({
           href={whatsappUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background hover:bg-secondary text-xs h-7 px-2.5"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 hover:bg-secondary text-xs font-medium h-7 px-2.5 transition-colors"
         >
-          <MessageCircle className="size-3" strokeWidth={1.75} />
+          <MessageCircle className="size-3" strokeWidth={2} />
           WhatsApp
         </a>
         <Link
           href={`/h/${hw.public_token}`}
           target="_blank"
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-background hover:bg-secondary text-xs h-7 px-2.5"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-secondary/40 hover:bg-secondary text-xs font-medium h-7 px-2.5 transition-colors"
         >
-          <ExternalLink className="size-3" strokeWidth={1.75} />
+          <ExternalLink className="size-3" strokeWidth={2} />
           Otvori
         </Link>
       </div>
@@ -196,17 +200,22 @@ function Row({
 }
 
 function StatusBadge({ status }: { status: HomeworkStatus }) {
-  const tone =
+  const tile =
     status === "submitted"
-      ? "bg-amber-100 text-amber-900 border-amber-300"
+      ? "amber"
       : status === "graded"
-        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+        ? "emerald"
         : status === "skipped"
-          ? "bg-secondary text-muted-foreground border-border"
-          : "bg-secondary text-foreground border-border";
+          ? "rose"
+          : "cyan";
   return (
-    <Badge variant="outline" className={cn("font-normal text-[10px]", tone)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        `tile-${tile}`,
+      )}
+    >
       {HOMEWORK_STATUS_LABELS[status]}
-    </Badge>
+    </span>
   );
 }

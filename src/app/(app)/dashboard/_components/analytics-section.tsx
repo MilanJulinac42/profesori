@@ -28,15 +28,17 @@ export function AnalyticsTopStrip({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-medium">Performanse</h2>
-          <span className="text-xs text-muted-foreground">
-            {PERIOD_LABELS[period].toLowerCase()}
+          <span className="text-[11px] uppercase tracking-[0.12em] font-medium text-muted-foreground">
+            Performanse
+          </span>
+          <span className="text-[11px] text-muted-foreground/70">
+            · {PERIOD_LABELS[period].toLowerCase()}
           </span>
         </div>
         <PeriodSelector active={period} />
       </div>
 
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-xl border border-border bg-card overflow-hidden grid grid-cols-2 lg:grid-cols-4 lg:divide-x divide-y lg:divide-y-0 divide-border">
         <BigMetric
           label="Zarađeno"
           value={formatRsd(stats.revenue, false)}
@@ -47,6 +49,7 @@ export function AnalyticsTopStrip({
               ? `~${formatRsd(stats.averageRevenuePerHeld, false)} po času`
               : "Nema održanih časova"
           }
+          accent
         />
         <BigMetric
           label="Časova održano"
@@ -239,8 +242,8 @@ function PeriodSelector({ active }: { active: AnalyticsPeriod }) {
             className={cn(
               "rounded-[4px] px-2.5 py-1 transition-colors",
               isActive
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                ? "bg-secondary text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {PERIOD_LABELS[p].replace("Poslednjih ", "")}
@@ -258,6 +261,7 @@ function BigMetric({
   icon: Icon,
   hint,
   tone = "default",
+  accent = false,
 }: {
   label: string;
   value: string;
@@ -265,25 +269,36 @@ function BigMetric({
   icon: LucideIcon;
   hint?: string;
   tone?: "default" | "warning";
+  accent?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-2.5 min-h-[100px]">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-xs">{label}</span>
+    <div className="relative px-5 py-4 flex flex-col gap-3 min-h-[120px]">
+      {accent && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-4 bottom-4 w-px bg-brand"
+        />
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[0.1em] font-medium text-muted-foreground">
+          {label}
+        </span>
         <Icon
           className={cn(
-            "size-3.5",
-            tone === "warning" && "text-foreground/70",
+            "size-3.5 text-muted-foreground/60",
+            tone === "warning" && "text-amber-600 dark:text-amber-400",
           )}
           strokeWidth={1.75}
         />
       </div>
       <div className="flex items-baseline gap-1.5 mt-auto">
-        <span className="text-2xl font-medium tracking-tight tabular-nums">
+        <span className="text-3xl sm:text-[2rem] font-semibold tracking-tight tabular-nums leading-none">
           {value}
         </span>
         {unit && (
-          <span className="text-xs text-muted-foreground">{unit}</span>
+          <span className="text-xs text-muted-foreground font-medium">
+            {unit}
+          </span>
         )}
       </div>
       {hint && (

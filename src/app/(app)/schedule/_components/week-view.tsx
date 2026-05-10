@@ -18,8 +18,8 @@ import {
   Plus,
   CalendarDays,
 } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
 import { formatRsd } from "@/lib/money";
 import {
@@ -103,13 +103,13 @@ export function WeekView({
 
   return (
     <>
-      <div className="px-4 sm:px-8 py-6 space-y-5 max-w-7xl mx-auto w-full">
+      <div className="px-4 sm:px-8 py-6 space-y-5 max-w-[1400px] mx-auto w-full">
         <PageHeader
           title="Raspored"
           description={`${monthLabel} · ${rangeLabel}`}
           actions={
-            <Button
-              size="sm"
+            <button
+              type="button"
               data-tour="schedule-create"
               onClick={() => {
                 const today = new Date();
@@ -119,53 +119,63 @@ export function WeekView({
                 openCreate(target);
               }}
               disabled={noStudents}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
-              <Plus className="size-3.5" strokeWidth={2} />
+              <Plus className="size-3.5" strokeWidth={2.25} />
               Novi čas
-            </Button>
+            </button>
           }
         />
 
-        {/* Week navigator */}
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => goToWeek(addDays(weekStart, -7))}
-            aria-label="Prethodna nedelja"
-          >
-            <ChevronLeft className="size-4" strokeWidth={1.75} />
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => goToWeek(new Date())}>
-            Danas
-          </Button>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => goToWeek(addDays(weekStart, 7))}
-            aria-label="Sledeća nedelja"
-          >
-            <ChevronRight className="size-4" strokeWidth={1.75} />
-          </Button>
+        {/* Week navigator + summary */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-card p-0.5">
+            <button
+              type="button"
+              onClick={() => goToWeek(addDays(weekStart, -7))}
+              aria-label="Prethodna nedelja"
+              className="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <ChevronLeft className="size-4" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => goToWeek(new Date())}
+              className="inline-flex items-center justify-center h-8 px-3 rounded-md text-sm font-medium text-foreground hover:bg-secondary transition-colors"
+            >
+              Danas
+            </button>
+            <button
+              type="button"
+              onClick={() => goToWeek(addDays(weekStart, 7))}
+              aria-label="Sledeća nedelja"
+              className="inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+            >
+              <ChevronRight className="size-4" strokeWidth={1.75} />
+            </button>
+          </div>
+
+          {!noStudents && lessons.length > 0 && (
+            <WeekSummary lessons={lessons} />
+          )}
         </div>
 
         {noStudents && (
-          <div className="rounded-lg border border-border bg-card p-6 text-center">
-            <CalendarDays
-              className="size-5 text-muted-foreground mx-auto"
-              strokeWidth={1.75}
-            />
-            <p className="text-sm font-medium mt-3">
-              Dodaj prvo učenika da bi mogao da zakazuješ časove.
-            </p>
-            <Link
-              href="/students/new"
-              className={buttonVariants({ size: "sm" }) + " mt-4"}
-            >
-              <Plus className="size-3.5" strokeWidth={2} />
-              Dodaj učenika
-            </Link>
-          </div>
+          <EmptyState
+            icon={CalendarDays}
+            tile="cyan"
+            title="Dodaj prvo učenika"
+            description="Da bi mogao da zakazuješ časove, prvo treba da dodaš makar jednog učenika u sistem."
+            action={
+              <Link
+                href="/students/new"
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
+              >
+                <Plus className="size-3.5" strokeWidth={2.25} />
+                Dodaj učenika
+              </Link>
+            }
+          />
         )}
 
         {!noStudents && (
@@ -181,20 +191,20 @@ export function WeekView({
                     type="button"
                     onClick={() => setMobileDay(day)}
                     className={cn(
-                      "flex flex-col items-center justify-center shrink-0 rounded-lg border px-3 py-2 min-w-[60px] transition-colors",
+                      "flex flex-col items-center justify-center shrink-0 rounded-xl border px-3 py-2 min-w-[60px] transition-all",
                       active
-                        ? "border-foreground bg-foreground text-background"
-                        : "border-border bg-card hover:bg-secondary",
+                        ? "border-brand bg-brand text-brand-foreground shadow-[0_4px_12px_-4px_oklch(0.78_0.16_205/0.5)]"
+                        : "border-border bg-card hover:bg-secondary/60",
                     )}
                   >
-                    <span className="text-[10px] uppercase tracking-wider opacity-70">
+                    <span className="text-[10px] uppercase tracking-[0.14em] font-semibold opacity-80">
                       {format(day, "EEE", { locale: sr })}
                     </span>
-                    <span className="text-lg font-medium tabular-nums leading-tight">
+                    <span className="text-lg font-semibold tabular-nums leading-tight">
                       {format(day, "d")}
                     </span>
                     {todayMark && !active && (
-                      <span className="size-1 rounded-full bg-foreground mt-0.5" />
+                      <span className="size-1.5 rounded-full bg-brand mt-0.5 pulse-dot" />
                     )}
                   </button>
                 );
@@ -250,10 +260,10 @@ function TimeGrid({
   onLessonClick: (lesson: LessonWithStudent) => void;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="card-elevated card-glow rounded-2xl overflow-hidden">
       <div className="flex">
         {/* Hour gutter */}
-        <div className="w-14 shrink-0 border-r border-border">
+        <div className="w-14 shrink-0 border-r border-border bg-secondary/30">
           {/* Corner spacer */}
           <div className="border-b border-border" style={{ height: HEADER_HEIGHT }} />
           {HOURS.map((h) => (
@@ -308,25 +318,25 @@ function DayColumn({
       {/* Day header */}
       <div
         className={cn(
-          "border-b border-border flex items-center justify-center gap-2 sticky top-0 bg-card z-10",
-          today && "bg-secondary/50",
+          "border-b border-border flex items-center justify-center gap-2 sticky top-0 bg-card z-10 transition-colors",
+          today && "bg-brand-soft dark:bg-[oklch(0.78_0.16_205/0.08)]",
         )}
         style={{ height: HEADER_HEIGHT }}
       >
         <div className="flex items-center gap-2">
           <span
             className={cn(
-              "text-[11px] uppercase tracking-wider",
-              today ? "text-foreground" : "text-muted-foreground",
+              "text-[10px] uppercase tracking-[0.16em] font-semibold",
+              today ? "text-brand" : "text-muted-foreground",
             )}
           >
             {format(day, "EEE", { locale: sr })}
           </span>
           <span
             className={cn(
-              "text-base font-medium tabular-nums",
+              "text-base font-semibold tabular-nums",
               today &&
-                "size-7 rounded-full bg-foreground text-background inline-flex items-center justify-center",
+                "size-7 rounded-full bg-brand text-brand-foreground inline-flex items-center justify-center shadow-[0_2px_8px_-2px_oklch(0.78_0.16_205/0.5)]",
             )}
           >
             {format(day, "d")}
@@ -375,10 +385,72 @@ function NowIndicator() {
       style={{ top }}
     >
       <div className="relative">
-        <div className="absolute -left-1 -top-1 size-2 rounded-full bg-destructive" />
-        <div className="h-px bg-destructive" />
+        <div className="absolute -left-1.5 -top-1.5 size-3 rounded-full bg-brand pulse-dot" />
+        <div className="h-[1.5px] bg-brand shadow-[0_0_8px_-1px_oklch(0.78_0.16_205/0.6)]" />
       </div>
     </div>
+  );
+}
+
+function WeekSummary({ lessons }: { lessons: LessonWithStudent[] }) {
+  const scheduled = lessons.filter((l) => l.status === "scheduled").length;
+  const completed = lessons.filter((l) => l.status === "completed").length;
+  const cancelled = lessons.filter(
+    (l) =>
+      l.status === "cancelled_by_teacher" ||
+      l.status === "cancelled_by_student" ||
+      l.status === "no_show",
+  ).length;
+  const revenue = lessons
+    .filter((l) => l.status === "completed")
+    .reduce((sum, l) => sum + l.price, 0);
+
+  return (
+    <div className="flex items-center gap-4 text-xs flex-wrap">
+      <SummaryItem
+        dotClass="bg-brand"
+        label="zakazano"
+        value={String(scheduled)}
+      />
+      <SummaryItem
+        dotClass="bg-emerald-500 dark:bg-emerald-400"
+        label="održano"
+        value={String(completed)}
+      />
+      {cancelled > 0 && (
+        <SummaryItem
+          dotClass="bg-rose-500 dark:bg-rose-400"
+          label="otkazano"
+          value={String(cancelled)}
+        />
+      )}
+      {revenue > 0 && (
+        <span className="text-muted-foreground tabular-nums">
+          ·{" "}
+          <span className="font-semibold text-foreground">
+            {formatRsd(revenue)}
+          </span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SummaryItem({
+  dotClass,
+  label,
+  value,
+}: {
+  dotClass: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-muted-foreground tabular-nums">
+      <span className={cn("size-1.5 rounded-full", dotClass)} />
+      <span className="font-semibold text-foreground">{value}</span>
+      <span className="text-muted-foreground/80">{label}</span>
+    </span>
   );
 }
 
@@ -469,33 +541,38 @@ const STATUS_TONE: Record<
   { border: string; bg: string; hover: string; text: string }
 > = {
   scheduled: {
-    border: "border-foreground/15",
-    bg: "bg-foreground text-background dark:bg-foreground/90",
-    hover: "hover:bg-foreground/90",
-    text: "text-background",
+    border: "border-[oklch(0.78_0.16_205/0.4)] dark:border-[oklch(0.78_0.16_205/0.4)]",
+    bg: "bg-[oklch(0.78_0.16_205)] dark:bg-[oklch(0.4_0.16_205/0.5)]",
+    hover:
+      "hover:bg-[oklch(0.72_0.18_205)] dark:hover:bg-[oklch(0.45_0.18_205/0.6)]",
+    text: "text-white dark:text-[oklch(0.92_0.08_205)]",
   },
   completed: {
-    border: "border-border",
-    bg: "bg-secondary/70",
-    hover: "hover:bg-secondary",
-    text: "text-muted-foreground line-through",
+    border:
+      "border-[oklch(0.74_0.2_150/0.35)] dark:border-[oklch(0.74_0.2_150/0.35)]",
+    bg: "bg-[oklch(0.92_0.08_150)] dark:bg-[oklch(0.35_0.14_150/0.4)]",
+    hover:
+      "hover:bg-[oklch(0.88_0.1_150)] dark:hover:bg-[oklch(0.4_0.16_150/0.5)]",
+    text: "text-[oklch(0.35_0.14_150)] dark:text-[oklch(0.85_0.13_150)]",
   },
   cancelled_by_teacher: {
     border: "border-dashed border-border",
-    bg: "bg-card",
-    hover: "hover:bg-secondary/40",
+    bg: "bg-secondary/40",
+    hover: "hover:bg-secondary/70",
     text: "text-muted-foreground line-through",
   },
   cancelled_by_student: {
     border: "border-dashed border-border",
-    bg: "bg-card",
-    hover: "hover:bg-secondary/40",
+    bg: "bg-secondary/40",
+    hover: "hover:bg-secondary/70",
     text: "text-muted-foreground line-through",
   },
   no_show: {
-    border: "border-destructive/40",
-    bg: "bg-destructive/10",
-    hover: "hover:bg-destructive/15",
-    text: "text-destructive",
+    border:
+      "border-[oklch(0.65_0.25_25/0.4)] dark:border-[oklch(0.65_0.25_25/0.4)]",
+    bg: "bg-[oklch(0.94_0.08_15)] dark:bg-[oklch(0.35_0.18_15/0.4)]",
+    hover:
+      "hover:bg-[oklch(0.9_0.1_15)] dark:hover:bg-[oklch(0.4_0.2_15/0.5)]",
+    text: "text-[oklch(0.45_0.2_15)] dark:text-[oklch(0.85_0.16_15)]",
   },
 };

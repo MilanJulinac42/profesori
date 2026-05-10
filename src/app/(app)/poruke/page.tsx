@@ -1,6 +1,7 @@
-import { ArrowLeft, MessageCircle, Sparkles } from "lucide-react";
+import { ArrowLeft, MessageCircle, Plus, Sparkles, Users } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/empty-state";
 import { BulkForm } from "./_components/bulk-form";
 
 export default async function PorukePage() {
@@ -58,11 +59,21 @@ export default async function PorukePage() {
       </header>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-secondary/20 p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nemaš aktivnih učenika. Dodaj prvog pa se vrati ovde.
-          </p>
-        </div>
+        <EmptyState
+          icon={Users}
+          tile="violet"
+          title="Nemaš aktivnih učenika"
+          description="Dodaj prvog učenika pa se vrati ovde — moći ćeš da im šalješ bulk poruke jednim klikom."
+          action={
+            <Link
+              href="/students/new"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
+            >
+              <Plus className="size-3.5" strokeWidth={2.25} />
+              Dodaj učenika
+            </Link>
+          }
+        />
       ) : (
         <BulkForm students={list} />
       )}

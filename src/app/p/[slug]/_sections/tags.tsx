@@ -13,13 +13,7 @@ export function TagsSection({ profile }: { profile: PublicProfile }) {
   if (!hasAny) return null;
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight">Šta predajem</h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Predmeti, nivoi i specijalnosti.
-        </p>
-      </div>
+    <section className="space-y-3">
       <div className="space-y-3">
         {profile.subjects.length > 0 && (
           <TagRow

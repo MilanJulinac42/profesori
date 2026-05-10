@@ -10,7 +10,6 @@ import {
   Calendar,
   AlertCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { parseParentMessageAction } from "@/lib/messages/parse";
@@ -95,34 +94,39 @@ export function ParserForm() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
+        <button
           type="button"
           onClick={analyze}
           disabled={pending || !text.trim()}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
         >
           {pending ? (
             <Loader2 className="size-4 animate-spin" strokeWidth={2} />
           ) : (
-            <Sparkles className="size-4" strokeWidth={2} />
+            <Sparkles className="size-4" strokeWidth={2.25} />
           )}
           Analiziraj
-        </Button>
+        </button>
         {(result || error) && (
-          <Button type="button" variant="ghost" onClick={reset}>
+          <button
+            type="button"
+            onClick={reset}
+            className="inline-flex items-center h-9 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
             Izbriši
-          </Button>
+          </button>
         )}
       </div>
 
       {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive inline-flex items-center gap-2">
-          <AlertCircle className="size-4" strokeWidth={1.75} />
+        <div className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm text-rose-500 dark:text-rose-400 inline-flex items-center gap-2">
+          <AlertCircle className="size-4" strokeWidth={2} />
           {error}
         </div>
       )}
 
       {result && (
-        <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="card-elevated card-glow rounded-2xl p-5 space-y-4">
           {/* Intent */}
           <div className="flex items-center gap-2 flex-wrap">
             <Badge
@@ -167,20 +171,18 @@ export function ParserForm() {
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 Predlog odgovora
               </p>
-              <Button
+              <button
                 type="button"
-                size="sm"
-                variant="outline"
                 onClick={copyReply}
-                className="h-7"
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-md bg-card border border-border text-foreground text-xs font-medium hover:bg-secondary hover:border-brand/40 transition-colors"
               >
                 {copiedReply ? (
-                  <Check className="size-3.5" strokeWidth={2} />
+                  <Check className="size-3.5 text-emerald-500 dark:text-emerald-400" strokeWidth={2.25} />
                 ) : (
-                  <Copy className="size-3.5" strokeWidth={1.75} />
+                  <Copy className="size-3.5" strokeWidth={2} />
                 )}
                 {copiedReply ? "Kopirano" : "Kopiraj"}
-              </Button>
+              </button>
             </div>
             <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm leading-relaxed whitespace-pre-wrap">
               {result.suggested_reply}

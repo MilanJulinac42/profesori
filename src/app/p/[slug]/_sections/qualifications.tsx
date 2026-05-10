@@ -8,11 +8,7 @@ export function QualificationsSection({
 }) {
   if (profile.qualifications.length === 0) return null;
   return (
-    <section className="space-y-6">
-      <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-        <GraduationCap className="size-5" strokeWidth={1.75} />
-        Obrazovanje i sertifikati
-      </h2>
+    <section>
       <div className="grid sm:grid-cols-2 gap-3">
         {profile.qualifications.map((q, i) => (
           <div

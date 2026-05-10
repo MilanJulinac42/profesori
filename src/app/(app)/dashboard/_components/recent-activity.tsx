@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { srLatn } from "date-fns/locale";
+import { EmptyState } from "@/components/empty-state";
 import { formatRsd } from "@/lib/money";
 import type {
   ActivityEvent,
@@ -83,19 +84,26 @@ export function RecentActivity({ events }: { events: ActivityEvent[] }) {
   const groups = groupConsecutive(events);
 
   return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="size-4 text-muted-foreground" strokeWidth={1.75} />
-          <h2 className="text-sm font-medium">Skorija aktivnost</h2>
+    <section className="card-elevated card-glow rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-lg tile-cyan shrink-0">
+            <Activity className="size-3.5" strokeWidth={2} />
+          </div>
+          <h2 className="font-display text-lg text-foreground">
+            Skorija aktivnost
+          </h2>
         </div>
       </div>
       {groups.length === 0 ? (
-        <div className="px-5 py-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Još nema aktivnosti. Dodaj učenika ili zakaži čas da vidiš
-            istoriju.
-          </p>
+        <div className="py-6">
+          <EmptyState
+            icon={Activity}
+            tile="cyan"
+            size="compact"
+            title="Još nema aktivnosti"
+            description="Dodaj učenika ili zakaži čas da vidiš istoriju."
+          />
         </div>
       ) : (
         <ul className="divide-y divide-border">

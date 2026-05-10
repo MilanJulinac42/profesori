@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { Sparkles, Loader2, Check, Pencil } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,7 +55,7 @@ function ParamsForm({
   pending: boolean;
 }) {
   return (
-    <form action={formAction} className="space-y-6 rounded-xl border border-border bg-card p-6">
+    <form action={formAction} className="space-y-6 card-elevated card-glow rounded-2xl p-6">
       <div className="space-y-1.5">
         <Label htmlFor="subject" className="text-xs">
           Predmet <span className="text-destructive">*</span>
@@ -187,20 +186,24 @@ function ParamsForm({
         </div>
       )}
 
-      <div className="flex items-center gap-2 pt-2">
-        <Button type="submit" disabled={pending}>
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+        >
           {pending ? (
             <>
               <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-              Generišem... (10-20s)
+              Generišem… (10-20s)
             </>
           ) : (
             <>
-              <Sparkles className="size-4" strokeWidth={2} />
+              <Sparkles className="size-4" strokeWidth={2.25} />
               Generiši zadatke
             </>
           )}
-        </Button>
+        </button>
         <p className="text-xs text-muted-foreground">
           AI piše zadatke, rešenja i objašnjenja.
         </p>
@@ -222,7 +225,7 @@ function Preview({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+      <div className="card-elevated card-glow rounded-2xl p-6 space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-lg font-medium leading-snug">{preview.title}</h2>
@@ -244,17 +247,20 @@ function Preview({
           </p>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border">
           <form action={saveExerciseSetAction}>
             <input type="hidden" name="payload" value={payload} />
-            <Button type="submit">
-              <Check className="size-4" strokeWidth={2} />
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand"
+            >
+              <Check className="size-4" strokeWidth={2.25} />
               Sačuvaj u banku
-            </Button>
+            </button>
           </form>
           <Link
             href="/exercises/new"
-            className={buttonVariants({ variant: "outline" })}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
           >
             <Pencil className="size-4" strokeWidth={2} />
             Promeni parametre
@@ -266,7 +272,7 @@ function Preview({
         {preview.exercises.map((ex, i) => (
           <li
             key={i}
-            className="rounded-xl border border-border bg-card p-5 space-y-3"
+            className="card-elevated card-glow rounded-2xl p-5 space-y-3"
           >
             <div className="flex items-baseline gap-3">
               <span className="text-sm font-medium tabular-nums text-muted-foreground shrink-0">

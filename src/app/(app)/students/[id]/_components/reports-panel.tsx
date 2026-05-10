@@ -157,21 +157,26 @@ export function ReportsPanel({
     <>
       <section
         data-tour="reports-panel"
-        className="rounded-xl border border-border bg-card overflow-hidden"
+        className="card-elevated card-glow rounded-2xl overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-border flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-medium">Izveštaji</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Šalje se {recipientLabel}. Ova publika i email se menjaju u{" "}
-              <Link
-                href={`/students/${studentId}/edit`}
-                className="underline underline-offset-4 hover:text-foreground"
-              >
-                izmeni profil
-              </Link>
-              .
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 items-center justify-center rounded-xl tile-amber shrink-0">
+              <Mail className="size-4" strokeWidth={2} />
+            </div>
+            <div>
+              <h2 className="font-display text-xl text-foreground">Izveštaji</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Šalje se {recipientLabel}. Ova publika i email se menjaju u{" "}
+                <Link
+                  href={`/students/${studentId}/edit`}
+                  className="underline underline-offset-4 hover:text-foreground"
+                >
+                  izmeni profil
+                </Link>
+                .
+              </p>
+            </div>
           </div>
         </div>
 
@@ -210,14 +215,14 @@ export function ReportsPanel({
           </div>
 
           {sendOk && (
-            <p className="text-xs text-foreground inline-flex items-center gap-1.5">
-              <Check className="size-3" strokeWidth={2} />
+            <p className="text-xs text-emerald-500 dark:text-emerald-400 font-medium inline-flex items-center gap-1.5">
+              <Check className="size-3" strokeWidth={2.25} />
               {sendOk}
             </p>
           )}
           {sendError && (
-            <p className="text-xs text-destructive inline-flex items-start gap-1.5">
-              <AlertCircle className="size-3 mt-0.5 shrink-0" strokeWidth={1.75} />
+            <p className="text-xs text-rose-500 dark:text-rose-400 font-medium inline-flex items-start gap-1.5">
+              <AlertCircle className="size-3 mt-0.5 shrink-0" strokeWidth={2} />
               {sendError}
             </p>
           )}
@@ -225,8 +230,8 @@ export function ReportsPanel({
 
         {logs.length > 0 && (
           <div className="border-t border-border">
-            <div className="px-5 py-2 bg-secondary/30">
-              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <div className="px-5 py-2.5 bg-secondary/30">
+              <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
                 Istorija ({logs.length})
               </p>
             </div>
@@ -385,35 +390,45 @@ function ReportCta({
   return (
     <div
       className={cn(
-        "rounded-md border p-3 space-y-2",
+        "rounded-xl border p-3.5 space-y-2.5 transition-colors",
         enabled
-          ? "border-border bg-background"
-          : "border-border/50 bg-secondary/30",
+          ? "border-border bg-card hover:border-brand/30"
+          : "border-border/40 bg-secondary/30 opacity-70",
       )}
     >
-      <div className="flex items-center gap-1.5">
-        <CalendarRange className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
-        <p className="text-sm font-medium">{REPORT_KIND_LABELS[kind]}</p>
+      <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "flex size-7 items-center justify-center rounded-lg shrink-0",
+            enabled ? "tile-amber" : "bg-secondary text-muted-foreground",
+          )}
+        >
+          <CalendarRange className="size-3.5" strokeWidth={2} />
+        </div>
+        <p className="text-sm font-semibold text-foreground">
+          {REPORT_KIND_LABELS[kind]}
+        </p>
       </div>
       {disabledReason && (
-        <p className="text-[11px] text-muted-foreground">{disabledReason}</p>
+        <p className="text-[11px] text-muted-foreground italic">
+          {disabledReason}
+        </p>
       )}
       <div className="flex items-center gap-1.5 pt-1">
-        <Button
+        <button
           type="button"
-          size="sm"
-          variant="outline"
           onClick={onPreview}
           disabled={!enabled || pending}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-card border border-border text-foreground text-[0.8rem] font-medium hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Eye className="size-3.5" strokeWidth={1.75} />
           Pregled
-        </Button>
-        <Button
+        </button>
+        <button
           type="button"
-          size="sm"
           onClick={onSend}
           disabled={!enabled || pending}
+          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-brand text-brand-foreground text-[0.8rem] font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
         >
           {sending ? (
             <>
@@ -426,7 +441,7 @@ function ReportCta({
               Pošalji
             </>
           )}
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -452,8 +467,8 @@ function LogRow({
       : null;
 
   return (
-    <li className="px-5 py-3 flex items-center gap-3">
-      <div className="text-xs tabular-nums text-muted-foreground w-24 shrink-0">
+    <li className="px-5 py-3 flex items-center gap-3 hover:bg-secondary/20 transition-colors">
+      <div className="text-xs tabular-nums text-muted-foreground w-24 shrink-0 font-medium">
         {updatedDt.toLocaleDateString("sr-Latn-RS", {
           day: "numeric",
           month: "short",
@@ -461,7 +476,7 @@ function LogRow({
         })}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">
+        <div className="text-sm font-semibold truncate text-foreground">
           {REPORT_KIND_LABELS[log.kind]}
           {periodLabel && (
             <span className="ml-1.5 font-normal text-muted-foreground">
@@ -476,7 +491,7 @@ function LogRow({
               {log.recipient_email}
             </>
           ) : (
-            <span>nije poslat</span>
+            <span className="italic">nije poslat</span>
           )}
         </div>
       </div>
@@ -509,34 +524,31 @@ function LogRow({
 function StatusBadge({ status }: { status: ReportLog["status"] }) {
   if (status === "sent") {
     return (
-      <Badge variant="outline" className="font-normal text-[10px] gap-1">
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tile-emerald">
         <Check className="size-2.5" strokeWidth={2.5} />
         Poslato
-      </Badge>
+      </span>
     );
   }
   if (status === "failed") {
     return (
-      <Badge
-        variant="outline"
-        className="font-normal text-[10px] gap-1 border-destructive/40 text-destructive"
-      >
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tile-rose">
         <X className="size-2.5" strokeWidth={2.5} />
         Greška
-      </Badge>
+      </span>
     );
   }
   if (status === "draft") {
     return (
-      <Badge variant="secondary" className="font-normal text-[10px] gap-1">
+      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tile-amber">
         <FileEdit className="size-2.5" strokeWidth={2} />
         Nacrt
-      </Badge>
+      </span>
     );
   }
   return (
-    <Badge variant="secondary" className="font-normal text-[10px]">
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-secondary text-muted-foreground">
       Preview
-    </Badge>
+    </span>
   );
 }

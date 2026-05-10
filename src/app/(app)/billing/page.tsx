@@ -25,7 +25,7 @@ export default async function BillingPage({
   const supabase = await createClient();
   const params = await searchParams;
   const period: AnalyticsPeriod = (
-    ["week", "month", "30d", "all"].includes(params.period ?? "")
+    ["week", "month", "all"].includes(params.period ?? "")
       ? params.period
       : "month"
   ) as AnalyticsPeriod;

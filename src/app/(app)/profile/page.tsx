@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { ExternalLink, Inbox } from "lucide-react";
+import { ExternalLink, Inbox, Globe, Lightbulb } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
-import { buttonVariants } from "@/components/ui/button";
 import { getOwnPublicProfile } from "@/lib/public-profile/queries";
 import { countNewBookings } from "@/lib/booking/queries";
 import { ProfileForm } from "./_components/profile-form";
@@ -59,7 +58,7 @@ export default async function PublicProfilePage() {
     : null;
 
   return (
-    <div className="px-4 sm:px-8 py-6 space-y-6 max-w-5xl mx-auto w-full">
+    <div className="px-4 sm:px-8 py-6 space-y-6 max-w-[1400px] mx-auto w-full">
       <PageHeader
         title="Javni profil"
         description="Stranica koju roditelji vide kad im pošalješ link."
@@ -69,7 +68,7 @@ export default async function PublicProfilePage() {
               <Link
                 href={publicUrl}
                 target="_blank"
-                className={buttonVariants({ variant: "outline", size: "sm" })}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
               >
                 <ExternalLink className="size-3.5" strokeWidth={1.75} />
                 Otvori javnu stranicu
@@ -77,15 +76,16 @@ export default async function PublicProfilePage() {
             )}
             <Link
               href="/profile/inbox"
-              className={buttonVariants({
-                variant: newBookings > 0 ? "default" : "outline",
-                size: "sm",
-              })}
+              className={
+                newBookings > 0
+                  ? "inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
+                  : "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+              }
             >
               <Inbox className="size-3.5" strokeWidth={1.75} />
               Upiti
               {newBookings > 0 && (
-                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-background text-foreground text-[10px] font-medium px-1 ml-1">
+                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] rounded-full bg-brand-foreground text-brand text-[10px] font-bold px-1 ml-0.5 tabular-nums">
                   {newBookings}
                 </span>
               )}
@@ -94,32 +94,69 @@ export default async function PublicProfilePage() {
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <ProfileForm initial={initial} organizationId={org!.id} />
 
         <aside className="space-y-3 lg:sticky lg:top-20 self-start">
-          <div className="rounded-xl border border-border bg-card p-5 space-y-2">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Tvoj javni link
+          <div className="card-elevated card-glow rounded-2xl p-5 space-y-2.5">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 items-center justify-center rounded-lg tile-cyan shrink-0">
+                <Globe className="size-3.5" strokeWidth={2} />
+              </div>
+              <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+                Tvoj javni link
+              </p>
+            </div>
+            <p className="text-sm font-mono break-all px-2.5 py-1.5 rounded-md bg-secondary/60 text-foreground">
+              /p/{initial.slug}
             </p>
-            <p className="text-sm font-mono break-all">/p/{initial.slug}</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              {profile?.published
-                ? "Aktiviran — vidljiv svima sa linkom."
-                : "Nije aktiviran. Uključi ‘Objavi profil’ da bi link radio."}
+            <p className="text-xs text-muted-foreground leading-relaxed inline-flex items-center gap-1.5">
+              {profile?.published ? (
+                <>
+                  <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 pulse-dot" />
+                  <span className="text-emerald-500 dark:text-emerald-400 font-medium">
+                    Aktiviran
+                  </span>
+                  <span>— vidljiv svima sa linkom.</span>
+                </>
+              ) : (
+                <>
+                  <span className="size-1.5 rounded-full bg-muted-foreground" />
+                  <span>
+                    Nije aktiviran. Uključi „Objavi profil“ da bi link radio.
+                  </span>
+                </>
+              )}
             </p>
           </div>
 
-          <div className="rounded-xl border border-border bg-card p-5 space-y-2.5">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Šta uneti
-            </p>
-            <ul className="text-sm text-muted-foreground space-y-1.5 leading-relaxed">
-              <li>· Predmete koje predaješ</li>
-              <li>· Nivoe i specijalnosti (priprema za maturu, ...)</li>
-              <li>· Kratku biografiju i iskustvo</li>
-              <li>· Cenovni raspon (npr. „od 1500 RSD/čas“)</li>
-              <li>· Fotografiju</li>
+          <div className="card-elevated card-glow rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-8 items-center justify-center rounded-lg tile-amber shrink-0">
+                <Lightbulb className="size-3.5" strokeWidth={2} />
+              </div>
+              <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+                Šta uneti
+              </p>
+            </div>
+            <ul className="text-xs text-muted-foreground space-y-1.5 leading-relaxed">
+              {[
+                "Predmete koje predaješ",
+                "Nivoe i specijalnosti (priprema za maturu, ...)",
+                "Kratku biografiju i iskustvo",
+                "Cenovni raspon (npr. „od 1500 RSD/čas“)",
+                "Fotografiju",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span
+                    aria-hidden
+                    className="text-brand mt-0.5 shrink-0"
+                  >
+                    →
+                  </span>
+                  <span>{item}</span>
+                </li>
+              ))}
             </ul>
           </div>
         </aside>

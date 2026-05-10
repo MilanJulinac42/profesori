@@ -7,6 +7,7 @@ import {
   Check,
   Clock,
 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
 import type { AppValueStats } from "@/lib/dashboard/app-value";
 
 type Props = {
@@ -27,15 +28,14 @@ export function AppValueWidget({ stats }: Props) {
     return (
       <section
         data-tour="app-value"
-        className="rounded-xl border border-dashed border-border bg-secondary/20 p-4"
+        className="card-elevated card-glow rounded-2xl py-6"
       >
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">
-          Šta je app uradio za tebe
-        </p>
-        <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-          Posle prvih nekoliko časova ovde ćeš videti koliko ti vremena app
-          štedi nedeljno.
-        </p>
+        <EmptyState
+          icon={Clock}
+          tile="violet"
+          title="Šta je app uradio za tebe"
+          description="Posle prvih nekoliko časova ovde ćeš videti koliko ti vremena app štedi nedeljno."
+        />
       </section>
     );
   }

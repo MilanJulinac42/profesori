@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -161,26 +160,26 @@ export function BulkForm({ students }: { students: Student[] }) {
               type="button"
               onClick={() => setChannel("whatsapp")}
               className={cn(
-                "flex items-center justify-center gap-2 rounded-md border p-3 text-sm transition",
+                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-all",
                 channel === "whatsapp"
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-background hover:bg-secondary",
+                  ? "border-brand bg-brand text-brand-foreground shadow-[0_4px_12px_-4px_oklch(0.78_0.16_205/0.4)]"
+                  : "border-border bg-card hover:bg-secondary hover:border-brand/40",
               )}
             >
-              <MessageCircle className="size-4" strokeWidth={1.75} />
+              <MessageCircle className="size-4" strokeWidth={2} />
               WhatsApp
             </button>
             <button
               type="button"
               onClick={() => setChannel("email")}
               className={cn(
-                "flex items-center justify-center gap-2 rounded-md border p-3 text-sm transition",
+                "flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-medium transition-all",
                 channel === "email"
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-background hover:bg-secondary",
+                  ? "border-brand bg-brand text-brand-foreground shadow-[0_4px_12px_-4px_oklch(0.78_0.16_205/0.4)]"
+                  : "border-border bg-card hover:bg-secondary hover:border-brand/40",
               )}
             >
-              <Mail className="size-4" strokeWidth={1.75} />
+              <Mail className="size-4" strokeWidth={2} />
               Email (mailto)
             </button>
           </div>
@@ -195,7 +194,7 @@ export function BulkForm({ students }: { students: Student[] }) {
                 key={t.id}
                 type="button"
                 onClick={() => applyTemplateChoice(t.body)}
-                className="rounded-md border border-border bg-background hover:bg-secondary text-xs h-7 px-2.5"
+                className="rounded-lg border border-border bg-card hover:bg-secondary hover:border-brand/40 text-xs font-medium h-7 px-2.5 transition-colors"
               >
                 {t.label}
               </button>
@@ -262,29 +261,29 @@ export function BulkForm({ students }: { students: Student[] }) {
         )}
 
         {channelInvalidNoEmail && (
-          <p className="text-xs text-destructive inline-flex items-center gap-1.5">
-            <AlertCircle className="size-3" strokeWidth={1.75} />
+          <p className="text-xs text-rose-500 dark:text-rose-400 font-medium inline-flex items-center gap-1.5">
+            <AlertCircle className="size-3" strokeWidth={2} />
             Nijedan od izabranih nema unet email roditelja.
           </p>
         )}
 
         {/* Send */}
         <div className="flex items-center gap-3 pt-2">
-          <Button
+          <button
             type="button"
-            size="lg"
             onClick={sendAll}
             disabled={!hasMessage || validRecipients.length === 0 || opening}
+            className="inline-flex items-center gap-1.5 h-11 px-5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
           >
             {opening ? (
               <Loader2 className="size-4 animate-spin" strokeWidth={2} />
             ) : (
-              <ExternalLink className="size-4" strokeWidth={2} />
+              <ExternalLink className="size-4" strokeWidth={2.25} />
             )}
             Otvori {validRecipients.length}{" "}
             {channel === "whatsapp" ? "WhatsApp" : "email"} prozor
             {validRecipients.length === 1 ? "" : "a"}
-          </Button>
+          </button>
           <p className="text-[11px] text-muted-foreground max-w-xs">
             Otvara svaki razgovor u novom tab-u. Možda treba da dozvoliš
             popup-ove u browseru za ovu stranicu.
@@ -306,7 +305,7 @@ export function BulkForm({ students }: { students: Student[] }) {
             {allSelected ? "Demarkiraj sve" : "Izaberi sve"}
           </button>
         </div>
-        <ul className="border border-border rounded-lg divide-y divide-border bg-card">
+        <ul className="card-elevated card-glow rounded-2xl divide-y divide-border overflow-hidden">
           {students.map((s) => {
             const isSelected = selectedIds.has(s.id);
             const validForChannel =

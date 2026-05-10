@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { PageTransition } from "@/components/layout/page-transition";
 import { countNewBookings } from "@/lib/booking/queries";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -28,11 +29,30 @@ export default async function AppLayout({
   const badges = { newBookings };
   const showOnboarding = !profile.onboarding_completed_at;
 
+  const org = Array.isArray(profile.organizations)
+    ? profile.organizations[0]
+    : profile.organizations;
+  const trialEnd = org?.trial_ends_at ? new Date(org.trial_ends_at) : null;
+  const daysLeft = trialEnd
+    ? Math.max(
+        0,
+        // eslint-disable-next-line react-hooks/purity
+        Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+      )
+    : 14;
+  const trial = org
+    ? {
+        daysLeft,
+        tier: org.subscription_tier ?? "start",
+        status: org.subscription_status ?? "trialing",
+      }
+    : undefined;
+
   return (
     <ThemeProvider
       attribute="class"
-      defaultTheme="system"
-      enableSystem
+      defaultTheme="dark"
+      enableSystem={false}
       disableTransitionOnChange
     >
       <TourProvider
@@ -40,16 +60,21 @@ export default async function AppLayout({
         firstStudentId={(firstStudent?.id as string | undefined) ?? null}
       >
         <div className="flex-1 flex">
-          <Sidebar badges={badges} />
+          <Sidebar
+            badges={badges}
+            user={{ name: userName, email: profile.email }}
+            trial={trial}
+          />
           <div className="flex-1 flex flex-col min-w-0">
-            <Topbar userName={userName} badges={badges} />
-            <main className="flex-1">{children}</main>
-            <footer className="border-t border-border py-4 print:hidden">
-              <p className="px-4 sm:px-8 text-xs text-muted-foreground">
-                Platforma služi za evidenciju duga i uplata. Sve novčane
-                transakcije odvijaju se direktno između profesora i učenika.
-              </p>
-            </footer>
+            <Topbar
+              userName={userName}
+              userEmail={profile.email}
+              badges={badges}
+              trial={trial}
+            />
+            <main className="flex-1 flex flex-col">
+              <PageTransition>{children}</PageTransition>
+            </main>
           </div>
         </div>
         <AssistantWidget />

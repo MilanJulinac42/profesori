@@ -1,11 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect } from "react";
 
 /**
- * Custom theme provider — bez next-themes (koje baca React 19 warning
- * zbog <script> tag-a). FOUC prevention je u root layout-u (inline
- * script u <head> pre hidracije).
+ * App is dark-only. Provider preserves the API surface (in case any UI still
+ * reads `useTheme()`), but always resolves to dark and ignores user toggles.
  */
 
 type Theme = "light" | "dark" | "system";
@@ -18,14 +17,13 @@ type ThemeContextValue = {
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-const STORAGE_KEY = "profesori_theme";
 
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) {
     return {
-      theme: "system" as Theme,
-      resolvedTheme: "light" as Resolved,
+      theme: "dark" as Theme,
+      resolvedTheme: "dark" as Resolved,
       setTheme: () => {},
     };
   }
@@ -41,47 +39,23 @@ export function ThemeProvider({
   enableSystem?: boolean;
   disableTransitionOnChange?: boolean;
 }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<Resolved>("light");
-
+  // Force dark class on html on mount.
   useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
-    setThemeState(stored);
+    document.documentElement.classList.add("dark");
+    document.documentElement.classList.remove("light");
   }, []);
 
-  useEffect(() => {
-    function apply(t: Theme) {
-      const r = computeResolved(t);
-      setResolvedTheme(r);
-      document.documentElement.classList.toggle("dark", r === "dark");
-    }
-    apply(theme);
-
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      if (theme === "system") apply("system");
-    };
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [theme]);
-
-  const setTheme = (t: Theme) => {
-    localStorage.setItem(STORAGE_KEY, t);
-    setThemeState(t);
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme: "dark",
+        resolvedTheme: "dark",
+        setTheme: () => {
+          /* noop — app is dark-only */
+        },
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
-}
-
-function computeResolved(theme: Theme): Resolved {
-  if (theme === "dark") return "dark";
-  if (theme === "light") return "light";
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
 }

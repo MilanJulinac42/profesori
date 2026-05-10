@@ -11,13 +11,7 @@ export function FaqSection({ profile }: { profile: PublicProfile }) {
   if (items.length === 0) return null;
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-          <HelpCircle className="size-5" strokeWidth={1.75} />
-          Često postavljana pitanja
-        </h2>
-      </div>
+    <section>
       <div className="rounded-xl border border-border bg-card divide-y divide-border overflow-hidden">
         {items.map((item, i) => (
           <FaqItem key={i} question={item.question} answer={item.answer} />

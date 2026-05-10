@@ -113,16 +113,24 @@ export default async function ParentDashboard() {
   const greeting = parentName ? `Pozdrav, ${parentName}` : `Dobro došli`;
 
   return (
-    <div className="min-h-screen bg-[#f6f6f4]">
-      <header className="bg-white border-b border-border">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card/40 backdrop-blur-md border-b border-border/60 sticky top-0 z-30">
         <div className="max-w-3xl mx-auto px-5 py-5">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
             Roditeljski portal
           </p>
-          <h1 className="text-xl font-semibold mt-1">{greeting}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Pregled rada za <strong>{studentName}</strong> · Profesor:{" "}
-            <strong>{teacherName}</strong>
+          <h1 className="font-display text-2xl sm:text-3xl text-foreground mt-1.5 leading-tight">
+            {greeting}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1.5">
+            Pregled rada za{" "}
+            <strong className="text-foreground font-semibold">
+              {studentName}
+            </strong>{" "}
+            · Profesor:{" "}
+            <strong className="text-foreground font-semibold">
+              {teacherName}
+            </strong>
           </p>
         </div>
       </header>
@@ -130,7 +138,7 @@ export default async function ParentDashboard() {
       <main className="max-w-3xl mx-auto px-5 py-8 space-y-6">
         {/* Statistika za poslednjih 30 dana */}
         <section>
-          <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+          <h2 className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground mb-3">
             Poslednjih 30 dana
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -138,32 +146,37 @@ export default async function ParentDashboard() {
               icon={GraduationCap}
               label="Časova"
               value={completedRecent.toString()}
+              tile="cyan"
             />
             <Stat
               icon={Calendar}
               label="Minuta"
               value={totalMinutesRecent.toString()}
+              tile="violet"
             />
             <Stat
               icon={ClipboardList}
               label="Domaćih"
               value={String(homework.length)}
+              tile="amber"
             />
             <Stat
               icon={Banknote}
               label={debt > 0 ? "Dug" : debt < 0 ? "Pretplata" : "Saldo"}
               value={formatRsd(Math.abs(debt))}
-              accent={debt > 0 ? "warn" : "ok"}
+              tile={debt > 0 ? "rose" : "emerald"}
             />
           </div>
         </section>
 
         {/* Izveštaji */}
         {reports.length > 0 && (
-          <section className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="text-sm font-medium inline-flex items-center gap-2">
-                <Mail className="size-3.5" strokeWidth={1.75} />
+          <section className="card-elevated card-glow rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2.5">
+              <div className="flex size-8 items-center justify-center rounded-lg tile-amber shrink-0">
+                <Mail className="size-3.5" strokeWidth={2} />
+              </div>
+              <h2 className="font-display text-lg text-foreground">
                 Poslati izveštaji
               </h2>
             </div>
@@ -177,23 +190,30 @@ export default async function ParentDashboard() {
 
         {/* Domaći */}
         {homework.length > 0 && (
-          <section className="rounded-xl border border-border bg-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="text-sm font-medium inline-flex items-center gap-2">
-                <ClipboardList className="size-3.5" strokeWidth={1.75} />
+          <section className="card-elevated card-glow rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2.5">
+              <div className="flex size-8 items-center justify-center rounded-lg tile-violet shrink-0">
+                <ClipboardList className="size-3.5" strokeWidth={2} />
+              </div>
+              <h2 className="font-display text-lg text-foreground">
                 Domaći zadaci
               </h2>
             </div>
             <ul className="divide-y divide-border">
               {homework.map((h) => (
-                <li key={h.id} className="px-5 py-3">
+                <li
+                  key={h.id}
+                  className="px-5 py-3 hover:bg-secondary/30 transition-colors"
+                >
                   <Link
                     href={`/h/${h.public_token}`}
                     target="_blank"
                     className="flex items-center justify-between gap-3"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">{h.title}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {h.title}
+                      </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {h.due_date
                           ? `Rok: ${format(new Date(h.due_date), "d. MMM yyyy.", { locale: srLatn })}`
@@ -208,7 +228,7 @@ export default async function ParentDashboard() {
           </section>
         )}
 
-        <p className="text-[11px] text-muted-foreground text-center pt-4">
+        <p className="text-[11px] text-muted-foreground/70 text-center pt-4">
           Ovaj portal je privatan. Link je vezan za vaše dete — ne deli ga sa
           drugima.
         </p>
@@ -217,26 +237,32 @@ export default async function ParentDashboard() {
   );
 }
 
+type Tile = "cyan" | "magenta" | "rose" | "amber" | "emerald" | "violet" | "sky";
+
 function Stat({
   icon: Icon,
   label,
   value,
-  accent,
+  tile = "cyan",
 }: {
   icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   label: string;
   value: string;
-  accent?: "warn" | "ok";
+  tile?: Tile;
 }) {
-  const valueColor =
-    accent === "warn" ? "text-[#a00]" : accent === "ok" ? "text-foreground" : "";
   return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-center gap-1.5 text-muted-foreground">
-        <Icon className="size-3.5" strokeWidth={1.75} />
-        <span className="text-[11px]">{label}</span>
+    <div className="card-elevated card-glow rounded-2xl p-4 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
+          {label}
+        </span>
+        <div
+          className={`flex size-8 items-center justify-center rounded-lg shrink-0 tile-${tile}`}
+        >
+          <Icon className="size-3.5" strokeWidth={2} />
+        </div>
       </div>
-      <div className={`text-lg font-medium mt-1 tabular-nums ${valueColor}`}>
+      <div className="font-display text-2xl text-foreground tabular-nums leading-none">
         {value}
       </div>
     </div>
@@ -244,12 +270,14 @@ function Stat({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const tone =
+  const tile: Tile =
     status === "submitted"
-      ? "bg-amber-100 text-amber-900 border-amber-300"
+      ? "amber"
       : status === "graded"
-        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
-        : "bg-secondary text-foreground border-border";
+        ? "emerald"
+        : status === "skipped"
+          ? "rose"
+          : "cyan";
   const label =
     status === "submitted"
       ? "Predato"
@@ -260,7 +288,7 @@ function StatusBadge({ status }: { status: string }) {
           : "Zadato";
   return (
     <span
-      className={`inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded border ${tone}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tile-${tile}`}
     >
       {label}
     </span>

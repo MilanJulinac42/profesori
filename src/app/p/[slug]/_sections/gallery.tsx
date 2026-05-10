@@ -36,14 +36,7 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
   if (images.length === 0) return null;
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-          <Camera className="size-5" strokeWidth={1.75} />
-          Galerija
-        </h2>
-      </div>
-
+    <section>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5">
         {images.map((img, i) => (
           <button

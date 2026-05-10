@@ -3,6 +3,7 @@ import {
   Users,
   CalendarDays,
   ArrowRight,
+  ArrowUpRight,
   Plus,
   Sparkles,
   Check,
@@ -11,14 +12,22 @@ import {
   StickyNote,
   ClipboardCheck,
   Mic,
+  Wallet,
+  CalendarCheck,
+  XCircle,
+  TrendingDown,
+  Trophy,
 } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
-import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getLessonAnalytics,
   getRangeForPeriod,
+  pctDelta,
+  PERIOD_LABELS,
+  PERIOD_OPTIONS,
+  type Analytics,
   type AnalyticsPeriod,
 } from "@/lib/analytics/queries";
 import { getOrgDebtors } from "@/lib/payments/queries";
@@ -40,16 +49,20 @@ import {
   countSubmittedHomework,
   listSubmittedHomework,
 } from "@/lib/homework/queries";
-import { getAppValueStats } from "@/lib/dashboard/app-value";
-import { AppValueWidget } from "./_components/app-value-widget";
-import {
-  AnalyticsTopStrip,
-  CancellationBreakdown,
-  TopStudents,
-} from "./_components/analytics-section";
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
 import { RecentActivity } from "./_components/recent-activity";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { ChartCard } from "@/components/dashboard/chart-card";
+import { RevenueAreaChart } from "@/components/dashboard/revenue-area-chart";
+import {
+  StatusDonut,
+  type DonutSlice,
+} from "@/components/dashboard/status-donut";
+import { TrendBadge } from "@/components/dashboard/trend-badge";
+import { MountFade, CountUp } from "@/components/dashboard/motion";
+import { ActivityHeatmap } from "@/components/dashboard/activity-heatmap";
+import { EmptyState } from "@/components/empty-state";
 
 type Search = { period?: string };
 
@@ -79,7 +92,7 @@ export default async function DashboardPage({
 
   const params = await searchParams;
   const period: AnalyticsPeriod = (
-    ["week", "month", "30d", "all"].includes(params.period ?? "")
+    ["week", "month", "all"].includes(params.period ?? "")
       ? params.period
       : "month"
   ) as AnalyticsPeriod;
@@ -103,7 +116,6 @@ export default async function DashboardPage({
     recentActivity,
     submittedHomeworkCount,
     submittedHomework,
-    appValueStats,
   ] = await Promise.all([
     supabase
       .from("students")
@@ -118,7 +130,7 @@ export default async function DashboardPage({
       .gte("scheduled_at", new Date().toISOString())
       .order("scheduled_at", { ascending: true })
       .limit(5),
-    getLessonAnalytics(supabase, range),
+    getLessonAnalytics(supabase, range, { period }),
     getOrgDebtors(supabase, billableStatuses),
     countLessonsMissingNotes(supabase),
     getOwnPublicProfile(supabase, org!.id),
@@ -126,7 +138,6 @@ export default async function DashboardPage({
     getRecentActivity(supabase, 12),
     countSubmittedHomework(supabase),
     listSubmittedHomework(supabase, 3),
-    getAppValueStats(supabase, org!.id, 7),
   ]);
 
   const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
@@ -164,125 +175,439 @@ export default async function DashboardPage({
   });
 
   return (
-    <div className="px-4 sm:px-8 py-6 max-w-7xl mx-auto w-full space-y-5">
-      {/* Trial banner — only when relevant */}
-      {daysLeft <= 7 && (
-        <div className="rounded-lg border border-border bg-secondary/40 px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
-          <div className="flex items-center gap-2 min-w-0">
-            <Clock className="size-3.5 text-muted-foreground shrink-0" strokeWidth={2} />
-            <span className="truncate">
-              <span className="font-medium">
-                {daysLeft} {daysLeft === 1 ? "dan" : "dana"} probnog perioda
-              </span>
-              <span className="text-muted-foreground">
-                {" "}
-                preostalo · plan{" "}
-                <span className="text-foreground">{org?.subscription_tier}</span>
-              </span>
-            </span>
-          </div>
-          <Link
-            href="/settings"
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-          >
-            Nadogradi
-          </Link>
-        </div>
+    <div className="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto w-full space-y-6">
+      <MountFade>
+        <DashboardHero
+          firstName={firstName}
+          dayName={dayName}
+          dayNum={dayNum}
+          monthName={monthName}
+          activeStudents={activeStudents ?? 0}
+          analytics={analytics}
+          period={period}
+          daysLeft={daysLeft}
+          trialTier={org?.subscription_tier ?? "start"}
+        />
+      </MountFade>
+
+      {showOnboarding && (
+        <MountFade delay={0.05}>
+          <NextStepsCard />
+        </MountFade>
       )}
 
-      {/* Header — single row: greeting + actions */}
-      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pb-1">
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground">
-            {dayName}, {dayNum}. {monthName}
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-medium tracking-tight">
-            Dobar dan, {firstName}.
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {(activeStudents ?? 0) > 0
-              ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih u periodu`
-              : "Spremno je za nedelju koja dolazi."}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/students/new"
-            className={buttonVariants({ size: "sm" })}
-          >
-            <Plus className="size-3.5" strokeWidth={2} />
-            Učenik
-          </Link>
-          <Link
-            href="/schedule"
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-          >
-            <CalendarDays className="size-3.5" strokeWidth={1.75} />
-            Raspored
-          </Link>
-          <Link
-            href="/exercises/new"
-            className={buttonVariants({ size: "sm", variant: "outline" })}
-          >
-            <Sparkles className="size-3.5" strokeWidth={1.75} />
-            Zadaci
-          </Link>
-        </div>
-      </header>
-
-      {/* Onboarding (only if no students yet) */}
-      {showOnboarding && <NextStepsCard />}
-
-      {/* Performance strip — at the top */}
-      <AnalyticsTopStrip stats={analytics} period={period} />
-
-      {/* New bookings — full width when present */}
       {recentBookings.length > 0 && (
-        <BookingsPreview bookings={recentBookings} />
+        <MountFade delay={0.1}>
+          <BookingsPreview bookings={recentBookings} />
+        </MountFade>
       )}
 
-      {/* Main 8/4 grid */}
-      <div className="grid gap-5 lg:grid-cols-12">
-        {/* Main column */}
-        <div className="lg:col-span-8 space-y-5 min-w-0">
-          {/* Akcije danas */}
-          {pendingItems.length > 0 ? (
-            <PendingWork items={pendingItems} />
-          ) : (
-            <AllClearCard />
-          )}
+      <MountFade delay={0.1}>
+        <StatRow analytics={analytics} period={period} />
+      </MountFade>
 
-          {/* Upcoming lessons */}
-          <UpcomingCard lessons={upcomingLessons} />
+      <MountFade delay={0.18}>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <ChartCard
+            title="Trend prihoda"
+            subtitle={PERIOD_LABELS[period].toLowerCase()}
+            className="lg:col-span-8 card-glow"
+            contentMinHeight={280}
+            action={
+              analytics.previous && (
+                <TrendBadge
+                  delta={pctDelta(
+                    analytics.revenue,
+                    analytics.previous.revenue,
+                  )}
+                  size="md"
+                />
+              )
+            }
+          >
+            {analytics.series && analytics.series.length > 1 ? (
+              <RevenueAreaChart
+                data={analytics.series.map((s) => ({
+                  label: s.label,
+                  value: s.revenue,
+                }))}
+                height={260}
+              />
+            ) : (
+              <EmptyState
+                icon={TrendingDown}
+                tile="cyan"
+                size="compact"
+                title="Nema dovoljno podataka"
+                description="Trend će se pojaviti kad imaš održanih časova kroz period."
+              />
+            )}
+          </ChartCard>
 
-          {/* Activity */}
-          <RecentActivity events={recentActivity} />
+          <ChartCard
+            title="Otkazivanja po razlogu"
+            subtitle={`${analytics.totalCancelled} ukupno`}
+            className="lg:col-span-4 card-glow"
+            contentMinHeight={280}
+          >
+            {analytics.totalCancelled > 0 ? (
+              <StatusDonut
+                data={cancellationSlices(analytics)}
+                centerLabel="Otkazano"
+                centerValue={String(analytics.totalCancelled)}
+                size={170}
+              />
+            ) : (
+              <EmptyState
+                icon={Check}
+                tile="emerald"
+                size="compact"
+                title="Sve čisto"
+                description="Nema otkazivanja u periodu."
+              />
+            )}
+          </ChartCard>
         </div>
+      </MountFade>
 
-        {/* Side rail — analytics detail */}
-        <aside className="lg:col-span-4 space-y-5 min-w-0">
-          <TopStudents students={analytics.topStudents} />
-          <CancellationBreakdown stats={analytics} />
-          {profileNeedsAttention && (
-            <ProfileWidget
-              slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
-              published={publicProfile?.published ?? false}
-              availableForNewStudents={
-                publicProfile?.available_for_new_students ?? true
-              }
-              completeness={completeness}
-            />
-          )}
-        </aside>
-      </div>
+      <MountFade delay={0.26}>
+        <div className="grid gap-5 lg:grid-cols-12">
+          <div className="lg:col-span-8 space-y-5 min-w-0">
+            {pendingItems.length > 0 ? (
+              <PendingWork items={pendingItems} />
+            ) : (
+              <AllClearCard />
+            )}
+            <UpcomingCard lessons={upcomingLessons} />
+            <RecentActivity events={recentActivity} />
+          </div>
 
-      {/* Footer strip — app value */}
-      <AppValueWidget stats={appValueStats} />
+          <aside className="lg:col-span-4 space-y-5 min-w-0">
+            <TopStudentsCard students={analytics.topStudents} />
+            {profileNeedsAttention && (
+              <ProfileWidget
+                slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
+                published={publicProfile?.published ?? false}
+                availableForNewStudents={
+                  publicProfile?.available_for_new_students ?? true
+                }
+                completeness={completeness}
+              />
+            )}
+          </aside>
+        </div>
+      </MountFade>
     </div>
   );
 }
 
-/* ---------- pending work (unified) ---------- */
+/* ---------- HERO ---------- */
+function DashboardHero({
+  firstName,
+  dayName,
+  dayNum,
+  monthName,
+  activeStudents,
+  analytics,
+  period,
+  daysLeft,
+  trialTier,
+}: {
+  firstName: string;
+  dayName: string;
+  dayNum: number;
+  monthName: string;
+  activeStudents: number;
+  analytics: Analytics;
+  period: AnalyticsPeriod;
+  daysLeft: number;
+  trialTier: string;
+}) {
+  const hasData = (analytics.series ?? []).length > 0;
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-hero-mesh border border-border/60 dark:border-white/[0.08]">
+      {/* Soft top highlight + bottom shadow for premium depth */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/15"
+      />
+
+      <div className="relative px-6 sm:px-10 py-8 sm:py-10 grid lg:grid-cols-12 gap-8 items-start">
+        {/* LEFT: greeting, big number, CTAs */}
+        <div className="lg:col-span-7 min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+              <span
+                aria-hidden
+                className="relative inline-block size-2 rounded-full bg-success pulse-dot"
+              />
+              {dayName}, {dayNum}. {monthName}
+            </span>
+            {daysLeft <= 7 && (
+              <Link
+                href="/settings"
+                className="inline-flex items-center gap-1.5 rounded-full bg-card/70 backdrop-blur-md border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-card transition-colors"
+              >
+                <Clock className="size-3 text-brand" strokeWidth={2.25} />
+                <span className="text-foreground">
+                  {daysLeft}d probnog · {trialTier}
+                </span>
+                <ArrowUpRight
+                  className="size-3 text-muted-foreground"
+                  strokeWidth={2}
+                />
+              </Link>
+            )}
+          </div>
+
+          <h1 className="font-display mt-4 text-[2rem] sm:text-[2.5rem] leading-[1.05] text-foreground">
+            Dobar dan, {firstName}.
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {activeStudents > 0
+              ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih u periodu`
+              : "Spremno je za nedelju koja dolazi."}
+          </p>
+
+          {/* The big number — gradient text fill */}
+          <div className="mt-7">
+            <p className="text-[10px] uppercase tracking-[0.2em] font-semibold text-muted-foreground mb-2">
+              Zarađeno · {PERIOD_LABELS[period].toLowerCase()}
+            </p>
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <span
+                className="font-display text-5xl sm:text-7xl leading-none tabular-nums bg-clip-text text-transparent"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(135deg, var(--chart-1) 0%, var(--chart-2) 60%, var(--chart-3) 100%)",
+                }}
+              >
+                <CountUp
+                  value={analytics.revenue}
+                  format="rsd"
+                  duration={1.3}
+                />
+              </span>
+              <span className="text-base sm:text-xl text-muted-foreground font-semibold">
+                RSD
+              </span>
+              {analytics.previous && (
+                <TrendBadge
+                  delta={pctDelta(
+                    analytics.revenue,
+                    analytics.previous.revenue,
+                  )}
+                  size="md"
+                  className="self-center"
+                />
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground tabular-nums">
+              {analytics.held > 0
+                ? `~${formatRsd(analytics.averageRevenuePerHeld, false)} po času · ${analytics.held} ${analytics.held === 1 ? "čas" : "časova"} održano`
+                : "Nema održanih časova u periodu"}
+            </p>
+          </div>
+
+          {/* CTAs */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <Link
+              href="/students/new"
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
+            >
+              <Plus className="size-4" strokeWidth={2.5} />
+              Novi učenik
+            </Link>
+            <Link
+              href="/schedule"
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg bg-card/70 backdrop-blur-md border border-border text-sm font-medium hover:bg-card transition-colors"
+            >
+              <CalendarDays className="size-3.5" strokeWidth={1.75} />
+              Raspored
+            </Link>
+            <Link
+              href="/exercises/new"
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 rounded-lg bg-card/70 backdrop-blur-md border border-border text-sm font-medium hover:bg-card transition-colors"
+            >
+              <Sparkles className="size-3.5" strokeWidth={1.75} />
+              Zadaci
+            </Link>
+          </div>
+        </div>
+
+        {/* RIGHT: heatmap + period selector */}
+        <div className="lg:col-span-5 min-w-0 lg:pl-6 lg:border-l lg:border-border/40">
+          <div className="flex justify-end mb-4">
+            <HeroPeriodSelector active={period} />
+          </div>
+          {hasData ? (
+            <ActivityHeatmap
+              days={analytics.series ?? []}
+              period={period}
+              granularity={analytics.seriesGranularity ?? "daily"}
+            />
+          ) : (
+            <EmptyState
+              icon={CalendarDays}
+              tile="cyan"
+              size="compact"
+              title="Heatmap aktivnosti"
+              description="Pojaviće se kad budeš imao časove kroz period."
+            />
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HeroPeriodSelector({ active }: { active: AnalyticsPeriod }) {
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-card/70 backdrop-blur-md border border-border p-0.5 text-[11px]">
+      {PERIOD_OPTIONS.map((p) => {
+        const isActive = active === p;
+        const href = p === "month" ? "/dashboard" : `/dashboard?period=${p}`;
+        return (
+          <Link
+            key={p}
+            href={href}
+            scroll={false}
+            className={cn(
+              "rounded-full px-3 py-1 transition-colors",
+              isActive
+                ? "bg-foreground text-background font-semibold"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {PERIOD_LABELS[p].replace("Poslednjih ", "")}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- STAT ROW ---------- */
+function StatRow({
+  analytics,
+  period,
+}: {
+  analytics: Analytics;
+  period: AnalyticsPeriod;
+}) {
+  const prev = analytics.previous;
+  const sparkData = (analytics.series ?? []).map((s) => s.revenue / 100);
+  const heldSpark = (analytics.series ?? []).map((s) => s.held);
+
+  return (
+    <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        label="Zarađeno"
+        value={<CountUp value={analytics.revenue} format="rsd" />}
+        unit="RSD"
+        icon={Wallet}
+        tile="cyan"
+        delta={prev ? pctDelta(analytics.revenue, prev.revenue) : undefined}
+        spark={
+          sparkData.length > 1
+            ? { data: sparkData, color: "var(--chart-1)" }
+            : undefined
+        }
+        hint={
+          analytics.held > 0
+            ? `~${formatRsd(analytics.averageRevenuePerHeld, false)} po času`
+            : "Nema održanih"
+        }
+      />
+      <StatCard
+        label="Časova održano"
+        value={<CountUp value={analytics.held} />}
+        icon={CalendarCheck}
+        tile="violet"
+        delta={prev ? pctDelta(analytics.held, prev.held) : undefined}
+        spark={
+          heldSpark.length > 1
+            ? { data: heldSpark, color: "var(--chart-5)" }
+            : undefined
+        }
+        hint={
+          analytics.scheduled > 0
+            ? `${analytics.scheduled} predstojećih`
+            : "—"
+        }
+      />
+      <StatCard
+        label="Otkazivanja"
+        value={<CountUp value={analytics.totalCancelled} />}
+        icon={XCircle}
+        tile="rose"
+        delta={
+          prev
+            ? pctDelta(analytics.totalCancelled, prev.totalCancelled)
+            : undefined
+        }
+        inverseTrend
+        hint={
+          analytics.lostRevenue > 0
+            ? `${formatRsd(analytics.lostRevenue)} izgubljeno`
+            : "bez izgubljenog prihoda"
+        }
+      />
+      <StatCard
+        label="Stopa otkazivanja"
+        value={
+          analytics.totalLessonsTouched > 0 ? (
+            <CountUp
+              value={analytics.cancellationRate}
+              format="percent"
+            />
+          ) : (
+            "—"
+          )
+        }
+        icon={TrendingDown}
+        tile="amber"
+        delta={
+          prev
+            ? pctDelta(analytics.cancellationRate, prev.cancellationRate)
+            : undefined
+        }
+        inverseTrend
+        hint={
+          analytics.totalLessonsTouched > 0
+            ? `${analytics.totalCancelled} od ${analytics.totalLessonsTouched}`
+            : "nema podataka"
+        }
+      />
+    </div>
+  );
+}
+
+/* ---------- DONUT slices ---------- */
+function cancellationSlices(stats: Analytics): DonutSlice[] {
+  return [
+    {
+      key: "by_student",
+      label: "Otkazao učenik",
+      value: stats.cancelledByStudent,
+      color: "var(--chart-2)",
+    },
+    {
+      key: "by_teacher",
+      label: "Otkazao profesor",
+      value: stats.cancelledByTeacher,
+      color: "var(--chart-3)",
+    },
+    {
+      key: "no_show",
+      label: "Nije se pojavio",
+      value: stats.noShow,
+      color: "var(--destructive)",
+    },
+  ].filter((s) => s.value > 0);
+}
+
+/* ---------- pending work ---------- */
 type PendingItem = {
   key: string;
   icon: typeof StickyNote;
@@ -292,7 +617,7 @@ type PendingItem = {
   cta: string;
   ctaIcon?: typeof StickyNote;
   primary?: boolean;
-  tone?: "default" | "warning";
+  tile: "rose" | "amber" | "emerald" | "violet" | "sky" | "cyan" | "magenta";
 };
 
 function buildPendingItems({
@@ -322,7 +647,7 @@ function buildPendingItems({
           : top?.full_name,
       href: "/billing",
       cta: "Naplati",
-      tone: "warning",
+      tile: "rose",
       primary: true,
     });
   }
@@ -337,6 +662,7 @@ function buildPendingItems({
       href: `/lessons/${oldestNeedingNotes.id}/note`,
       cta: "Snimi belešku",
       ctaIcon: Mic,
+      tile: "amber",
     });
   }
 
@@ -350,6 +676,7 @@ function buildPendingItems({
       href: top ? `/students/${top.student_id}` : "/students",
       cta: "Pregledaj",
       ctaIcon: Check,
+      tile: "emerald",
     });
   }
 
@@ -358,39 +685,43 @@ function buildPendingItems({
 
 function PendingWork({ items }: { items: PendingItem[] }) {
   return (
-    <section className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium">Akcije danas</h2>
-          <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
+    <section className="card-elevated card-glow rounded-2xl overflow-hidden">
+      <header className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-baseline gap-2.5">
+          <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
+            Akcije danas
+          </h2>
+          <span className="text-[11px] uppercase tracking-[0.14em] font-medium text-muted-foreground tabular-nums">
             {items.length} {items.length === 1 ? "stavka" : "stavki"}
           </span>
         </div>
-      </div>
+      </header>
       <ul className="divide-y divide-border">
         {items.map((item, i) => {
           const Icon = item.icon;
           const CtaIcon = item.ctaIcon;
-          const variant = i === 0 && item.primary ? "default" : "outline";
+          const isPrimary = i === 0 && item.primary;
           return (
             <li
               key={item.key}
-              className="px-5 py-3.5 flex items-center gap-3"
+              className={cn(
+                "px-5 py-4 flex items-center gap-4 transition-colors hover:bg-secondary/40",
+              )}
             >
               <div
                 className={cn(
-                  "flex size-9 items-center justify-center rounded-md shrink-0",
-                  item.tone === "warning"
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                    : "bg-secondary text-muted-foreground",
+                  "flex size-11 items-center justify-center rounded-xl shrink-0",
+                  `tile-${item.tile}`,
                 )}
               >
-                <Icon className="size-4" strokeWidth={1.75} />
+                <Icon className="size-5" strokeWidth={2} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{item.title}</p>
+                <p className="text-[0.95rem] font-semibold truncate text-foreground tracking-tight">
+                  {item.title}
+                </p>
                 {item.detail && (
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {item.detail}
                   </p>
                 )}
@@ -398,12 +729,15 @@ function PendingWork({ items }: { items: PendingItem[] }) {
               <Link
                 href={item.href}
                 className={cn(
-                  buttonVariants({ size: "sm", variant }),
-                  "shrink-0",
+                  "inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[0.8rem] font-semibold transition-all shrink-0",
+                  isPrimary
+                    ? "bg-brand text-brand-foreground hover:opacity-90 glow-brand"
+                    : "bg-secondary hover:bg-accent text-foreground border border-border/60",
                 )}
               >
-                {CtaIcon && <CtaIcon className="size-3.5" strokeWidth={1.75} />}
+                {CtaIcon && <CtaIcon className="size-3.5" strokeWidth={2.25} />}
                 {item.cta}
+                {!CtaIcon && <ArrowRight className="size-3.5" strokeWidth={2.25} />}
               </Link>
             </li>
           );
@@ -415,18 +749,114 @@ function PendingWork({ items }: { items: PendingItem[] }) {
 
 function AllClearCard() {
   return (
-    <section className="rounded-xl border border-border bg-card px-5 py-6 flex items-center gap-4">
-      <div className="flex size-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 shrink-0">
-        <Check className="size-5" strokeWidth={2} />
+    <section className="card-elevated card-glow rounded-2xl px-6 py-7 flex items-center gap-5">
+      <div className="flex size-12 items-center justify-center rounded-2xl tile-emerald shrink-0">
+        <Check className="size-6" strokeWidth={2.5} />
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-medium">Sve čisto.</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-[15px] font-semibold text-foreground tracking-tight">
+          Sve čisto.
+        </p>
+        <p className="text-sm text-muted-foreground mt-0.5">
           Nema dugova, beleški ni domaćih da te čeka. Otvori raspored ili
           dodaj učenika.
         </p>
       </div>
     </section>
+  );
+}
+
+/* ---------- TOP STUDENTS — avatar, bar, revenue ---------- */
+function TopStudentsCard({
+  students,
+}: {
+  students: Analytics["topStudents"];
+}) {
+  if (students.length === 0) {
+    return (
+      <ChartCard title="Najbolji učenici" subtitle="po prihodu">
+        <EmptyState
+          icon={Trophy}
+          tile="amber"
+          size="compact"
+          title="Još nema podataka"
+          description="Najbolji učenici se prikazuju kad bude održanih časova."
+        />
+      </ChartCard>
+    );
+  }
+
+  const max = Math.max(...students.map((s) => s.revenue));
+
+  return (
+    <ChartCard title="Najbolji učenici" subtitle="po prihodu u periodu">
+      <ul className="space-y-3.5">
+        {students.map((s, i) => (
+          <li key={s.id}>
+            <Link
+              href={`/students/${s.id}`}
+              className="group flex items-center gap-3"
+            >
+              <span className="text-[11px] tabular-nums text-muted-foreground w-3 text-right">
+                {i + 1}
+              </span>
+              <Avatar name={s.name} index={i} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2 mb-1">
+                  <p className="text-sm font-medium truncate group-hover:text-foreground transition-colors">
+                    {s.name}
+                  </p>
+                  <span className="text-xs font-semibold tabular-nums text-foreground shrink-0">
+                    {formatRsd(s.revenue)}
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${max > 0 ? (s.revenue / max) * 100 : 0}%`,
+                      background: `var(--chart-${(i % 5) + 1})`,
+                    }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {s.lessons}{" "}
+                  {s.lessons === 1
+                    ? "čas"
+                    : s.lessons < 5
+                      ? "časa"
+                      : "časova"}
+                </p>
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </ChartCard>
+  );
+}
+
+function Avatar({ name, index }: { name: string; index: number }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+  const gradients = [
+    "linear-gradient(135deg, var(--chart-1), var(--chart-5))",
+    "linear-gradient(135deg, var(--chart-2), var(--chart-1))",
+    "linear-gradient(135deg, var(--chart-3), var(--chart-2))",
+    "linear-gradient(135deg, var(--chart-4), var(--chart-1))",
+    "linear-gradient(135deg, var(--chart-5), var(--chart-2))",
+  ];
+  return (
+    <span
+      className="flex size-8 items-center justify-center rounded-full text-[11px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_6px_-2px_rgba(0,0,0,0.4)]"
+      style={{ background: gradients[index % gradients.length] }}
+    >
+      {initials || "?"}
+    </span>
   );
 }
 
@@ -438,6 +868,7 @@ function NextStepsCard() {
       title: "Dodaj prvog učenika",
       description: "Ime, razred i cena po času.",
       icon: Users,
+      tile: "cyan" as const,
       done: false,
     },
     {
@@ -445,6 +876,7 @@ function NextStepsCard() {
       title: "Zakaži prvi čas",
       description: "Pojedinačni termin ili ponavljajući slot.",
       icon: CalendarDays,
+      tile: "violet" as const,
       done: false,
     },
     {
@@ -452,16 +884,19 @@ function NextStepsCard() {
       title: "Aktiviraj javni profil",
       description: "Roditelji ti šalju upite preko forme.",
       icon: Sparkles,
+      tile: "magenta" as const,
       done: false,
     },
   ];
   const doneCount = steps.filter((s) => s.done).length;
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="card-elevated card-glow rounded-2xl overflow-hidden">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
         <div>
-          <h2 className="text-sm font-medium">Postavi platformu</h2>
+          <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
+            Postavi platformu
+          </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {doneCount} od {steps.length} završeno
           </p>
@@ -471,8 +906,8 @@ function NextStepsCard() {
             <div
               key={i}
               className={cn(
-                "h-1 w-6 rounded-full",
-                i < doneCount ? "bg-foreground" : "bg-secondary",
+                "h-1 w-6 rounded-full transition-colors",
+                i < doneCount ? "bg-brand" : "bg-secondary",
               )}
             />
           ))}
@@ -485,31 +920,27 @@ function NextStepsCard() {
             <li key={step.href}>
               <Link
                 href={step.href}
-                className="group flex items-center gap-4 px-5 py-3.5 hover:bg-secondary/40 transition-colors"
+                className="group flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors"
               >
                 <div
                   className={cn(
-                    "flex size-7 items-center justify-center rounded-full border shrink-0 transition-colors",
-                    step.done
-                      ? "border-foreground bg-foreground text-background"
-                      : "border-border bg-background text-muted-foreground",
+                    "flex size-10 items-center justify-center rounded-xl shrink-0",
+                    `tile-${step.tile}`,
                   )}
                 >
-                  {step.done ? (
-                    <Check className="size-3.5" strokeWidth={2.5} />
-                  ) : (
-                    <Icon className="size-3.5" strokeWidth={1.75} />
-                  )}
+                  <Icon className="size-4" strokeWidth={2} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{step.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-sm font-semibold text-foreground tracking-tight">
+                    {step.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
                     {step.description}
                   </p>
                 </div>
                 <ArrowRight
                   className="size-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all"
-                  strokeWidth={1.75}
+                  strokeWidth={2}
                 />
               </Link>
             </li>
@@ -523,30 +954,33 @@ function NextStepsCard() {
 /* ---------- upcoming card ---------- */
 function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col">
-      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
-        <h2 className="text-sm font-medium">Sledeći časovi</h2>
+    <div className="card-elevated card-glow rounded-2xl overflow-hidden flex flex-col">
+      <header className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
+          Sledeći časovi
+        </h2>
         <Link
           href="/schedule"
-          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+          className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1 group"
         >
           Otvori raspored
-          <ArrowRight className="size-3" strokeWidth={1.75} />
+          <ArrowRight
+            className="size-3 group-hover:translate-x-0.5 transition-transform"
+            strokeWidth={2}
+          />
         </Link>
-      </div>
+      </header>
       {lessons.length === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-8">
-          <div className="flex size-9 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-            <CalendarDays className="size-4" strokeWidth={1.75} />
-          </div>
-          <p className="text-sm font-medium mt-3">Nema zakazanih časova</p>
-          <p className="text-xs text-muted-foreground mt-1 max-w-[260px]">
-            Kad zakažeš čas u rasporedu, pojaviće se ovde.
-          </p>
-        </div>
+        <EmptyState
+          icon={CalendarDays}
+          tile="violet"
+          size="compact"
+          title="Nema zakazanih časova"
+          description="Kad zakažeš čas u rasporedu, pojaviće se ovde."
+        />
       ) : (
         <ul className="divide-y divide-border">
-          {lessons.map((l) => {
+          {lessons.map((l, i) => {
             const dt = new Date(l.scheduled_at);
             const dateLabel = dt.toLocaleDateString("sr-Latn-RS", {
               weekday: "short",
@@ -561,25 +995,23 @@ function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
               <li key={l.id}>
                 <Link
                   href={`/schedule?lesson=${l.id}`}
-                  className="px-5 py-2.5 flex items-center gap-3 hover:bg-secondary/40 transition-colors"
+                  className="px-5 py-3 flex items-center gap-4 hover:bg-secondary/40 transition-colors group"
                 >
-                  <div className="text-xs tabular-nums w-20 shrink-0">
-                    <div className="text-muted-foreground">{dateLabel}</div>
-                    <div className="text-foreground font-medium">
-                      {timeLabel}
-                    </div>
-                  </div>
+                  <Avatar name={l.students?.full_name ?? "?"} index={i} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
+                    <p className="text-sm font-semibold truncate text-foreground tracking-tight">
                       {l.students?.full_name ?? "Učenik"}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {l.duration_minutes} min
+                      {dateLabel} · {l.duration_minutes} min
                     </p>
                   </div>
+                  <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
+                    {timeLabel}
+                  </span>
                   <ArrowRight
-                    className="size-3.5 text-muted-foreground/40"
-                    strokeWidth={1.75}
+                    className="size-3.5 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all"
+                    strokeWidth={2}
                   />
                 </Link>
               </li>
@@ -590,3 +1022,4 @@ function UpcomingCard({ lessons }: { lessons: UpcomingLesson[] }) {
     </div>
   );
 }
+
