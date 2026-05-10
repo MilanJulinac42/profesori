@@ -125,7 +125,7 @@ export function ChatPanel({
         className={
           fullPage
             ? "px-4 py-4 space-y-3 pb-32"
-            : "flex-1 overflow-y-auto px-4 py-4 space-y-3"
+            : "flex-1 overflow-y-auto px-4 py-4 space-y-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         }
       >
         {messages.length === 0 && (
