@@ -3,11 +3,87 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { sendChatMessage } from "@/lib/assistant/chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProposalCard } from "./proposal-card";
 import type { Proposal, UIMessage } from "./types";
+
+const MD_COMPONENTS = {
+  p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
+    <p className="mb-2 last:mb-0 leading-relaxed" {...props} />
+  ),
+  h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h1 className="text-base font-semibold mt-3 mb-1.5 first:mt-0" {...props} />
+  ),
+  h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h2 className="text-sm font-semibold mt-3 mb-1.5 first:mt-0" {...props} />
+  ),
+  h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
+    <h3 className="text-sm font-semibold mt-2.5 mb-1 first:mt-0" {...props} />
+  ),
+  ul: (props: React.HTMLAttributes<HTMLUListElement>) => (
+    <ul className="list-disc pl-5 mb-2 space-y-0.5" {...props} />
+  ),
+  ol: (props: React.HTMLAttributes<HTMLOListElement>) => (
+    <ol className="list-decimal pl-5 mb-2 space-y-0.5" {...props} />
+  ),
+  li: (props: React.HTMLAttributes<HTMLLIElement>) => (
+    <li className="leading-relaxed" {...props} />
+  ),
+  strong: (props: React.HTMLAttributes<HTMLElement>) => (
+    <strong className="font-semibold" {...props} />
+  ),
+  em: (props: React.HTMLAttributes<HTMLElement>) => (
+    <em className="italic" {...props} />
+  ),
+  hr: () => <hr className="my-3 border-border/60" />,
+  a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a
+      className="underline underline-offset-2 hover:text-foreground"
+      target="_blank"
+      rel="noreferrer"
+      {...props}
+    />
+  ),
+  code: (props: React.HTMLAttributes<HTMLElement>) => (
+    <code
+      className="px-1 py-0.5 rounded bg-background/60 text-[0.85em] font-mono"
+      {...props}
+    />
+  ),
+  pre: (props: React.HTMLAttributes<HTMLPreElement>) => (
+    <pre
+      className="my-2 p-2 rounded-md bg-background/60 text-xs font-mono overflow-x-auto"
+      {...props}
+    />
+  ),
+  blockquote: (props: React.HTMLAttributes<HTMLQuoteElement>) => (
+    <blockquote
+      className="my-2 pl-3 border-l-2 border-border text-muted-foreground"
+      {...props}
+    />
+  ),
+  table: (props: React.HTMLAttributes<HTMLTableElement>) => (
+    <div className="my-2 overflow-x-auto rounded-md border border-border">
+      <table className="w-full text-xs border-collapse" {...props} />
+    </div>
+  ),
+  thead: (props: React.HTMLAttributes<HTMLTableSectionElement>) => (
+    <thead className="bg-background/50" {...props} />
+  ),
+  th: (props: React.ThHTMLAttributes<HTMLTableCellElement>) => (
+    <th
+      className="px-2 py-1.5 text-left font-semibold border-b border-border"
+      {...props}
+    />
+  ),
+  td: (props: React.TdHTMLAttributes<HTMLTableCellElement>) => (
+    <td className="px-2 py-1.5 border-b border-border/50 align-top" {...props} />
+  ),
+};
 
 const SUGGESTIONS = [
   "Daj mi istoriju za Marka",
@@ -162,14 +238,23 @@ export function ChatPanel({
               }`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words ${
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed break-words ${
                   m.role === "user"
-                    ? "bg-foreground text-background"
+                    ? "bg-foreground text-background whitespace-pre-wrap"
                     : "bg-secondary"
                 }`}
                 style={{ overflowWrap: "anywhere" }}
               >
-                {m.text || (m.proposal ? "Predlog ↓" : "...")}
+                {m.role === "assistant" && m.text ? (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={MD_COMPONENTS}
+                  >
+                    {m.text}
+                  </ReactMarkdown>
+                ) : (
+                  m.text || (m.proposal ? "Predlog ↓" : "...")
+                )}
               </div>
             </div>
             {m.proposal && conversationId && (
