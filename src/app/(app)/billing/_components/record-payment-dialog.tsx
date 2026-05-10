@@ -117,7 +117,10 @@ function Form({
 
   return (
     <div>
-      <div className="px-5 pt-5 pb-4 border-b border-border">
+      <div className="px-5 pt-5 pb-4 border-b border-border flex items-start gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl tile-emerald shrink-0">
+          <Banknote className="size-5" strokeWidth={2} />
+        </div>
         <DialogHeader>
           <DialogTitle>Evidentiraj uplatu</DialogTitle>
           <DialogDescription>
@@ -278,15 +281,16 @@ function Form({
         <Button type="button" variant="ghost" size="sm" onClick={onDone}>
           Otkaži
         </Button>
-        <Button
+        <button
           type="button"
-          size="sm"
           disabled={pending || !studentId}
           onClick={onSubmit}
-          className={cn()}
+          className={cn(
+            "inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-brand text-brand-foreground text-[0.8rem] font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none",
+          )}
         >
           {pending ? "Čuvanje..." : "Evidentiraj uplatu"}
-        </Button>
+        </button>
       </DialogFooter>
     </div>
   );

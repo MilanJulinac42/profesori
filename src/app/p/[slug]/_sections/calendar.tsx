@@ -35,17 +35,10 @@ export async function CalendarSection({ profile }: { profile: PublicProfile }) {
   });
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-          <CalendarDays className="size-5" strokeWidth={1.75} />
-          Kad sam slobodan
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Klikni slobodan termin ispod — automatski se popuni forma za upit.
-        </p>
-      </div>
-
+    <section className="space-y-4">
+      <p className="text-sm text-muted-foreground -mt-3">
+        Klikni slobodan termin ispod — automatski se popuni forma za upit.
+      </p>
       <CalendarWidget days={days} />
 
       <p className="text-xs text-muted-foreground">

@@ -14,11 +14,13 @@ import {
   CheckCircle2,
   Receipt,
   BellRing,
-  type LucideIcon,
+  Wallet,
+  Info,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
-import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { StatCard } from "@/components/dashboard/stat-card";
 import { formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import {
@@ -100,46 +102,58 @@ export function BillingClient({
 
   return (
     <>
-      <div className="px-4 sm:px-8 py-6 space-y-6 max-w-6xl mx-auto w-full">
+      <div className="px-4 sm:px-8 py-6 space-y-6 max-w-[1400px] mx-auto w-full">
         <PageHeader
           title="Naplata"
           description="Pregled prihoda, dugovanja i evidentiranje uplata."
           actions={
-            <Button
-              size="sm"
+            <button
+              type="button"
               onClick={() => openDialog()}
               disabled={pickerStudents.length === 0}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
             >
-              <Plus className="size-3.5" strokeWidth={2} />
+              <Plus className="size-3.5" strokeWidth={2.25} />
               Nova uplata
-            </Button>
+            </button>
           }
         />
 
-        <div className="rounded-lg border border-border bg-secondary/40 p-4 text-sm">
-          <p className="font-medium">Ovo je samo evidencija.</p>
-          <p className="text-muted-foreground mt-1 text-xs">
-            Novac primaš direktno od učenika ili roditelja. Platforma ne
-            procesuje uplate.
-          </p>
+        <div className="rounded-xl border border-border/60 bg-secondary/40 px-4 py-3 text-sm flex items-start gap-3">
+          <Info
+            className="size-4 text-muted-foreground/70 shrink-0 mt-0.5"
+            strokeWidth={1.75}
+          />
+          <div className="min-w-0">
+            <p className="font-semibold">Platforma služi za evidenciju.</p>
+            <p className="text-muted-foreground text-xs mt-0.5">
+              Novac primaš direktno od učenika ili roditelja — platforma ne
+              procesuje uplate.
+            </p>
+          </div>
         </div>
 
         {/* Period analytics */}
-        <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-            <div>
-              <h2 className="text-sm font-medium">Performanse</h2>
-              <p className="text-xs text-muted-foreground">{periodLabel}</p>
+        <section className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="text-[11px] uppercase tracking-[0.16em] font-semibold text-muted-foreground">
+                Performanse
+              </span>
+              <span className="text-[11px] text-muted-foreground/70">
+                · {periodLabel.toLowerCase()}
+              </span>
             </div>
             <PeriodSelector active={period} />
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat
+            <StatCard
               label="Zarađeno"
               value={formatRsd(analytics.revenueInPeriod, false)}
               unit="RSD"
               icon={Banknote}
+              tile="cyan"
               hint={
                 analytics.heldLessonsInPeriod > 0
                   ? `${analytics.heldLessonsInPeriod} ${
@@ -152,11 +166,12 @@ export function BillingClient({
                   : "Nema održanih časova"
               }
             />
-            <Stat
+            <StatCard
               label="Naplaćeno"
               value={formatRsd(analytics.collectedInPeriod, false)}
               unit="RSD"
               icon={CheckCircle2}
+              tile="emerald"
               hint={
                 analytics.paymentsCountInPeriod > 0
                   ? `${analytics.paymentsCountInPeriod} ${
@@ -167,7 +182,7 @@ export function BillingClient({
                   : "Nema uplata"
               }
             />
-            <Stat
+            <StatCard
               label="Naplativost"
               value={
                 analytics.revenueInPeriod > 0
@@ -175,32 +190,39 @@ export function BillingClient({
                   : "—"
               }
               icon={TrendingUp}
+              tile="violet"
               hint={
                 analytics.revenueInPeriod > 0
                   ? "Naplaćeno / zarađeno"
                   : "Nema podataka"
               }
             />
-            <Stat
+            <StatCard
               label="Trenutni dug"
               value={formatRsd(totalDebt, false)}
               unit="RSD"
-              icon={AlertCircle}
+              icon={Wallet}
+              tile={
+                totalDebt === 0
+                  ? "emerald"
+                  : overThirtyDays.length > 0
+                    ? "rose"
+                    : "amber"
+              }
               hint={
                 debtors.length > 0
                   ? `${debtors.length} ${
-                      debtors.length === 1 ? "učenik duguje" : "učenika dugu"
-                    }`
+                      debtors.length === 1 ? "učenik duguje" : "učenika duguje"
+                    }${overThirtyDays.length > 0 ? ` · ${overThirtyDays.length} preko 30 dana` : ""}`
                   : "Niko ne duguje"
               }
-              tone={overThirtyDays.length > 0 ? "warning" : "default"}
             />
           </div>
 
           {totalCredit > 0 && (
             <p className="text-xs text-muted-foreground">
               Pretplate (kredit):{" "}
-              <span className="font-medium text-foreground tabular-nums">
+              <span className="font-semibold text-foreground tabular-nums">
                 {formatRsd(totalCredit)}
               </span>
             </p>
@@ -251,7 +273,7 @@ export function BillingClient({
 /* -------- period selector -------- */
 function PeriodSelector({ active }: { active: AnalyticsPeriod }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 text-xs">
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-card border border-border p-0.5 text-[11px]">
       {PERIOD_OPTIONS.map((p) => {
         const isActive = active === p;
         const href = p === "month" ? "/billing" : `/billing?period=${p}`;
@@ -261,64 +283,16 @@ function PeriodSelector({ active }: { active: AnalyticsPeriod }) {
             href={href}
             scroll={false}
             className={cn(
-              "rounded-[4px] px-2.5 py-1 transition-colors",
+              "rounded-full px-3 py-1 transition-colors",
               isActive
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                ? "bg-foreground text-background font-medium"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {PERIOD_LABELS[p].replace("Poslednjih ", "")}
           </Link>
         );
       })}
-    </div>
-  );
-}
-
-/* -------- stat card -------- */
-function Stat({
-  label,
-  value,
-  unit,
-  icon: Icon,
-  hint,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  icon: LucideIcon;
-  hint?: string;
-  tone?: "default" | "warning";
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 min-h-[110px]">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-xs">{label}</span>
-        <Icon
-          className={cn(
-            "size-3.5",
-            tone === "warning" && "text-destructive",
-          )}
-          strokeWidth={1.75}
-        />
-      </div>
-      <div className="flex items-baseline gap-1.5 mt-auto">
-        <span
-          className={cn(
-            "text-2xl font-medium tracking-tight tabular-nums",
-            tone === "warning" && "text-destructive",
-          )}
-        >
-          {value}
-        </span>
-        {unit && <span className="text-xs text-muted-foreground">{unit}</span>}
-      </div>
-      {hint && (
-        <p className="text-[11px] text-muted-foreground tabular-nums">
-          {hint}
-        </p>
-      )}
     </div>
   );
 }
@@ -336,25 +310,32 @@ function DebtorsList({
   const now = Date.now();
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="card-elevated card-glow rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-border flex items-baseline justify-between">
         <div>
-          <h2 className="text-sm font-medium">Učenici sa dugom</h2>
+          <h2 className="font-display text-xl text-foreground">
+            Učenici sa dugom
+          </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             {debtors.length === 0
               ? "Niko ne duguje"
-              : "Sortirano po visini duga."}
+              : "Sortirano po visini duga"}
           </p>
         </div>
+        {debtors.length > 0 && (
+          <span className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground tabular-nums">
+            {debtors.length}
+          </span>
+        )}
       </div>
 
       {debtors.length === 0 ? (
-        <div className="px-5 py-12">
+        <div className="px-5 py-8">
           <EmptyState
-            icon={Banknote}
+            icon={CheckCircle2}
+            tile="emerald"
             title="Sve čisto"
             description="Kad obeležiš čas kao održan a još nema uplate, učenik se pojavljuje ovde."
-            className="border-0"
           />
         </div>
       ) : (
@@ -369,26 +350,26 @@ function DebtorsList({
             return (
               <li
                 key={d.student_id}
-                className="px-5 py-3 flex items-center gap-4 hover:bg-secondary/30 transition-colors"
+                className="px-5 py-3.5 flex items-center gap-4 hover:bg-secondary/30 transition-colors"
               >
                 <Link
                   href={`/students/${d.student_id}`}
                   className="flex items-center gap-3 flex-1 min-w-0 group"
                 >
-                  <Avatar name={d.full_name} />
+                  <Avatar name={d.full_name} size="lg" />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium truncate group-hover:underline underline-offset-4">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[0.95rem] font-semibold truncate text-foreground group-hover:underline underline-offset-4">
                         {d.full_name}
                       </p>
                       {isOld && (
-                        <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-destructive">
-                          <AlertCircle className="size-3" strokeWidth={2} />
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-rose-500 dark:text-rose-400">
+                          <AlertCircle className="size-3" strokeWidth={2.25} />
                           {ageDays} dana
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
                       {d.unpaidLessonsCount}{" "}
                       {d.unpaidLessonsCount === 1
                         ? "neplaćen čas"
@@ -406,7 +387,8 @@ function DebtorsList({
                       )}
                     </p>
                     {d.lastReminderAt && (
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                      <p className="text-[11px] text-muted-foreground/70 mt-0.5 inline-flex items-center gap-1">
+                        <BellRing className="size-3" strokeWidth={1.75} />
                         Opomena{" "}
                         {formatDistanceToNowStrict(new Date(d.lastReminderAt), {
                           locale: sr,
@@ -419,28 +401,30 @@ function DebtorsList({
                 <div className="flex items-center gap-3 shrink-0">
                   <p
                     className={cn(
-                      "text-base font-medium tabular-nums",
-                      isOld && "text-destructive",
+                      "text-base font-semibold tabular-nums",
+                      isOld
+                        ? "text-rose-500 dark:text-rose-400"
+                        : "text-foreground",
                     )}
                   >
                     {formatRsd(d.debt)}
                   </p>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex items-center gap-1">
                     <button
                       type="button"
                       onClick={() => onSendReminder(d)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      title="Pošalji opomenu"
+                      className="inline-flex items-center justify-center size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                     >
-                      <BellRing className="size-3" strokeWidth={1.75} />
-                      Opomena
+                      <BellRing className="size-3.5" strokeWidth={1.75} />
                     </button>
                     <button
                       type="button"
                       onClick={() => onRecordPayment(d.student_id)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      className="inline-flex items-center gap-1 h-8 px-2.5 rounded-lg text-[11px] font-semibold bg-brand text-brand-foreground hover:opacity-90 transition-opacity"
                     >
                       Uplata
-                      <ArrowRight className="size-3" strokeWidth={1.75} />
+                      <ArrowRight className="size-3" strokeWidth={2.25} />
                     </button>
                   </div>
                 </div>
@@ -460,24 +444,29 @@ function RecentPaymentsList({
   payments: RecentPayment[];
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-baseline justify-between">
+    <div className="card-elevated card-glow rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-medium">Skoro evidentirano</h2>
+          <h2 className="font-display text-xl text-foreground">
+            Skoro evidentirano
+          </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
             Poslednje uplate
           </p>
         </div>
-        <Receipt
-          className="size-4 text-muted-foreground"
-          strokeWidth={1.75}
-        />
+        <div className="flex size-9 items-center justify-center rounded-xl tile-emerald">
+          <Receipt className="size-4" strokeWidth={2} />
+        </div>
       </div>
       {payments.length === 0 ? (
-        <div className="px-5 py-12 text-center">
-          <p className="text-xs text-muted-foreground">
-            Još nema evidentiranih uplata.
-          </p>
+        <div className="px-5 py-8">
+          <EmptyState
+            icon={Receipt}
+            tile="emerald"
+            size="compact"
+            title="Još nema uplata"
+            description="Kad evidentiraš prvu uplatu, pojaviće se ovde."
+          />
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -523,21 +512,6 @@ function RecentPaymentsList({
         </ul>
       )}
     </div>
-  );
-}
-
-/* -------- avatar -------- */
-function Avatar({ name }: { name: string }) {
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
-  return (
-    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-medium text-muted-foreground">
-      {initials || "?"}
-    </span>
   );
 }
 

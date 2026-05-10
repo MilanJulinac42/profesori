@@ -113,16 +113,25 @@ export function ChatPanel({
 
   return (
     <div
-      className={`flex flex-col bg-background ${
-        fullPage ? "h-[calc(100vh-3.5rem)]" : "h-[600px] max-h-[80vh]"
-      }`}
+      className={
+        fullPage
+          ? "flex flex-col"
+          : "flex flex-col bg-background h-[600px] max-h-[80vh]"
+      }
     >
       {/* Messages */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={scrollRef}
+        className={
+          fullPage
+            ? "px-4 py-4 space-y-3 pb-32"
+            : "flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        }
+      >
         {messages.length === 0 && (
           <div className="text-center py-8 px-2">
-            <div className="inline-flex items-center justify-center size-10 rounded-full bg-amber-100 mb-3">
-              <Sparkles className="size-5 text-amber-700" strokeWidth={1.75} />
+            <div className="inline-flex items-center justify-center size-12 rounded-2xl tile-violet mb-3">
+              <Sparkles className="size-5" strokeWidth={2} />
             </div>
             <p className="text-sm font-medium">Ćao! Šta da uradim?</p>
             <p className="text-xs text-muted-foreground mt-1.5 max-w-sm mx-auto">
@@ -153,11 +162,12 @@ export function ChatPanel({
               }`}
             >
               <div
-                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap ${
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap break-words ${
                   m.role === "user"
                     ? "bg-foreground text-background"
                     : "bg-secondary"
                 }`}
+                style={{ overflowWrap: "anywhere" }}
               >
                 {m.text || (m.proposal ? "Predlog ↓" : "...")}
               </div>
@@ -193,7 +203,13 @@ export function ChatPanel({
       </div>
 
       {/* Input */}
-      <div className="border-t border-border p-3">
+      <div
+        className={
+          fullPage
+            ? "sticky bottom-0 z-20 border-t border-border bg-background/90 backdrop-blur-md p-3 pb-5"
+            : "border-t border-border p-3 pb-5"
+        }
+      >
         <div className="flex gap-2 items-end">
           <Textarea
             value={input}

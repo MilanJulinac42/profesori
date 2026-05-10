@@ -3,7 +3,6 @@
 import { useState, useTransition, useRef } from "react";
 import Image from "next/image";
 import { Check, Loader2, Camera, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -158,9 +157,11 @@ export function SubmissionForm({ publicToken }: { publicToken: string }) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+    <div className="card-elevated card-glow rounded-2xl p-5 space-y-4">
       <div>
-        <p className="text-sm font-medium">Kad uradiš domaći, klikni „Uradio sam".</p>
+        <p className="text-sm font-semibold text-foreground">
+          Kad uradiš domaći, klikni „Uradio sam".
+        </p>
         <p className="text-xs text-muted-foreground mt-1">
           Možeš poslati slike sveske i ostaviti komentar.
         </p>
@@ -229,7 +230,7 @@ export function SubmissionForm({ publicToken }: { publicToken: string }) {
         {images.length < MAX_IMAGES && (
           <label
             htmlFor="hw-files"
-            className="inline-flex items-center gap-2 cursor-pointer rounded-md border border-dashed border-border bg-secondary/40 hover:bg-secondary text-sm h-10 px-4"
+            className="inline-flex items-center gap-2 cursor-pointer rounded-lg border border-dashed border-border bg-secondary/40 hover:bg-secondary hover:border-brand/40 text-sm font-medium h-10 px-4 transition-colors"
           >
             <Camera className="size-4" strokeWidth={1.75} />
             {images.length === 0
@@ -256,35 +257,37 @@ export function SubmissionForm({ publicToken }: { publicToken: string }) {
       </div>
 
       {error && (
-        <p className="text-sm text-destructive" role="alert">
+        <div
+          className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm text-rose-500 dark:text-rose-400 inline-flex items-start gap-2 w-full"
+          role="alert"
+        >
           {error}
-        </p>
+        </div>
       )}
 
-      <Button
+      <button
         type="button"
-        size="lg"
         onClick={submit}
         disabled={pending || uploadingCount > 0}
-        className="w-full"
+        className="w-full inline-flex items-center justify-center gap-1.5 h-11 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
       >
         {pending ? (
           <>
             <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-            Predavanje...
+            Predavanje…
           </>
         ) : uploadingCount > 0 ? (
           <>
             <Loader2 className="size-4 animate-spin" strokeWidth={2} />
-            Učitavanje slika...
+            Učitavanje slika…
           </>
         ) : (
           <>
-            <Check className="size-4" strokeWidth={2} />
+            <Check className="size-4" strokeWidth={2.25} />
             Uradio sam
           </>
         )}
-      </Button>
+      </button>
     </div>
   );
 }

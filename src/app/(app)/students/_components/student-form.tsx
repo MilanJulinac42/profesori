@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { Button } from "@/components/ui/button";
+import { AlertCircle, User, Phone, Mail, Wallet, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -70,8 +70,8 @@ export function StudentForm(props: Props) {
     props.mode === "create" ? "Sačuvaj učenika" : "Sačuvaj izmene";
 
   return (
-    <form action={formAction} className="space-y-8 max-w-2xl">
-      <Section title="Osnovni podaci">
+    <form action={formAction} className="space-y-5 max-w-2xl">
+      <Section title="Osnovni podaci" icon={User} tile="cyan">
         <Field
           label="Ime i prezime"
           name="full_name"
@@ -134,7 +134,7 @@ export function StudentForm(props: Props) {
         </div>
       </Section>
 
-      <Section title="Kontakt roditelja">
+      <Section title="Kontakt roditelja" icon={Phone} tile="emerald">
         <Field label="Ime roditelja" name="parent_name" defaultValue={s?.parent_name ?? ""} />
         <div className="grid sm:grid-cols-2 gap-4">
           <Field
@@ -152,7 +152,7 @@ export function StudentForm(props: Props) {
         </div>
       </Section>
 
-      <Section title="Izveštaji">
+      <Section title="Izveštaji" icon={Mail} tile="amber">
         <div className="space-y-1.5">
           <Label className="text-xs">Komu šalješ nedeljni/mesečni izveštaj</Label>
           <div className="grid sm:grid-cols-2 gap-2">
@@ -195,7 +195,7 @@ export function StudentForm(props: Props) {
         </div>
       </Section>
 
-      <Section title="Naplata i časovi">
+      <Section title="Naplata i časovi" icon={Wallet} tile="violet">
         <div className="grid sm:grid-cols-2 gap-4">
           <Field
             label="Cena po času (RSD)"
@@ -224,7 +224,7 @@ export function StudentForm(props: Props) {
         </div>
       </Section>
 
-      <Section title="Dodatno">
+      <Section title="Dodatno" icon={Tag} tile="rose">
         <Field
           label="Tagovi"
           name="tags"
@@ -247,15 +247,26 @@ export function StudentForm(props: Props) {
       </Section>
 
       {state?.error && (
-        <p className="text-sm text-destructive" role="alert">
-          {state.error}
-        </p>
+        <div
+          className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm text-rose-500 dark:text-rose-400 inline-flex items-start gap-2 w-full"
+          role="alert"
+        >
+          <AlertCircle
+            className="size-4 mt-0.5 shrink-0"
+            strokeWidth={2}
+          />
+          <span>{state.error}</span>
+        </div>
       )}
 
-      <div className="flex items-center gap-2 pt-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Čuvanje..." : submitLabel}
-        </Button>
+      <div className="flex items-center gap-3 pt-2 sticky bottom-0 -mx-4 sm:-mx-0 px-4 sm:px-5 py-3.5 bg-background/85 backdrop-blur-md border-t border-border z-20">
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+        >
+          {pending ? "Čuvanje…" : submitLabel}
+        </button>
         <Link
           href={s ? `/students/${s.id}` : "/students"}
           className="text-sm text-muted-foreground hover:text-foreground"
@@ -267,17 +278,30 @@ export function StudentForm(props: Props) {
   );
 }
 
+type Tile = "cyan" | "magenta" | "rose" | "amber" | "emerald" | "violet" | "sky";
+
 function Section({
   title,
+  icon: Icon,
+  tile = "cyan",
   children,
 }: {
   title: string;
+  icon?: typeof User;
+  tile?: Tile;
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="space-y-4">
-      <legend className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
-        {title}
+    <fieldset className="card-elevated rounded-2xl p-5 sm:p-6 space-y-4">
+      <legend className="float-none px-0 inline-flex items-center gap-2.5 mb-1">
+        {Icon && (
+          <span
+            className={`flex size-8 items-center justify-center rounded-lg shrink-0 tile-${tile}`}
+          >
+            <Icon className="size-3.5" strokeWidth={2} />
+          </span>
+        )}
+        <span className="font-display text-lg text-foreground">{title}</span>
       </legend>
       {children}
     </fieldset>
@@ -343,13 +367,13 @@ function AudienceRadio({
   description: string;
 }) {
   return (
-    <label className="flex items-start gap-2.5 rounded-md border border-border p-3 cursor-pointer hover:bg-secondary/40 transition-colors has-[:checked]:border-foreground has-[:checked]:bg-secondary/60">
+    <label className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-brand/40 transition-colors has-[:checked]:border-brand has-[:checked]:bg-brand-soft/30 dark:has-[:checked]:bg-brand/10">
       <input
         type="radio"
         name="report_audience"
         value={value}
         defaultChecked={defaultChecked}
-        className="mt-0.5 size-3.5 accent-foreground"
+        className="mt-0.5 size-3.5 accent-brand"
       />
       <div className="min-w-0">
         <div className="text-sm font-medium leading-tight">{title}</div>
@@ -373,12 +397,12 @@ function ToggleRow({
   description: string;
 }) {
   return (
-    <label className="flex items-start gap-2.5 rounded-md border border-border p-3 cursor-pointer hover:bg-secondary/40 transition-colors">
+    <label className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-3 cursor-pointer hover:border-brand/40 transition-colors has-[:checked]:border-brand has-[:checked]:bg-brand-soft/30 dark:has-[:checked]:bg-brand/10">
       <input
         type="checkbox"
         name={name}
         defaultChecked={defaultChecked}
-        className="mt-0.5 size-3.5 accent-foreground"
+        className="mt-0.5 size-3.5 accent-brand"
       />
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium leading-tight">{label}</div>

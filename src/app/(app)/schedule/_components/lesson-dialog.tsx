@@ -18,6 +18,7 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -209,7 +210,10 @@ function CreateForm({
 
   return (
     <div>
-      <div className="px-5 pt-5 pb-4 border-b border-border">
+      <div className="px-5 pt-5 pb-4 border-b border-border flex items-start gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl tile-cyan shrink-0">
+          <CalendarDays className="size-5" strokeWidth={2} />
+        </div>
         <DialogHeader>
           <DialogTitle>Zakaži čas</DialogTitle>
           <DialogDescription>
@@ -639,7 +643,12 @@ function EditForm({
 
   return (
     <div>
-      <div className="px-5 pt-5 pb-4 border-b border-border">
+      <div className="px-5 pt-5 pb-4 border-b border-border flex items-start gap-3">
+        <Avatar
+          name={lesson.students?.full_name ?? "?"}
+          size="lg"
+          className="shrink-0"
+        />
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {lesson.students?.full_name ?? "Čas"}

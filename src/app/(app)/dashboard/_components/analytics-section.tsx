@@ -16,7 +16,8 @@ import {
 import { formatRsd } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-export function AnalyticsSection({
+/* ---------- Top stat strip — used at top of dashboard ---------- */
+export function AnalyticsTopStrip({
   stats,
   period,
 }: {
@@ -24,20 +25,20 @@ export function AnalyticsSection({
   period: AnalyticsPeriod;
 }) {
   return (
-    <section className="space-y-4">
-      {/* Header with period selector */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-medium">Performanse</h2>
-          <p className="text-xs text-muted-foreground">
-            {PERIOD_LABELS[period]}
-          </p>
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2">
+          <span className="text-[11px] uppercase tracking-[0.12em] font-medium text-muted-foreground">
+            Performanse
+          </span>
+          <span className="text-[11px] text-muted-foreground/70">
+            · {PERIOD_LABELS[period].toLowerCase()}
+          </span>
         </div>
         <PeriodSelector active={period} />
       </div>
 
-      {/* Big metrics row */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-xl border border-border bg-card overflow-hidden grid grid-cols-2 lg:grid-cols-4 lg:divide-x divide-y lg:divide-y-0 divide-border">
         <BigMetric
           label="Zarađeno"
           value={formatRsd(stats.revenue, false)}
@@ -45,9 +46,10 @@ export function AnalyticsSection({
           icon={Banknote}
           hint={
             stats.held > 0
-              ? `~${formatRsd(stats.averageRevenuePerHeld, false)} RSD po času`
+              ? `~${formatRsd(stats.averageRevenuePerHeld, false)} po času`
               : "Nema održanih časova"
           }
+          accent
         />
         <BigMetric
           label="Časova održano"
@@ -55,7 +57,7 @@ export function AnalyticsSection({
           icon={CheckCircle2}
           hint={
             stats.scheduled > 0
-              ? `${stats.scheduled} predstojećih u periodu`
+              ? `${stats.scheduled} predstojećih`
               : undefined
           }
         />
@@ -80,95 +82,17 @@ export function AnalyticsSection({
           icon={TrendingDown}
           hint={
             stats.totalLessonsTouched > 0
-              ? `${stats.totalCancelled} od ${stats.totalLessonsTouched} časova`
+              ? `${stats.totalCancelled} od ${stats.totalLessonsTouched}`
               : "Nema podataka"
           }
         />
-      </div>
-
-      {/* Detail cards */}
-      <div className="grid gap-3 lg:grid-cols-2">
-        <CancellationBreakdown stats={stats} />
-        <TopStudents students={stats.topStudents} />
       </div>
     </section>
   );
 }
 
-/* ---------- period selector ---------- */
-function PeriodSelector({ active }: { active: AnalyticsPeriod }) {
-  return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 text-xs">
-      {PERIOD_OPTIONS.map((p) => {
-        const isActive = active === p;
-        const href = p === "month" ? "/dashboard" : `/dashboard?period=${p}`;
-        return (
-          <Link
-            key={p}
-            href={href}
-            scroll={false}
-            className={cn(
-              "rounded-[4px] px-2.5 py-1 transition-colors",
-              isActive
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary",
-            )}
-          >
-            {PERIOD_LABELS[p].replace("Poslednjih ", "")}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ---------- big metric ---------- */
-function BigMetric({
-  label,
-  value,
-  unit,
-  icon: Icon,
-  hint,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  icon: LucideIcon;
-  hint?: string;
-  tone?: "default" | "warning";
-}) {
-  return (
-    <div className="rounded-xl border border-border bg-card p-4 flex flex-col gap-3 min-h-[110px]">
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span className="text-xs">{label}</span>
-        <Icon
-          className={cn(
-            "size-3.5",
-            tone === "warning" && "text-foreground/70",
-          )}
-          strokeWidth={1.75}
-        />
-      </div>
-      <div className="flex items-baseline gap-1.5 mt-auto">
-        <span className="text-2xl font-medium tracking-tight tabular-nums">
-          {value}
-        </span>
-        {unit && (
-          <span className="text-xs text-muted-foreground">{unit}</span>
-        )}
-      </div>
-      {hint && (
-        <p className="text-[11px] text-muted-foreground tabular-nums">
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/* ---------- cancellation breakdown ---------- */
-function CancellationBreakdown({ stats }: { stats: Analytics }) {
+/* ---------- Detail cards — top students + cancellation breakdown ---------- */
+export function CancellationBreakdown({ stats }: { stats: Analytics }) {
   const total = stats.totalCancelled;
   const items = [
     {
@@ -190,22 +114,20 @@ function CancellationBreakdown({ stats }: { stats: Analytics }) {
 
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-        <div>
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <XCircle
+            className="size-4 text-muted-foreground"
+            strokeWidth={1.75}
+          />
           <h3 className="text-sm font-medium">Otkazivanja po razlogu</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {total === 0
-              ? "Nema otkazanih časova"
-              : `${total} ukupno otkazanih`}
-          </p>
         </div>
-        <XCircle
-          className="size-4 text-muted-foreground"
-          strokeWidth={1.75}
-        />
+        <span className="text-[11px] uppercase tracking-wider text-muted-foreground tabular-nums">
+          {total === 0 ? "0" : `${total} ukupno`}
+        </span>
       </div>
       {total === 0 ? (
-        <div className="px-5 py-8 text-center">
+        <div className="px-5 py-6 text-center">
           <p className="text-xs text-muted-foreground">
             Sve čisto u ovom periodu.
           </p>
@@ -250,36 +172,28 @@ function CancellationBreakdown({ stats }: { stats: Analytics }) {
   );
 }
 
-/* ---------- top students ---------- */
-function TopStudents({
-  students,
-}: {
-  students: Analytics["topStudents"];
-}) {
+export function TopStudents({ students }: { students: Analytics["topStudents"] }) {
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-        <div>
+      <div className="px-5 py-3.5 border-b border-border flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Trophy
+            className="size-4 text-muted-foreground"
+            strokeWidth={1.75}
+          />
           <h3 className="text-sm font-medium">Najbolji učenici</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Po prihodu u ovom periodu
-          </p>
         </div>
-        <Trophy
-          className="size-4 text-muted-foreground"
-          strokeWidth={1.75}
-        />
       </div>
       {students.length === 0 ? (
-        <div className="px-5 py-8 text-center">
+        <div className="px-5 py-6 text-center">
           <p className="text-xs text-muted-foreground">
-            Još nema održanih časova u ovom periodu.
+            Još nema održanih časova.
           </p>
         </div>
       ) : (
         <ul className="divide-y divide-border">
           {students.map((s, i) => (
-            <li key={s.id} className="px-5 py-3">
+            <li key={s.id} className="px-5 py-2.5">
               <Link
                 href={`/students/${s.id}`}
                 className="flex items-center gap-3 group"
@@ -292,7 +206,7 @@ function TopStudents({
                   <p className="text-sm font-medium truncate group-hover:underline underline-offset-4">
                     {s.name}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[11px] text-muted-foreground">
                     {s.lessons}{" "}
                     {s.lessons === 1
                       ? "čas"
@@ -308,6 +222,89 @@ function TopStudents({
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+/* ---------- internals ---------- */
+function PeriodSelector({ active }: { active: AnalyticsPeriod }) {
+  return (
+    <div className="inline-flex items-center gap-0.5 rounded-md border border-border bg-card p-0.5 text-xs">
+      {PERIOD_OPTIONS.map((p) => {
+        const isActive = active === p;
+        const href = p === "month" ? "/dashboard" : `/dashboard?period=${p}`;
+        return (
+          <Link
+            key={p}
+            href={href}
+            scroll={false}
+            className={cn(
+              "rounded-[4px] px-2.5 py-1 transition-colors",
+              isActive
+                ? "bg-secondary text-foreground font-medium"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {PERIOD_LABELS[p].replace("Poslednjih ", "")}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function BigMetric({
+  label,
+  value,
+  unit,
+  icon: Icon,
+  hint,
+  tone = "default",
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+  icon: LucideIcon;
+  hint?: string;
+  tone?: "default" | "warning";
+  accent?: boolean;
+}) {
+  return (
+    <div className="relative px-5 py-4 flex flex-col gap-3 min-h-[120px]">
+      {accent && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-4 bottom-4 w-px bg-brand"
+        />
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-[0.1em] font-medium text-muted-foreground">
+          {label}
+        </span>
+        <Icon
+          className={cn(
+            "size-3.5 text-muted-foreground/60",
+            tone === "warning" && "text-amber-600 dark:text-amber-400",
+          )}
+          strokeWidth={1.75}
+        />
+      </div>
+      <div className="flex items-baseline gap-1.5 mt-auto">
+        <span className="text-3xl sm:text-[2rem] font-semibold tracking-tight tabular-nums leading-none">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-xs text-muted-foreground font-medium">
+            {unit}
+          </span>
+        )}
+      </div>
+      {hint && (
+        <p className="text-[11px] text-muted-foreground tabular-nums truncate">
+          {hint}
+        </p>
       )}
     </div>
   );

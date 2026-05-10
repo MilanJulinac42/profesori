@@ -168,7 +168,7 @@ export function HomeworkSection({
       </div>
 
       {showForm && (
-        <div className="rounded-lg border border-border bg-secondary/30 p-3 space-y-2.5">
+        <div className="rounded-xl border border-border bg-secondary/40 p-4 space-y-3">
           <div className="space-y-1">
             <Label htmlFor="hw_title" className="text-xs">
               Naslov *
@@ -309,7 +309,7 @@ function HomeworkRow({
   }
 
   return (
-    <li className="rounded-lg border border-border bg-background p-3 space-y-2">
+    <li className="rounded-xl border border-border bg-card p-3 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium truncate">{hw.title}</p>
@@ -422,20 +422,22 @@ function HomeworkRow({
 }
 
 function StatusBadge({ status }: { status: HomeworkStatus }) {
-  const tone =
+  const tile =
     status === "submitted"
-      ? "bg-amber-100 text-amber-900 border-amber-300"
+      ? "amber"
       : status === "graded"
-        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+        ? "emerald"
         : status === "skipped"
-          ? "bg-secondary text-muted-foreground border-border"
-          : "bg-secondary text-foreground border-border";
+          ? "rose"
+          : "cyan";
   return (
-    <Badge
-      variant="outline"
-      className={cn("font-normal text-[10px]", tone)}
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold",
+        `tile-${tile}`,
+      )}
     >
       {HOMEWORK_STATUS_LABELS[status]}
-    </Badge>
+    </span>
   );
 }

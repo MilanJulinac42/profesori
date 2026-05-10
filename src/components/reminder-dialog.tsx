@@ -157,7 +157,10 @@ function Form({
 
   return (
     <div>
-      <div className="px-5 pt-5 pb-4 border-b border-border">
+      <div className="px-5 pt-5 pb-4 border-b border-border flex items-start gap-3">
+        <div className="flex size-10 items-center justify-center rounded-xl tile-rose shrink-0">
+          <MessageSquare className="size-5" strokeWidth={2} />
+        </div>
         <DialogHeader>
           <DialogTitle>Pošalji opomenu</DialogTitle>
           <DialogDescription>

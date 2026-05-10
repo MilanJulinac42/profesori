@@ -17,17 +17,10 @@ export function PricingSection({ profile }: { profile: PublicProfile }) {
         : "sm:grid-cols-2 lg:grid-cols-3";
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-          <Banknote className="size-5" strokeWidth={1.75} />
-          Cenovnik
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Paketi časova. Pošalji upit za rezervaciju.
-        </p>
-      </div>
-
+    <section className="space-y-3">
+      <p className="text-sm text-muted-foreground -mt-3 mb-3">
+        Paketi časova. Pošalji upit za rezervaciju.
+      </p>
       <div className={cn("grid gap-4", cols)}>
         {packages.map((pkg, i) => (
           <PricingCard key={i} pkg={pkg} />

@@ -10,6 +10,8 @@ import { DataExportCard } from "./_components/data-export";
 import { DangerZone } from "./_components/danger-zone";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
 import { getConnectionForUser } from "@/lib/google/calendar";
+import { getAppValueStats } from "@/lib/dashboard/app-value";
+import { AppValueWidget } from "@/app/(app)/dashboard/_components/app-value-widget";
 
 type Search = { google_connected?: string; google_error?: string };
 
@@ -25,8 +27,11 @@ export default async function SettingsPage({
     : profile.organizations;
 
   const params = (await searchParams) ?? {};
-  const settings = await getOrgSettings(supabase, org!.id);
-  const googleConnection = await getConnectionForUser(supabase, profile.id);
+  const [settings, googleConnection, appValueStats] = await Promise.all([
+    getOrgSettings(supabase, org!.id),
+    getConnectionForUser(supabase, profile.id),
+    getAppValueStats(supabase, org!.id, 30),
+  ]);
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-3xl mx-auto w-full">
@@ -65,6 +70,13 @@ export default async function SettingsPage({
         status={org?.subscription_status ?? "trialing"}
         trialEndsAt={org?.trial_ends_at ?? null}
       />
+
+      <section>
+        <h2 className="text-sm font-semibold mb-3 text-foreground">
+          Statistika korišćenja
+        </h2>
+        <AppValueWidget stats={appValueStats} />
+      </section>
 
       <DataExportCard />
 

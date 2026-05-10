@@ -14,7 +14,6 @@ import {
   MapPin,
   type LucideIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,8 +41,6 @@ import {
   normalizeSections,
   type Section,
 } from "@/lib/public-profile/sections";
-import { ThemePicker } from "./theme-picker";
-import { LayoutPicker } from "./layout-picker";
 import { PricingEditor } from "./pricing-editor";
 import { FaqEditor } from "./faq-editor";
 import { GalleryEditor } from "./gallery-editor";
@@ -397,18 +394,20 @@ export function ProfileForm({
         />
       </Section>
 
-      <Section title="Layout stranice">
-        <p className="text-xs text-muted-foreground -mt-3 mb-1">
-          Struktura javne stranice — kako su sekcije raspoređene.
-        </p>
-        <LayoutPicker value={layout} onChange={setLayout} />
-      </Section>
+      {/* Layout & themes hidden — coming soon. State kept so backend persists. */}
+      <input type="hidden" name="layout" value={layout} />
+      <input type="hidden" name="theme" value={theme} />
 
-      <Section title="Boje (paleta)">
-        <p className="text-xs text-muted-foreground -mt-3 mb-1">
-          Boja i stilski naglasak. Ne menja strukturu, samo paletu.
-        </p>
-        <ThemePicker value={theme} onChange={setTheme} />
+      <Section title="Layout & boje">
+        <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-secondary/30 px-4 py-3.5">
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tile-violet shrink-0">
+            Uskoro
+          </span>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Različiti layout-i (stack / split / magazine / card) i palete boja
+            stižu uskoro. Trenutno koristi default izgled.
+          </p>
+        </div>
       </Section>
 
       <Section title="Sekcije i redosled">
@@ -436,17 +435,27 @@ export function ProfileForm({
       </Section>
 
       {state?.error && (
-        <p className="text-sm text-destructive" role="alert">
+        <div
+          className="rounded-lg border border-rose-500/30 bg-rose-500/5 px-3 py-2 text-sm text-rose-500 dark:text-rose-400 inline-flex items-start gap-2 w-full"
+          role="alert"
+        >
           {state.error}
-        </p>
+        </div>
       )}
 
-      <div className="flex items-center gap-3 pt-2 sticky bottom-0 -mx-4 sm:-mx-0 px-4 sm:px-0 py-3 bg-background/80 backdrop-blur-md border-t border-border">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Čuvanje..." : "Sačuvaj"}
-        </Button>
+      <div className="flex items-center gap-3 pt-2 sticky bottom-0 -mx-4 sm:-mx-0 px-4 sm:px-5 py-3.5 bg-background/85 backdrop-blur-md border-t border-border z-20">
+        <button
+          type="submit"
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 h-9 px-4 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-opacity glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+        >
+          {pending ? "Čuvanje…" : "Sačuvaj"}
+        </button>
         {saved && (
-          <span className="text-xs text-muted-foreground">Sačuvano.</span>
+          <span className="text-xs text-emerald-500 dark:text-emerald-400 font-medium inline-flex items-center gap-1">
+            <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+            Sačuvano
+          </span>
         )}
       </div>
     </form>
@@ -525,10 +534,14 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <fieldset className="space-y-5 pt-2">
-      <legend className="text-base font-medium inline-flex items-center gap-2 mb-2">
-        {Icon && <Icon className="size-4" strokeWidth={1.75} />}
-        {title}
+    <fieldset className="card-elevated rounded-2xl p-5 sm:p-6 space-y-5">
+      <legend className="float-none px-0 inline-flex items-center gap-2.5 mb-1">
+        {Icon && (
+          <span className="flex size-8 items-center justify-center rounded-lg tile-cyan shrink-0">
+            <Icon className="size-3.5" strokeWidth={2} />
+          </span>
+        )}
+        <span className="font-display text-lg text-foreground">{title}</span>
       </legend>
       {children}
     </fieldset>

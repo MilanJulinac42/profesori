@@ -8,9 +8,12 @@ export default function NewStudentPage() {
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-3xl mx-auto w-full">
       <Link
         href="/students"
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 group"
       >
-        <ArrowLeft className="size-3.5" strokeWidth={1.75} />
+        <ArrowLeft
+          className="size-3.5 group-hover:-translate-x-0.5 transition-transform"
+          strokeWidth={1.75}
+        />
         Nazad na učenike
       </Link>
       <PageHeader

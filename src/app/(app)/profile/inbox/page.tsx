@@ -38,9 +38,12 @@ export default async function InboxPage({
     <div className="px-4 sm:px-8 py-6 space-y-6 max-w-4xl mx-auto w-full">
       <Link
         href="/profile"
-        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
+        className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 group"
       >
-        <ArrowLeft className="size-3.5" strokeWidth={1.75} />
+        <ArrowLeft
+          className="size-3.5 group-hover:-translate-x-0.5 transition-transform"
+          strokeWidth={1.75}
+        />
         Nazad na profil
       </Link>
 
@@ -63,9 +66,9 @@ export default async function InboxPage({
               key={f.value}
               href={href}
               className={cn(
-                "rounded-md px-2.5 py-1.5 transition-colors",
+                "rounded-md px-2.5 py-1.5 transition-all",
                 active
-                  ? "bg-secondary text-foreground font-medium"
+                  ? "bg-brand text-brand-foreground font-semibold shadow-[0_2px_8px_-2px_oklch(0.78_0.16_205/0.4)]"
                   : "text-muted-foreground hover:text-foreground hover:bg-secondary/60",
               )}
             >
@@ -78,6 +81,7 @@ export default async function InboxPage({
       {bookings.length === 0 ? (
         <EmptyState
           icon={Inbox}
+          tile="cyan"
           title={
             status
               ? `Nema upita u kategoriji "${BOOKING_STATUS_LABELS[status as BookingStatus]}"`
@@ -90,7 +94,7 @@ export default async function InboxPage({
           }
         />
       ) : (
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="card-elevated card-glow rounded-2xl overflow-hidden">
           <ul className="divide-y divide-border">
             {bookings.map((b) => (
               <BookingRow key={b.id} booking={b} />

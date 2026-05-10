@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import "katex/dist/katex.min.css";
-import { ClipboardList, Clock, Check, Award } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ClipboardList, Clock, Check, Award, GraduationCap } from "lucide-react";
 import { renderMathHtml } from "@/lib/exercises/math-render";
 import {
   HOMEWORK_STATUS_LABELS,
@@ -112,40 +111,67 @@ export default async function PublicHomeworkPage({
   const submitted = hw.status === "submitted" || hw.status === "graded";
 
   return (
-    <div className="min-h-screen bg-[#f6f6f4]">
+    <div className="min-h-screen bg-background">
       <div className="max-w-2xl mx-auto px-5 py-10 sm:py-16">
+        {/* Logo header */}
+        <div className="flex justify-center mb-10">
+          <a
+            href="https://profesori.rs"
+            className="inline-flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
+          >
+            <span className="flex size-7 items-center justify-center rounded-lg bg-foreground text-background shadow-[0_2px_8px_-2px_oklch(0_0_0/0.3)]">
+              <GraduationCap className="size-4" strokeWidth={2} />
+            </span>
+            <span className="font-semibold tracking-tight">profesori.rs</span>
+          </a>
+        </div>
+
         {/* Header */}
-        <div className="mb-6">
-          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-            Domaći zadatak
-          </p>
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
-            {hw.title}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Za: <strong className="text-foreground">{studentName}</strong>
-            {" · "}Profesor: <strong className="text-foreground">{teacherName}</strong>
-          </p>
+        <div className="mb-6 flex items-start gap-3">
+          <div className="flex size-11 items-center justify-center rounded-2xl tile-violet shrink-0">
+            <ClipboardList className="size-5" strokeWidth={2} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] uppercase tracking-[0.16em] font-semibold text-muted-foreground mb-1">
+              Domaći zadatak
+            </p>
+            <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-tight tracking-tight">
+              {hw.title}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-2">
+              Za:{" "}
+              <strong className="text-foreground font-semibold">
+                {studentName}
+              </strong>
+              {" · "}Profesor:{" "}
+              <strong className="text-foreground font-semibold">
+                {teacherName}
+              </strong>
+            </p>
+          </div>
         </div>
 
         {/* Status / due */}
-        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 mb-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+        <div className="card-elevated card-glow rounded-2xl p-4 sm:p-5 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <StatusBadge status={hw.status} />
           {dueLabel && (
             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
               <Clock className="size-3.5" strokeWidth={1.75} />
-              Rok: <strong className="text-foreground">{dueLabel}</strong>
+              Rok:{" "}
+              <strong className="text-foreground font-semibold">
+                {dueLabel}
+              </strong>
             </span>
           )}
         </div>
 
         {/* Description */}
         {hw.description && (
-          <div className="rounded-xl border border-border bg-card p-5 mb-6">
-            <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
+          <div className="card-elevated card-glow rounded-2xl p-5 mb-5">
+            <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground mb-2">
               Opis
             </p>
-            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm whitespace-pre-wrap leading-relaxed text-foreground/90">
               {hw.description}
             </p>
           </div>
@@ -153,13 +179,14 @@ export default async function PublicHomeworkPage({
 
         {/* Exercise set (questions only, NO solutions) */}
         {exerciseSet && (
-          <div className="rounded-xl border border-border bg-card p-5 mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardList
-                className="size-4 text-muted-foreground"
-                strokeWidth={1.75}
-              />
-              <p className="text-sm font-medium">{exerciseSet.title}</p>
+          <div className="card-elevated card-glow rounded-2xl p-5 mb-5">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="flex size-8 items-center justify-center rounded-lg tile-cyan shrink-0">
+                <ClipboardList className="size-4" strokeWidth={2} />
+              </div>
+              <p className="text-sm font-semibold text-foreground">
+                {exerciseSet.title}
+              </p>
             </div>
             <ol className="space-y-3 list-decimal list-inside pl-1">
               {exerciseSet.exercises.map((ex, i) => (
@@ -181,15 +208,15 @@ export default async function PublicHomeworkPage({
 
         {/* Already submitted state */}
         {submitted ? (
-          <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-5 mb-6">
-            <p className="text-sm font-medium text-emerald-900 inline-flex items-center gap-2">
+          <div className="card-elevated card-glow rounded-2xl p-5 mb-5 border-emerald-500/30 bg-emerald-500/5">
+            <p className="text-sm font-semibold text-emerald-500 dark:text-emerald-400 inline-flex items-center gap-2">
               <Check className="size-4" strokeWidth={2.5} />
               {hw.status === "graded"
                 ? "Profesor je već pregledao"
                 : "Domaći je predat"}
             </p>
             {hw.submitted_at && (
-              <p className="text-xs text-emerald-800 mt-1">
+              <p className="text-xs text-muted-foreground mt-1.5">
                 Predato:{" "}
                 {new Date(hw.submitted_at).toLocaleString("sr-Latn-RS", {
                   day: "numeric",
@@ -201,7 +228,7 @@ export default async function PublicHomeworkPage({
               </p>
             )}
             {hw.submission_note && (
-              <p className="text-sm italic text-emerald-900 mt-3 border-l-2 border-emerald-300 pl-3">
+              <p className="text-sm italic text-foreground/85 mt-3 border-l-2 border-emerald-500/40 pl-3">
                 „{hw.submission_note}"
               </p>
             )}
@@ -213,7 +240,7 @@ export default async function PublicHomeworkPage({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative aspect-square rounded-md overflow-hidden border border-emerald-300"
+                    className="relative aspect-square rounded-md overflow-hidden border border-emerald-500/30 hover:border-emerald-500/60 transition-colors"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -226,16 +253,17 @@ export default async function PublicHomeworkPage({
               </div>
             )}
             {hw.teacher_grade !== null && (
-              <div className="mt-4 pt-3 border-t border-emerald-300">
-                <p className="text-xs uppercase tracking-wider text-emerald-700 mb-1 inline-flex items-center gap-1.5">
-                  <Award className="size-3" strokeWidth={2} />
+              <div className="mt-4 pt-4 border-t border-emerald-500/20">
+                <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-emerald-500 dark:text-emerald-400 mb-1.5 inline-flex items-center gap-1.5">
+                  <Award className="size-3" strokeWidth={2.5} />
                   Ocena
                 </p>
-                <p className="text-2xl font-semibold text-emerald-900 tabular-nums">
-                  {hw.teacher_grade} / 5
+                <p className="font-display text-4xl text-emerald-500 dark:text-emerald-400 tabular-nums leading-none">
+                  {hw.teacher_grade}{" "}
+                  <span className="text-2xl text-muted-foreground/80">/ 5</span>
                 </p>
                 {hw.teacher_feedback && (
-                  <p className="text-sm text-emerald-900 mt-2 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm text-foreground/85 mt-3 leading-relaxed whitespace-pre-wrap">
                     {hw.teacher_feedback}
                   </p>
                 )}
@@ -246,7 +274,7 @@ export default async function PublicHomeworkPage({
           <SubmissionForm publicToken={hw.public_token} />
         )}
 
-        <p className="text-[11px] text-muted-foreground text-center mt-8">
+        <p className="text-[11px] text-muted-foreground/70 text-center mt-10">
           Aplikacija Profesori. Ovaj link je privatan — ne deli ga sa drugima.
         </p>
       </div>
@@ -255,17 +283,22 @@ export default async function PublicHomeworkPage({
 }
 
 function StatusBadge({ status }: { status: HomeworkStatus }) {
-  const tone =
+  const tile =
     status === "submitted"
-      ? "bg-amber-100 text-amber-900 border-amber-300"
+      ? "amber"
       : status === "graded"
-        ? "bg-emerald-100 text-emerald-900 border-emerald-300"
+        ? "emerald"
         : status === "skipped"
-          ? "bg-secondary text-muted-foreground border-border"
-          : "bg-secondary text-foreground border-border";
+          ? "rose"
+          : "cyan";
   return (
-    <Badge variant="outline" className={cn("font-normal", tone)}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold",
+        `tile-${tile}`,
+      )}
+    >
       {HOMEWORK_STATUS_LABELS[status]}
-    </Badge>
+    </span>
   );
 }

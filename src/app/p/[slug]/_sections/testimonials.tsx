@@ -30,13 +30,7 @@ export function TestimonialsSection({
   if (items.length === 0) return null;
 
   return (
-    <section className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-medium tracking-tight inline-flex items-center gap-2">
-          <MessageCircle className="size-5" strokeWidth={1.75} />
-          Šta kažu
-        </h2>
-      </div>
+    <section>
       <Carousel items={items} cardAccentBg={theme.cardAccentBg} />
     </section>
   );

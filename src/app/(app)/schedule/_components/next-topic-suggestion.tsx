@@ -46,9 +46,9 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
         type="button"
         onClick={load}
         disabled={pending}
-        className="w-full inline-flex items-center justify-center gap-1.5 rounded-md border border-dashed border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs h-8 px-3 transition"
+        className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-brand/40 bg-brand-soft/50 dark:bg-brand/10 hover:bg-brand-soft dark:hover:bg-brand/15 text-brand text-xs font-semibold h-8 px-3 transition-colors"
       >
-        <Sparkles className="size-3.5" strokeWidth={2} />
+        <Sparkles className="size-3.5" strokeWidth={2.25} />
         Generiši AI plan za sledeći čas
       </button>
     );
@@ -56,16 +56,16 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
 
   if (state.kind === "loading") {
     return (
-      <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 flex items-center gap-2 text-xs text-amber-900">
+      <div className="rounded-lg border border-brand/30 bg-brand-soft/40 dark:bg-brand/10 px-3 py-2 flex items-center gap-2 text-xs text-brand font-medium">
         <Loader2 className="size-3.5 animate-spin shrink-0" strokeWidth={2} />
-        AI razmišlja šta bi bilo dobro raditi sledeći put...
+        AI razmišlja šta bi bilo dobro raditi sledeći put…
       </div>
     );
   }
 
   if (state.kind === "error") {
     return (
-      <div className="rounded-md border border-border bg-secondary/40 px-3 py-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+      <div className="rounded-lg border border-border bg-secondary/40 px-3 py-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5 min-w-0">
           <Sparkles className="size-3 shrink-0" strokeWidth={1.75} />
           <span className="truncate">{state.message}</span>
@@ -76,7 +76,7 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
             onClick={load}
             disabled={pending}
             aria-label="Pokušaj ponovo"
-            className="hover:text-foreground p-1 disabled:opacity-50"
+            className="hover:text-foreground p-1 disabled:opacity-50 transition-colors"
           >
             <RefreshCw
               className={`size-3 ${pending ? "animate-spin" : ""}`}
@@ -87,7 +87,7 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
             type="button"
             onClick={() => setHidden(true)}
             aria-label="Sakrij"
-            className="hover:text-foreground p-1"
+            className="hover:text-foreground p-1 transition-colors"
           >
             <X className="size-3" strokeWidth={2} />
           </button>
@@ -98,21 +98,20 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
 
   // OK — prikaz predloga
   return (
-    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 space-y-1.5">
+    <div className="rounded-xl border border-brand/30 bg-brand-soft/40 dark:bg-brand/10 px-3 py-3 space-y-1.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-start gap-2 min-w-0">
-          <Sparkles
-            className="size-3.5 text-amber-700 mt-0.5 shrink-0"
-            strokeWidth={1.75}
-          />
+        <div className="flex items-start gap-2.5 min-w-0">
+          <div className="flex size-7 items-center justify-center rounded-lg tile-violet shrink-0 mt-0.5">
+            <Sparkles className="size-3.5" strokeWidth={2} />
+          </div>
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-amber-800 font-medium">
+            <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-brand">
               AI predlog za sledeći čas
             </p>
-            <p className="text-sm font-medium text-amber-950 mt-0.5">
+            <p className="text-sm font-semibold text-foreground mt-1">
               {state.data.topic}
             </p>
-            <p className="text-xs text-amber-900 mt-0.5 leading-relaxed">
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               {state.data.reason}
             </p>
           </div>
@@ -123,7 +122,7 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
             onClick={load}
             disabled={pending}
             aria-label="Generiši nov predlog"
-            className="text-amber-700 hover:text-amber-900 p-1 disabled:opacity-50"
+            className="text-muted-foreground hover:text-foreground p-1 disabled:opacity-50 transition-colors"
           >
             <RefreshCw
               className={`size-3 ${pending ? "animate-spin" : ""}`}
@@ -134,7 +133,7 @@ export function NextTopicSuggestion({ studentId }: { studentId: string }) {
             type="button"
             onClick={() => setHidden(true)}
             aria-label="Sakrij"
-            className="text-amber-700 hover:text-amber-900 p-1"
+            className="text-muted-foreground hover:text-foreground p-1 transition-colors"
           >
             <X className="size-3" strokeWidth={2} />
           </button>
