@@ -73,6 +73,16 @@ const SECTIONS: NavSection[] = [
   },
 ];
 
+function pickActiveHref(pathname: string, hrefs: string[]): string | null {
+  let best: string | null = null;
+  for (const href of hrefs) {
+    if (pathname === href || pathname.startsWith(href + "/")) {
+      if (!best || href.length > best.length) best = href;
+    }
+  }
+  return best;
+}
+
 export function MobileNav({
   badges = {},
   user,
@@ -85,6 +95,8 @@ export function MobileNav({
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
+  const allHrefs = SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+  const activeHref = pickActiveHref(pathname, allHrefs);
 
   // Ensure portal target exists (client-side only).
   useEffect(() => setMounted(true), []);
@@ -125,9 +137,7 @@ export function MobileNav({
                   </p>
                   <div className="space-y-0.5">
                     {section.items.map((item) => {
-                      const active =
-                        pathname === item.href ||
-                        pathname.startsWith(item.href + "/");
+                      const active = activeHref === item.href;
                       const Icon = item.icon;
                       const badge = item.badgeKey
                         ? badges[item.badgeKey]

@@ -78,6 +78,21 @@ function tourKeyFor(href: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Returns the href of the nav item that "wins" for the current pathname.
+ * Longest matching href wins — so `/profile/inbox` lights up Upiti,
+ * not Javni profil (whose href is the shorter `/profile`).
+ */
+function pickActiveHref(pathname: string, hrefs: string[]): string | null {
+  let best: string | null = null;
+  for (const href of hrefs) {
+    if (pathname === href || pathname.startsWith(href + "/")) {
+      if (!best || href.length > best.length) best = href;
+    }
+  }
+  return best;
+}
+
 export function Sidebar({
   badges = {},
   user,
@@ -88,6 +103,8 @@ export function Sidebar({
   trial?: { daysLeft: number; tier: string; status: string };
 }) {
   const pathname = usePathname();
+  const allHrefs = SECTIONS.flatMap((s) => s.items.map((i) => i.href));
+  const activeHref = pickActiveHref(pathname, allHrefs);
 
   return (
     <aside className="hidden md:flex md:w-60 lg:w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground print:hidden sticky top-0 self-start h-screen">
@@ -106,9 +123,7 @@ export function Sidebar({
             </p>
             <div className="space-y-0.5">
               {section.items.map((item) => {
-                const active =
-                  pathname === item.href ||
-                  pathname.startsWith(item.href + "/");
+                const active = activeHref === item.href;
                 const Icon = item.icon;
                 const badge = item.badgeKey
                   ? badges[item.badgeKey]
