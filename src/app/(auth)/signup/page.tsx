@@ -15,16 +15,30 @@ export default function SignUpPage() {
 
   return (
     <form action={action} className="space-y-7">
-      <div className="space-y-2">
+      <div className="space-y-3">
+        <div
+          aria-hidden
+          className="lg:hidden flex size-12 items-center justify-center rounded-2xl tile-violet shadow-[0_12px_40px_-8px_oklch(0.7_0.27_340/0.5)]"
+        >
+          <svg viewBox="0 0 24 24" className="size-6" fill="none">
+            <path
+              d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM19 8v6M22 11h-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
         <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tile-emerald">
           <CheckCircle2 className="size-3" strokeWidth={2.25} />
           14 dana besplatno · bez kartice
         </span>
-        <h1 className="font-display text-3xl text-foreground leading-tight">
-          Kreiraj nalog
+        <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-tight tracking-tight">
+          Kreiraj <em className="not-italic text-brand">nalog.</em>
         </h1>
         <p className="text-sm text-muted-foreground">
-          Postavi sve za par minuta — učenici, raspored, naplata.
+          Postavi sve za par minuta — učenici, raspored, AI asistent.
         </p>
       </div>
 

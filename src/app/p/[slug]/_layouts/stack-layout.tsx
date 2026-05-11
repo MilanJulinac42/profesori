@@ -41,9 +41,7 @@ export function StackLayout({
       <header className="border-b border-border/60 bg-background/70 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <a
-            href="https://profesori.rs"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/"
             className="inline-flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
           >
             <span className="flex size-7 items-center justify-center rounded-lg bg-foreground text-background shadow-[0_2px_8px_-2px_oklch(0_0_0/0.3)]">
@@ -93,9 +91,7 @@ export function StackLayout({
         />
         <div className="max-w-5xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
           <a
-            href="https://profesori.rs"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/"
             className="inline-flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
           >
             <span className="flex size-6 items-center justify-center rounded-md bg-foreground text-background">

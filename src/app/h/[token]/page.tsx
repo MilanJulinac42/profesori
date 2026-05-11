@@ -116,7 +116,7 @@ export default async function PublicHomeworkPage({
         {/* Logo header */}
         <div className="flex justify-center mb-10">
           <a
-            href="https://profesori.rs"
+            href="/"
             className="inline-flex items-center gap-2 text-sm hover:opacity-80 transition-opacity"
           >
             <span className="flex size-7 items-center justify-center rounded-lg bg-foreground text-background shadow-[0_2px_8px_-2px_oklch(0_0_0/0.3)]">
