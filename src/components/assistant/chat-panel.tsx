@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -274,7 +275,7 @@ export function ChatPanel({
           <div className="flex justify-start">
             <div className="bg-secondary rounded-lg px-3 py-2 text-xs text-muted-foreground inline-flex items-center gap-1.5">
               <Loader2 className="size-3 animate-spin" strokeWidth={2} />
-              Razmišljam...
+              <ThinkingLabel />
             </div>
           </div>
         )}
@@ -322,5 +323,64 @@ export function ChatPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+const THINKING_LABELS = [
+  "Razmišljam…",
+  "Sklapam misli…",
+  "Tražim najbolji odgovor…",
+  "Trenutak…",
+  "Radim na tome…",
+];
+
+function ThinkingLabel() {
+  const [idx, setIdx] = useState(() =>
+    Math.floor(Math.random() * THINKING_LABELS.length),
+  );
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setIdx((prev) => {
+        // izbegavaj isti label dva puta zaredom
+        let next = Math.floor(Math.random() * THINKING_LABELS.length);
+        if (next === prev) next = (next + 1) % THINKING_LABELS.length;
+        return next;
+      });
+    }, 2200);
+    return () => window.clearInterval(id);
+  }, []);
+
+  return (
+    <span className="relative inline-block overflow-hidden">
+      {/* invisible spacer rezerviše širinu za najduži label da layout ne skače */}
+      <span aria-hidden className="invisible whitespace-nowrap">
+        {THINKING_LABELS.reduce((a, b) => (a.length >= b.length ? a : b))}
+      </span>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={idx}
+          initial={{ opacity: 0, y: 6, filter: "blur(2px)" }}
+          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+          exit={{ opacity: 0, y: -6, filter: "blur(2px)" }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 whitespace-nowrap bg-clip-text text-transparent"
+          style={{
+            backgroundImage:
+              "linear-gradient(110deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%)",
+            backgroundSize: "200% 100%",
+            animation: "thinking-shimmer 2.4s linear infinite",
+          }}
+        >
+          {THINKING_LABELS[idx]}
+        </motion.span>
+      </AnimatePresence>
+      <style>{`
+        @keyframes thinking-shimmer {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+    </span>
   );
 }

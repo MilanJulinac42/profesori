@@ -52,6 +52,7 @@ import {
 import { ProfileWidget } from "./_components/profile-widget";
 import { BookingsPreview } from "./_components/bookings-preview";
 import { RecentActivity } from "./_components/recent-activity";
+import { NextStepsCard } from "./_components/next-steps-card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ChartCard } from "@/components/dashboard/chart-card";
 import { RevenueAreaChart } from "@/components/dashboard/revenue-area-chart";
@@ -87,7 +88,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { profile } = await requireUser();
+  const { profile, authUser } = await requireUser();
   const supabase = await createClient();
 
   const params = await searchParams;
@@ -140,10 +141,29 @@ export default async function DashboardPage({
     listSubmittedHomework(supabase, 3),
   ]);
 
+  // Onboarding state — koraci za "Postavi platformu" karticu
+  const [{ count: anyLessonsCount }, { count: googleConnCount }] =
+    await Promise.all([
+      supabase
+        .from("lessons")
+        .select("*", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .limit(1),
+      supabase
+        .from("google_connections")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", authUser.id)
+        .limit(1),
+    ]);
+  const hasStudents = (activeStudents ?? 0) > 0;
+  const hasLessons = (anyLessonsCount ?? 0) > 0;
+  const googleConnected = (googleConnCount ?? 0) > 0;
+  const allOnboardingDone = hasStudents && hasLessons && googleConnected;
+  const setupDismissed = !!profile.dashboard_setup_dismissed_at;
+
   const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
 
   const completeness = computeProfileCompleteness(publicProfile);
-  const firstName = profile.full_name?.split(" ")[0] ?? "profesore";
 
   const trialEnd = org?.trial_ends_at ? new Date(org.trial_ends_at) : null;
   const daysLeft = trialEnd
@@ -162,7 +182,7 @@ export default async function DashboardPage({
   const monthName = today.toLocaleDateString("sr-Latn-RS", { month: "long" });
 
   const upcomingLessons = (upcoming as UpcomingLesson[] | null) ?? [];
-  const showOnboarding = (activeStudents ?? 0) === 0;
+  const showOnboarding = !allOnboardingDone && !setupDismissed;
   const profileNeedsAttention =
     !publicProfile?.published || completeness.score < 80;
 
@@ -178,7 +198,6 @@ export default async function DashboardPage({
     <div className="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto w-full space-y-6">
       <MountFade>
         <DashboardHero
-          firstName={firstName}
           dayName={dayName}
           dayNum={dayNum}
           monthName={monthName}
@@ -192,7 +211,11 @@ export default async function DashboardPage({
 
       {showOnboarding && (
         <MountFade delay={0.05}>
-          <NextStepsCard />
+          <NextStepsCard
+            hasStudents={hasStudents}
+            hasLessons={hasLessons}
+            googleConnected={googleConnected}
+          />
         </MountFade>
       )}
 
@@ -303,7 +326,6 @@ export default async function DashboardPage({
 
 /* ---------- HERO ---------- */
 function DashboardHero({
-  firstName,
   dayName,
   dayNum,
   monthName,
@@ -313,7 +335,6 @@ function DashboardHero({
   daysLeft,
   trialTier,
 }: {
-  firstName: string;
   dayName: string;
   dayNum: number;
   monthName: string;
@@ -324,6 +345,53 @@ function DashboardHero({
   trialTier: string;
 }) {
   const hasData = (analytics.series ?? []).length > 0;
+  const isEmpty = activeStudents === 0;
+
+  if (isEmpty) {
+    return (
+      <section className="relative overflow-hidden rounded-3xl bg-hero-mesh border border-border/60 dark:border-white/[0.08]">
+        <div
+          aria-hidden
+          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/15"
+        />
+        <div className="relative px-6 sm:px-10 py-10 sm:py-14">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] font-semibold text-muted-foreground">
+              <span
+                aria-hidden
+                className="relative inline-block size-2 rounded-full bg-success pulse-dot"
+              />
+              {dayName}, {dayNum}. {monthName}
+            </span>
+            {daysLeft <= 7 && (
+              <Link
+                href="/settings"
+                className="inline-flex items-center gap-1.5 rounded-full bg-card/70 backdrop-blur-md border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-card transition-colors"
+              >
+                <Clock className="size-3 text-brand" strokeWidth={2.25} />
+                <span className="text-foreground">
+                  {daysLeft}d probnog · {trialTier}
+                </span>
+                <ArrowUpRight
+                  className="size-3 text-muted-foreground"
+                  strokeWidth={2}
+                />
+              </Link>
+            )}
+          </div>
+
+          <h1 className="font-display mt-4 text-[2rem] sm:text-[2.5rem] leading-[1.05] text-foreground max-w-2xl">
+            Dobrodošao na <em className="not-italic text-brand">Profesori.</em>
+          </h1>
+          <p className="mt-3 text-sm sm:text-base text-muted-foreground max-w-xl inline-flex items-center gap-1.5">
+            Postavi prve stvari ispod — gotovo si za par minuta.
+            <ArrowRight className="size-4 rotate-90" strokeWidth={2} />
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative overflow-hidden rounded-3xl bg-hero-mesh border border-border/60 dark:border-white/[0.08]">
       {/* Soft top highlight + bottom shadow for premium depth */}
@@ -361,12 +429,10 @@ function DashboardHero({
           </div>
 
           <h1 className="font-display mt-4 text-[2rem] sm:text-[2.5rem] leading-[1.05] text-foreground">
-            Dobar dan, {firstName}.
+            Dobar dan.
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {activeStudents > 0
-              ? `${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih u periodu`
-              : "Spremno je za nedelju koja dolazi."}
+            {`${activeStudents} ${activeStudents === 1 ? "aktivan učenik" : "aktivnih učenika"} · ${analytics.scheduled} predstojećih u periodu`}
           </p>
 
           {/* The big number — gradient text fill */}
@@ -405,7 +471,7 @@ function DashboardHero({
             <p className="mt-2 text-xs text-muted-foreground tabular-nums">
               {analytics.held > 0
                 ? `~${formatRsd(analytics.averageRevenuePerHeld, false)} po času · ${analytics.held} ${analytics.held === 1 ? "čas" : "časova"} održano`
-                : "Nema održanih časova u periodu"}
+                : `Nema održanih časova · ${PERIOD_LABELS[period].toLowerCase()}`}
             </p>
           </div>
 
@@ -857,97 +923,6 @@ function Avatar({ name, index }: { name: string; index: number }) {
     >
       {initials || "?"}
     </span>
-  );
-}
-
-/* ---------- next steps card (onboarding) ---------- */
-function NextStepsCard() {
-  const steps = [
-    {
-      href: "/students/new",
-      title: "Dodaj prvog učenika",
-      description: "Ime, razred i cena po času.",
-      icon: Users,
-      tile: "cyan" as const,
-      done: false,
-    },
-    {
-      href: "/schedule",
-      title: "Zakaži prvi čas",
-      description: "Pojedinačni termin ili ponavljajući slot.",
-      icon: CalendarDays,
-      tile: "violet" as const,
-      done: false,
-    },
-    {
-      href: "/profile",
-      title: "Aktiviraj javni profil",
-      description: "Roditelji ti šalju upite preko forme.",
-      icon: Sparkles,
-      tile: "magenta" as const,
-      done: false,
-    },
-  ];
-  const doneCount = steps.filter((s) => s.done).length;
-
-  return (
-    <div className="card-elevated card-glow rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-        <div>
-          <h2 className="text-[15px] font-semibold text-foreground tracking-tight">
-            Postavi platformu
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {doneCount} od {steps.length} završeno
-          </p>
-        </div>
-        <div className="flex gap-1">
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              className={cn(
-                "h-1 w-6 rounded-full transition-colors",
-                i < doneCount ? "bg-brand" : "bg-secondary",
-              )}
-            />
-          ))}
-        </div>
-      </div>
-      <ul className="divide-y divide-border">
-        {steps.map((step) => {
-          const Icon = step.icon;
-          return (
-            <li key={step.href}>
-              <Link
-                href={step.href}
-                className="group flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors"
-              >
-                <div
-                  className={cn(
-                    "flex size-10 items-center justify-center rounded-xl shrink-0",
-                    `tile-${step.tile}`,
-                  )}
-                >
-                  <Icon className="size-4" strokeWidth={2} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground tracking-tight">
-                    {step.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">
-                    {step.description}
-                  </p>
-                </div>
-                <ArrowRight
-                  className="size-4 text-muted-foreground/40 group-hover:text-foreground group-hover:translate-x-0.5 transition-all"
-                  strokeWidth={2}
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 

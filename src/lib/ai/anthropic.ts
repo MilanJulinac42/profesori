@@ -18,9 +18,16 @@ export function getAnthropic(): Anthropic {
   return client;
 }
 
+/** Za generisanje zadataka — treba Sonnet jer su matematika/format zahtevni. */
 export const EXERCISE_MODEL = "claude-sonnet-4-6";
 
-/** Manji/jeftiniji model — fallback kad je Sonnet preopterećen (529). */
+/**
+ * Za AI asistenta (chat + tools) — Haiku je dovoljno pametan, brži je
+ * (~3x) i jeftiniji. Tool round-trip se završi za 2-3s umesto 6-8s.
+ */
+export const ASSISTANT_MODEL = "claude-haiku-4-5";
+
+/** Manji/jeftiniji model — fallback kad je primary preopterećen (529). */
 export const FALLBACK_MODEL = "claude-haiku-4-5";
 
 /** Heuristika: da li je greška Anthropic 529 / overloaded. */
