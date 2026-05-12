@@ -48,6 +48,7 @@ export type Analytics = {
   noShow: number;
   totalCancelled: number;
   revenue: number; // paras
+  projectedRevenue: number; // paras — suma zakazanih (još neodrzanih) časova
   lostRevenue: number; // paras (cancelled_by_student + no_show)
   averageRevenuePerHeld: number; // paras
   cancellationRate: number; // 0..100
@@ -65,30 +66,43 @@ export type Analytics = {
   series?: {
     label: string; // short date label "1. mar"
     iso: string; // ISO date (start of bucket)
-    revenue: number; // paras
+    revenue: number; // paras (završeni časovi)
+    projected: number; // paras (zakazani časovi koji još nisu odrzani)
     held: number;
+    scheduled: number;
     cancelled: number;
   }[];
   /** Granularity of `series` — affects how heatmap renders. */
   seriesGranularity?: "daily" | "weekly";
 };
 
-/** Returns the previous range with the same length as `range`. */
+/**
+ * Vraća prethodni period iste **proteklo-dosadašnje** dužine — apples-to-apples.
+ *
+ * Ako smo trenutno na pola maja, previous range je 1—15. april (ne 1—30. april),
+ * pa delta ne bude veštački negativna samo jer mesec nije gotov.
+ */
 export function getPreviousRange(
   range: { from: Date; to: Date },
   period: AnalyticsPeriod,
 ): { from: Date; to: Date } {
+  const now = new Date();
   switch (period) {
-    case "week":
+    case "week": {
+      // efektivni kraj trenutnog perioda je danas (ili kraj nedelje ako je prošao)
+      const effectiveTo = now < range.to ? now : range.to;
       return {
         from: subWeeks(range.from, 1),
-        to: subWeeks(range.to, 1),
+        to: subWeeks(effectiveTo, 1),
       };
-    case "month":
+    }
+    case "month": {
+      const effectiveTo = now < range.to ? now : range.to;
       return {
         from: subMonths(range.from, 1),
-        to: subMonths(range.to, 1),
+        to: subMonths(effectiveTo, 1),
       };
+    }
     case "all":
       return range;
   }
@@ -114,6 +128,7 @@ type Aggregates = {
   cancelledByTeacher: number;
   noShow: number;
   revenue: number;
+  projectedRevenue: number;
   lostRevenue: number;
   byStudent: Record<
     string,
@@ -129,6 +144,7 @@ function aggregate(lessons: LessonRow[]): Aggregates {
     cancelledByTeacher: 0,
     noShow: 0,
     revenue: 0,
+    projectedRevenue: 0,
     lostRevenue: 0,
     byStudent: {},
   };
@@ -159,6 +175,7 @@ function aggregate(lessons: LessonRow[]): Aggregates {
         break;
       case "scheduled":
         a.scheduled++;
+        a.projectedRevenue += l.price;
         break;
     }
   }
@@ -199,70 +216,28 @@ function buildSeries(
 
   const days = differenceInCalendarDays(range.to, from);
 
-  // Switch to weekly buckets for ranges longer than 60 days.
-  if (days > 60) {
-    const weeks = eachWeekOfInterval(
-      { start: from, end: range.to },
-      { weekStartsOn: 1 },
-    );
-    // Cap to last 30 weeks for visual density
-    const recentWeeks = weeks.slice(-30);
-    const buckets: Record<
-      string,
-      { revenue: number; held: number; cancelled: number }
-    > = {};
-    for (const w of recentWeeks) {
-      buckets[format(w, "yyyy-MM-dd")] = { revenue: 0, held: 0, cancelled: 0 };
-    }
-    for (const l of lessons) {
-      const ws = startOfWeek(new Date(l.scheduled_at), { weekStartsOn: 1 });
-      const key = format(ws, "yyyy-MM-dd");
-      const b = buckets[key];
-      if (!b) continue;
-      if (l.status === "completed") {
-        b.held++;
-        b.revenue += l.price;
-      } else if (
-        l.status === "cancelled_by_student" ||
-        l.status === "cancelled_by_teacher" ||
-        l.status === "no_show"
-      ) {
-        b.cancelled++;
-      }
-    }
-    return {
-      granularity: "weekly",
-      series: recentWeeks.map((w) => {
-        const key = format(w, "yyyy-MM-dd");
-        const b = buckets[key];
-        return {
-          label: format(w, "d. MMM"),
-          iso: key,
-          revenue: b.revenue,
-          held: b.held,
-          cancelled: b.cancelled,
-        };
-      }),
-    };
-  }
+  type Bucket = {
+    revenue: number;
+    projected: number;
+    held: number;
+    scheduled: number;
+    cancelled: number;
+  };
+  const emptyBucket = (): Bucket => ({
+    revenue: 0,
+    projected: 0,
+    held: 0,
+    scheduled: 0,
+    cancelled: 0,
+  });
 
-  // Daily buckets for shorter ranges
-  const dayList = eachDayOfInterval({ start: from, end: range.to });
-  const buckets: Record<
-    string,
-    { revenue: number; held: number; cancelled: number }
-  > = {};
-  for (const d of dayList) {
-    const key = format(d, "yyyy-MM-dd");
-    buckets[key] = { revenue: 0, held: 0, cancelled: 0 };
-  }
-  for (const l of lessons) {
-    const key = l.scheduled_at.slice(0, 10);
-    const b = buckets[key];
-    if (!b) continue;
+  function placeIntoBucket(b: Bucket, l: LessonRow) {
     if (l.status === "completed") {
       b.held++;
       b.revenue += l.price;
+    } else if (l.status === "scheduled") {
+      b.scheduled++;
+      b.projected += l.price;
     } else if (
       l.status === "cancelled_by_student" ||
       l.status === "cancelled_by_teacher" ||
@@ -271,16 +246,69 @@ function buildSeries(
       b.cancelled++;
     }
   }
+
+  // Switch to weekly buckets for ranges longer than 60 days.
+  if (days > 60) {
+    const weeks = eachWeekOfInterval(
+      { start: from, end: range.to },
+      { weekStartsOn: 1 },
+    );
+    // Cap to last 30 weeks for visual density
+    const recentWeeks = weeks.slice(-30);
+    const buckets: Record<string, Bucket> = {};
+    for (const w of recentWeeks) {
+      buckets[format(w, "yyyy-MM-dd")] = emptyBucket();
+    }
+    for (const l of lessons) {
+      const ws = startOfWeek(new Date(l.scheduled_at), { weekStartsOn: 1 });
+      const key = format(ws, "yyyy-MM-dd");
+      const b = buckets[key];
+      if (!b) continue;
+      placeIntoBucket(b, l);
+    }
+    return {
+      granularity: "weekly",
+      series: recentWeeks.map((w) => {
+        const key = format(w, "yyyy-MM-dd");
+        const b = buckets[key]!;
+        return {
+          label: format(w, "d. MMM"),
+          iso: key,
+          revenue: b.revenue,
+          projected: b.projected,
+          held: b.held,
+          scheduled: b.scheduled,
+          cancelled: b.cancelled,
+        };
+      }),
+    };
+  }
+
+  // Daily buckets for shorter ranges
+  const dayList = eachDayOfInterval({ start: from, end: range.to });
+  const buckets: Record<string, Bucket> = {};
+  for (const d of dayList) {
+    const key = format(d, "yyyy-MM-dd");
+    buckets[key] = emptyBucket();
+  }
+  for (const l of lessons) {
+    const key = l.scheduled_at.slice(0, 10);
+    const b = buckets[key];
+    if (!b) continue;
+    placeIntoBucket(b, l);
+  }
   return {
     granularity: "daily",
     series: dayList.map((d) => {
       const key = format(d, "yyyy-MM-dd");
-      const b = buckets[key];
+      const b = buckets[key]!;
       return {
         label: format(d, "d. MMM"),
         iso: key,
         revenue: b.revenue,
+        projected: b.projected,
         held: b.held,
+        scheduled: b.scheduled,
         cancelled: b.cancelled,
       };
     }),
@@ -333,6 +361,7 @@ export async function getLessonAnalytics(
     noShow: a.noShow,
     totalCancelled,
     revenue: a.revenue,
+    projectedRevenue: a.projectedRevenue,
     lostRevenue: a.lostRevenue,
     averageRevenuePerHeld,
     cancellationRate,

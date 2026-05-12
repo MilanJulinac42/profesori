@@ -226,14 +226,30 @@ export default async function DashboardPage({
       )}
 
       <MountFade delay={0.1}>
-        <StatRow analytics={analytics} period={period} />
+        <div>
+          {analytics.previous && comparePeriodLabel(period) && (
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <p className="text-[10px] uppercase tracking-[0.18em] font-semibold text-muted-foreground">
+                Pregled · {PERIOD_LABELS[period].toLowerCase()}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.14em] font-medium text-muted-foreground/70">
+                % {comparePeriodLabel(period)}
+              </p>
+            </div>
+          )}
+          <StatRow analytics={analytics} period={period} />
+        </div>
       </MountFade>
 
       <MountFade delay={0.18}>
         <div className="grid gap-5 lg:grid-cols-12">
           <ChartCard
             title="Trend prihoda"
-            subtitle={PERIOD_LABELS[period].toLowerCase()}
+            subtitle={
+              analytics.projectedRevenue > 0
+                ? `${PERIOD_LABELS[period].toLowerCase()} · +${formatRsd(analytics.projectedRevenue, false)} RSD planirano`
+                : PERIOD_LABELS[period].toLowerCase()
+            }
             className="lg:col-span-8 card-glow"
             contentMinHeight={280}
             action={
@@ -244,6 +260,7 @@ export default async function DashboardPage({
                     analytics.previous.revenue,
                   )}
                   size="md"
+                  compareLabel={comparePeriodLabel(period)}
                 />
               )
             }
@@ -253,6 +270,7 @@ export default async function DashboardPage({
                 data={analytics.series.map((s) => ({
                   label: s.label,
                   value: s.revenue,
+                  projected: s.projected,
                 }))}
                 height={260}
               />
@@ -465,6 +483,7 @@ function DashboardHero({
                   )}
                   size="md"
                   className="self-center"
+                  compareLabel={comparePeriodLabel(period)}
                 />
               )}
             </div>
@@ -647,6 +666,18 @@ function StatRow({
       />
     </div>
   );
+}
+
+/** Kratak label koji govori sa kojim periodom se poredi delta. */
+function comparePeriodLabel(period: AnalyticsPeriod): string {
+  switch (period) {
+    case "week":
+      return "vs prošla nedelja";
+    case "month":
+      return "vs prošli mesec";
+    case "all":
+      return "";
+  }
 }
 
 /* ---------- DONUT slices ---------- */
