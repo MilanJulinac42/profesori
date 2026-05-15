@@ -238,6 +238,26 @@
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
+/* Route transition — replaces motion/AnimatePresence on (app) layout */
+@keyframes page-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-page-fade {
+  animation: page-fade 0.25s cubic-bezier(0.21, 0.47, 0.32, 0.98);
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-fade {
+    animation: none;
+  }
+}
+
 /* Shimmer animation for Skeleton component */
 @keyframes shimmer {
   100% {
