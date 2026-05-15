@@ -5,10 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "analyze": "next experimental-analyze -o",
+    "analyze:open": "next experimental-analyze",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:check": "tsx scripts/check-schema.ts"
+    "db:check": "tsx scripts/check-schema.ts",
+    "measure": "tsx scripts/measure-bundle.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.93.0",

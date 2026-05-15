@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Image from "next/image";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import "katex/dist/katex.min.css";
 import { ClipboardList, Clock, Check, Award, GraduationCap } from "lucide-react";
@@ -242,11 +243,12 @@ export default async function PublicHomeworkPage({
                     rel="noopener noreferrer"
                     className="relative aspect-square rounded-md overflow-hidden border border-emerald-500/30 hover:border-emerald-500/60 transition-colors"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={url}
                       alt={`predata slika ${i + 1}`}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      fill
+                      sizes="(max-width: 640px) 33vw, 200px"
+                      className="object-cover"
                     />
                   </a>
                 ))}

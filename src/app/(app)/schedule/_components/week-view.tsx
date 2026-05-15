@@ -27,7 +27,12 @@ import {
   type LessonWithStudent,
   type LessonStatus,
 } from "@/lib/lessons/types";
-import { LessonDialog } from "./lesson-dialog";
+import dynamic from "next/dynamic";
+
+const LessonDialog = dynamic(
+  () => import("./lesson-dialog").then((m) => m.LessonDialog),
+  { ssr: false },
+);
 
 type StudentOption = {
   id: string;
@@ -236,12 +241,14 @@ export function WeekView({
         )}
       </div>
 
-      <LessonDialog
-        state={dialog}
-        students={students}
-        topicSuggestions={topicSuggestions}
-        onClose={() => setDialog({ mode: "closed" })}
-      />
+      {dialog.mode !== "closed" && (
+        <LessonDialog
+          state={dialog}
+          students={students}
+          topicSuggestions={topicSuggestions}
+          onClose={() => setDialog({ mode: "closed" })}
+        />
+      )}
     </>
   );
 }

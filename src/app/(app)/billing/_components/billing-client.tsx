@@ -34,11 +34,19 @@ import type {
   OrgDebtor,
   RecentPayment,
 } from "@/lib/payments/queries";
-import {
-  RecordPaymentDialog,
-  type StudentForPicker,
-} from "./record-payment-dialog";
-import { ReminderDialog } from "@/components/reminder-dialog";
+import dynamic from "next/dynamic";
+import type { StudentForPicker } from "./record-payment-dialog";
+
+const RecordPaymentDialog = dynamic(
+  () =>
+    import("./record-payment-dialog").then((m) => m.RecordPaymentDialog),
+  { ssr: false },
+);
+const ReminderDialog = dynamic(
+  () =>
+    import("@/components/reminder-dialog").then((m) => m.ReminderDialog),
+  { ssr: false },
+);
 
 type DebtorWithReminder = OrgDebtor & { lastReminderAt: string | null };
 
@@ -240,13 +248,15 @@ export function BillingClient({
         </section>
       </div>
 
-      <RecordPaymentDialog
-        key={dialogState.studentId ?? "any"}
-        students={pickerStudents}
-        open={dialogState.open}
-        defaultStudentId={dialogState.studentId}
-        onClose={closeDialog}
-      />
+      {dialogState.open && (
+        <RecordPaymentDialog
+          key={dialogState.studentId ?? "any"}
+          students={pickerStudents}
+          open={dialogState.open}
+          defaultStudentId={dialogState.studentId}
+          onClose={closeDialog}
+        />
+      )}
 
       {reminderState.debtor && reminderStudent && (
         <ReminderDialog

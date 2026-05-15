@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
+import Image from "next/image";
 import {
   Plus,
   Trash2,
@@ -348,11 +349,12 @@ function HomeworkRow({
                   rel="noopener noreferrer"
                   className="relative aspect-square rounded-md overflow-hidden border border-border"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={url}
                     alt={`slika ${i + 1}`}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    fill
+                    sizes="(max-width: 640px) 25vw, 120px"
+                    className="object-cover"
                   />
                 </a>
               ))}

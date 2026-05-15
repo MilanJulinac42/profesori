@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Camera, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import type { PublicProfile } from "@/lib/public-profile/types";
@@ -45,11 +46,13 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
             onClick={() => setOpenIndex(i)}
             className="relative aspect-square overflow-hidden rounded-xl border border-border bg-card group"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={img.url}
               alt={img.caption ?? `Slika ${i + 1}`}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              loading={i < 4 ? "eager" : "lazy"}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
             {img.caption && (
               <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent text-white text-xs p-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -113,11 +116,13 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
               className="max-w-5xl max-h-full flex flex-col items-center gap-3"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src={images[openIndex].url}
                 alt={images[openIndex].caption ?? `Slika ${openIndex + 1}`}
-                className="max-w-full max-h-[80vh] object-contain rounded-xl"
+                width={1600}
+                height={1200}
+                sizes="(max-width: 1024px) 100vw, 1024px"
+                className="max-w-full max-h-[80vh] w-auto h-auto object-contain rounded-xl"
               />
               {images[openIndex].caption && (
                 <p className="text-sm text-white/80 text-center">

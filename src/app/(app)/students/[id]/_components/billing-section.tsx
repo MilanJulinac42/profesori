@@ -15,9 +15,18 @@ import { PAYMENT_METHOD_LABELS, type Payment } from "@/lib/payments/types";
 import { deletePayment } from "@/lib/payments/actions";
 import type { Lesson } from "@/lib/lessons/types";
 import { cn } from "@/lib/utils";
+import dynamic from "next/dynamic";
 import { MonthlyBillButton } from "./monthly-bill-button";
-import { PaymentDialog } from "./payment-dialog";
-import { ReminderDialog } from "@/components/reminder-dialog";
+
+const PaymentDialog = dynamic(
+  () => import("./payment-dialog").then((m) => m.PaymentDialog),
+  { ssr: false },
+);
+const ReminderDialog = dynamic(
+  () =>
+    import("@/components/reminder-dialog").then((m) => m.ReminderDialog),
+  { ssr: false },
+);
 import {
   REMINDER_CHANNEL_LABELS,
   type ReminderLog,
@@ -279,30 +288,34 @@ export function BillingSection({
         </div>
       )}
 
-      <PaymentDialog
-        studentId={studentId}
-        studentName={studentName}
-        suggestedAmount={debt > 0 ? debt : undefined}
-        open={open}
-        onClose={() => setOpen(false)}
-      />
+      {open && (
+        <PaymentDialog
+          studentId={studentId}
+          studentName={studentName}
+          suggestedAmount={debt > 0 ? debt : undefined}
+          open={open}
+          onClose={() => setOpen(false)}
+        />
+      )}
 
-      <ReminderDialog
-        open={reminderOpen}
-        onClose={() => setReminderOpen(false)}
-        studentId={studentId}
-        parentPhone={parentPhone}
-        parentEmail={parentEmail}
-        customTemplate={customTemplate}
-        context={{
-          teacherName,
-          studentName,
-          parentName,
-          debt,
-          unpaidLessonsCount,
-          oldestUnpaidAt,
-        }}
-      />
+      {reminderOpen && (
+        <ReminderDialog
+          open={reminderOpen}
+          onClose={() => setReminderOpen(false)}
+          studentId={studentId}
+          parentPhone={parentPhone}
+          parentEmail={parentEmail}
+          customTemplate={customTemplate}
+          context={{
+            teacherName,
+            studentName,
+            parentName,
+            debt,
+            unpaidLessonsCount,
+            oldestUnpaidAt,
+          }}
+        />
+      )}
     </>
   );
 }

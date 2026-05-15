@@ -1,9 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Sparkles, X, Maximize2 } from "lucide-react";
 import Link from "next/link";
-import { ChatPanel } from "./chat-panel";
+
+const ChatPanel = dynamic(
+  () => import("./chat-panel").then((m) => m.ChatPanel),
+  { ssr: false, loading: () => <ChatPanelSkeleton /> },
+);
+
+function ChatPanelSkeleton() {
+  return (
+    <div className="h-64 flex items-center justify-center text-xs text-muted-foreground">
+      Učitavanje…
+    </div>
+  );
+}
 
 export function AssistantWidget() {
   const [open, setOpen] = useState(false);
