@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   Users,
@@ -18,9 +19,13 @@ import {
   TrendingDown,
   Trophy,
 } from "lucide-react";
-import { requireUser } from "@/lib/supabase/auth";
-import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
+import {
+  getDashboardUser,
+  getDashboardSupabase,
+  getDashboardAnalytics,
+  getDashboardBillableStatuses,
+} from "./_data";
 import {
   getLessonAnalytics,
   getRangeForPeriod,
@@ -88,9 +93,6 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const { profile, authUser } = await requireUser();
-  const supabase = await createClient();
-
   const params = await searchParams;
   const period: AnalyticsPeriod = (
     ["week", "month", "all"].includes(params.period ?? "")
@@ -98,81 +100,73 @@ export default async function DashboardPage({
       : "month"
   ) as AnalyticsPeriod;
 
-  const org = Array.isArray(profile.organizations)
-    ? profile.organizations[0]
-    : profile.organizations;
+  return (
+    <div className="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto w-full space-y-6">
+      <Suspense fallback={<HeroSkeleton />}>
+        <HeroBlock period={period} />
+      </Suspense>
 
-  const settings = await getOrgSettings(supabase, org!.id);
-  const billableStatuses = computeBillableStatuses(settings);
+      <Suspense fallback={null}>
+        <OnboardingBlock />
+      </Suspense>
 
-  const range = getRangeForPeriod(period);
-  const [
-    { count: activeStudents },
-    { data: upcoming },
-    analytics,
-    debtors,
-    missingNotesCount,
-    publicProfile,
-    recentBookings,
-    recentActivity,
-    submittedHomeworkCount,
-    submittedHomework,
-  ] = await Promise.all([
+      <Suspense fallback={null}>
+        <BookingsBlock />
+      </Suspense>
+
+      <Suspense fallback={<StatsAndChartsSkeleton />}>
+        <StatsAndChartsBlock period={period} />
+      </Suspense>
+
+      <div className="grid gap-5 lg:grid-cols-12">
+        <div className="lg:col-span-8 space-y-5 min-w-0">
+          <Suspense fallback={<CardSkeleton height={100} />}>
+            <PendingBlock />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton height={260} />}>
+            <UpcomingBlock />
+          </Suspense>
+          <Suspense fallback={<CardSkeleton height={260} />}>
+            <ActivityBlock />
+          </Suspense>
+        </div>
+        <aside className="lg:col-span-4 space-y-5 min-w-0">
+          <Suspense fallback={<CardSkeleton height={260} />}>
+            <TopStudentsBlock period={period} />
+          </Suspense>
+          <Suspense fallback={null}>
+            <ProfileWidgetBlock />
+          </Suspense>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- BLOCKS (server data fetching wrapped in Suspense) ---------- */
+
+async function HeroBlock({ period }: { period: AnalyticsPeriod }) {
+  const { profile } = await getDashboardUser();
+  const supabase = await getDashboardSupabase();
+  const [activeStudentsRes, analytics] = await Promise.all([
     supabase
       .from("students")
       .select("*", { count: "exact", head: true })
       .is("deleted_at", null)
       .eq("status", "active"),
-    supabase
-      .from("lessons")
-      .select("id, scheduled_at, duration_minutes, status, students(full_name)")
-      .is("deleted_at", null)
-      .eq("status", "scheduled")
-      .gte("scheduled_at", new Date().toISOString())
-      .order("scheduled_at", { ascending: true })
-      .limit(5),
-    getLessonAnalytics(supabase, range, { period }),
-    getOrgDebtors(supabase, billableStatuses),
-    countLessonsMissingNotes(supabase),
-    getOwnPublicProfile(supabase, org!.id),
-    getRecentNewBookings(supabase, 4),
-    getRecentActivity(supabase, 12),
-    countSubmittedHomework(supabase),
-    listSubmittedHomework(supabase, 3),
+    getDashboardAnalytics(period),
   ]);
+  const activeStudents = activeStudentsRes.count;
 
-  // Onboarding state — koraci za "Postavi platformu" karticu
-  const [{ count: anyLessonsCount }, { count: googleConnCount }] =
-    await Promise.all([
-      supabase
-        .from("lessons")
-        .select("*", { count: "exact", head: true })
-        .is("deleted_at", null)
-        .limit(1),
-      supabase
-        .from("google_connections")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", authUser.id)
-        .limit(1),
-    ]);
-  const hasStudents = (activeStudents ?? 0) > 0;
-  const hasLessons = (anyLessonsCount ?? 0) > 0;
-  const googleConnected = (googleConnCount ?? 0) > 0;
-  const allOnboardingDone = hasStudents && hasLessons && googleConnected;
-  const setupDismissed = !!profile.dashboard_setup_dismissed_at;
-
-  const oldestNeedingNotes = await getOldestLessonNeedingNotes(supabase);
-
-  const completeness = computeProfileCompleteness(publicProfile);
-
+  const org = Array.isArray(profile.organizations)
+    ? profile.organizations[0]
+    : profile.organizations;
   const trialEnd = org?.trial_ends_at ? new Date(org.trial_ends_at) : null;
   const daysLeft = trialEnd
     ? Math.max(
         0,
-        Math.ceil(
-          // eslint-disable-next-line react-hooks/purity
-          (trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
-        ),
+        // eslint-disable-next-line react-hooks/purity
+        Math.ceil((trialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
       )
     : 14;
 
@@ -181,50 +175,74 @@ export default async function DashboardPage({
   const dayNum = today.getDate();
   const monthName = today.toLocaleDateString("sr-Latn-RS", { month: "long" });
 
-  const upcomingLessons = (upcoming as UpcomingLesson[] | null) ?? [];
-  const showOnboarding = !allOnboardingDone && !setupDismissed;
-  const profileNeedsAttention =
-    !publicProfile?.published || completeness.score < 80;
-
-  const pendingItems = buildPendingItems({
-    debtors,
-    missingNotesCount,
-    oldestNeedingNotes,
-    submittedHomeworkCount,
-    submittedHomework,
-  });
-
   return (
-    <div className="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto w-full space-y-6">
-      <MountFade>
-        <DashboardHero
-          dayName={dayName}
-          dayNum={dayNum}
-          monthName={monthName}
-          activeStudents={activeStudents ?? 0}
-          analytics={analytics}
-          period={period}
-          daysLeft={daysLeft}
-          trialTier={org?.subscription_tier ?? "start"}
-        />
-      </MountFade>
+    <MountFade>
+      <DashboardHero
+        dayName={dayName}
+        dayNum={dayNum}
+        monthName={monthName}
+        activeStudents={activeStudents ?? 0}
+        analytics={analytics}
+        period={period}
+        daysLeft={daysLeft}
+        trialTier={org?.subscription_tier ?? "start"}
+      />
+    </MountFade>
+  );
+}
 
-      {showOnboarding && (
-        <MountFade delay={0.05}>
-          <NextStepsCard
-            hasStudents={hasStudents}
-            hasLessons={hasLessons}
-            googleConnected={googleConnected}
-          />
-        </MountFade>
-      )}
+async function OnboardingBlock() {
+  const { profile, authUser } = await getDashboardUser();
+  const supabase = await getDashboardSupabase();
+  const [activeStudentsRes, anyLessonsRes, googleConnRes] = await Promise.all([
+    supabase
+      .from("students")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .eq("status", "active"),
+    supabase
+      .from("lessons")
+      .select("*", { count: "exact", head: true })
+      .is("deleted_at", null)
+      .limit(1),
+    supabase
+      .from("google_connections")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", authUser.id)
+      .limit(1),
+  ]);
+  const hasStudents = (activeStudentsRes.count ?? 0) > 0;
+  const hasLessons = (anyLessonsRes.count ?? 0) > 0;
+  const googleConnected = (googleConnRes.count ?? 0) > 0;
+  const allDone = hasStudents && hasLessons && googleConnected;
+  const setupDismissed = !!profile.dashboard_setup_dismissed_at;
+  if (allDone || setupDismissed) return null;
+  return (
+    <MountFade delay={0.05}>
+      <NextStepsCard
+        hasStudents={hasStudents}
+        hasLessons={hasLessons}
+        googleConnected={googleConnected}
+      />
+    </MountFade>
+  );
+}
 
-      {recentBookings.length > 0 && (
-        <MountFade delay={0.1}>
-          <BookingsPreview bookings={recentBookings} />
-        </MountFade>
-      )}
+async function BookingsBlock() {
+  const supabase = await getDashboardSupabase();
+  const recentBookings = await getRecentNewBookings(supabase, 4);
+  if (recentBookings.length === 0) return null;
+  return (
+    <MountFade delay={0.1}>
+      <BookingsPreview bookings={recentBookings} />
+    </MountFade>
+  );
+}
 
+async function StatsAndChartsBlock({ period }: { period: AnalyticsPeriod }) {
+  const analytics = await getDashboardAnalytics(period);
+  return (
+    <>
       <MountFade delay={0.1}>
         <div>
           {analytics.previous && comparePeriodLabel(period) && (
@@ -310,35 +328,121 @@ export default async function DashboardPage({
           </ChartCard>
         </div>
       </MountFade>
+    </>
+  );
+}
 
-      <MountFade delay={0.26}>
-        <div className="grid gap-5 lg:grid-cols-12">
-          <div className="lg:col-span-8 space-y-5 min-w-0">
-            {pendingItems.length > 0 ? (
-              <PendingWork items={pendingItems} />
-            ) : (
-              <AllClearCard />
-            )}
-            <UpcomingCard lessons={upcomingLessons} />
-            <RecentActivity events={recentActivity} />
-          </div>
+async function PendingBlock() {
+  const supabase = await getDashboardSupabase();
+  const billableStatuses = await getDashboardBillableStatuses();
+  const [
+    debtors,
+    missingNotesCount,
+    oldestNeedingNotes,
+    submittedHomeworkCount,
+    submittedHomework,
+  ] = await Promise.all([
+    getOrgDebtors(supabase, billableStatuses),
+    countLessonsMissingNotes(supabase),
+    getOldestLessonNeedingNotes(supabase),
+    countSubmittedHomework(supabase),
+    listSubmittedHomework(supabase, 3),
+  ]);
+  const pendingItems = buildPendingItems({
+    debtors,
+    missingNotesCount,
+    oldestNeedingNotes,
+    submittedHomeworkCount,
+    submittedHomework,
+  });
+  return pendingItems.length > 0 ? (
+    <PendingWork items={pendingItems} />
+  ) : (
+    <AllClearCard />
+  );
+}
 
-          <aside className="lg:col-span-4 space-y-5 min-w-0">
-            <TopStudentsCard students={analytics.topStudents} />
-            {profileNeedsAttention && (
-              <ProfileWidget
-                slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
-                published={publicProfile?.published ?? false}
-                availableForNewStudents={
-                  publicProfile?.available_for_new_students ?? true
-                }
-                completeness={completeness}
-              />
-            )}
-          </aside>
-        </div>
-      </MountFade>
-    </div>
+async function UpcomingBlock() {
+  const supabase = await getDashboardSupabase();
+  const { data: upcoming } = await supabase
+    .from("lessons")
+    .select("id, scheduled_at, duration_minutes, status, students(full_name)")
+    .is("deleted_at", null)
+    .eq("status", "scheduled")
+    .gte("scheduled_at", new Date().toISOString())
+    .order("scheduled_at", { ascending: true })
+    .limit(5);
+  const upcomingLessons = (upcoming as UpcomingLesson[] | null) ?? [];
+  return <UpcomingCard lessons={upcomingLessons} />;
+}
+
+async function ActivityBlock() {
+  const supabase = await getDashboardSupabase();
+  const recentActivity = await getRecentActivity(supabase, 12);
+  return <RecentActivity events={recentActivity} />;
+}
+
+async function TopStudentsBlock({ period }: { period: AnalyticsPeriod }) {
+  const analytics = await getDashboardAnalytics(period);
+  return <TopStudentsCard students={analytics.topStudents} />;
+}
+
+async function ProfileWidgetBlock() {
+  const { profile } = await getDashboardUser();
+  const supabase = await getDashboardSupabase();
+  const org = Array.isArray(profile.organizations)
+    ? profile.organizations[0]
+    : profile.organizations;
+  const publicProfile = await getOwnPublicProfile(supabase, org!.id);
+  const completeness = computeProfileCompleteness(publicProfile);
+  const profileNeedsAttention =
+    !publicProfile?.published || completeness.score < 80;
+  if (!profileNeedsAttention) return null;
+  return (
+    <ProfileWidget
+      slug={publicProfile?.slug ?? org?.slug ?? "tvoj-link"}
+      published={publicProfile?.published ?? false}
+      availableForNewStudents={
+        publicProfile?.available_for_new_students ?? true
+      }
+      completeness={completeness}
+    />
+  );
+}
+
+/* ---------- SKELETONS ---------- */
+
+function HeroSkeleton() {
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-card/40 border border-border/60 dark:border-white/[0.08] min-h-[280px] animate-pulse" />
+  );
+}
+
+function StatsAndChartsSkeleton() {
+  return (
+    <>
+      <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="card-elevated rounded-2xl h-[160px] animate-pulse"
+          />
+        ))}
+      </div>
+      <div className="grid gap-5 lg:grid-cols-12">
+        <div className="lg:col-span-8 card-elevated rounded-2xl h-[340px] animate-pulse" />
+        <div className="lg:col-span-4 card-elevated rounded-2xl h-[340px] animate-pulse" />
+      </div>
+    </>
+  );
+}
+
+function CardSkeleton({ height }: { height: number }) {
+  return (
+    <div
+      className="card-elevated rounded-2xl animate-pulse"
+      style={{ height }}
+    />
   );
 }
 
