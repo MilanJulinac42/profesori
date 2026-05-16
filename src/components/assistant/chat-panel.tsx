@@ -10,7 +10,16 @@ import { sendChatMessage } from "@/lib/assistant/chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProposalCard } from "./proposal-card";
+import { useAssistant, labelForPath } from "./assistant-context";
 import type { Proposal, UIMessage } from "./types";
+
+const BUBBLE_MAX_LEN = 140;
+
+function truncateForBubble(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= BUBBLE_MAX_LEN) return trimmed;
+  return trimmed.slice(0, BUBBLE_MAX_LEN - 1).trimEnd() + "…";
+}
 
 const MD_COMPONENTS = {
   p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
@@ -98,9 +107,15 @@ export function ChatPanel({
 }: {
   fullPage?: boolean;
 }) {
-  const [messages, setMessages] = useState<UIMessage[]>([]);
+  const {
+    messages,
+    setMessages,
+    conversationId,
+    setConversationId,
+    setOpen,
+    setBubble,
+  } = useAssistant();
   const [input, setInput] = useState("");
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -157,9 +172,21 @@ export function ChatPanel({
 
       setMessages((prev) => [...prev, aMsg]);
 
-      // Auto-navigation tool result
+      // Auto-navigation tool result: minimize the panel, push the user to
+      // the new route, and surface the assistant's reply as a floating
+      // bubble so they can resume the conversation with one click.
       if (res.navigation?.path) {
-        router.push(res.navigation.path);
+        const path = res.navigation.path;
+        const bubbleText = textBlocks.trim()
+          ? truncateForBubble(textBlocks)
+          : `Otvorio sam ti ${labelForPath(path)}. Želiš li još nešto?`;
+        setOpen(false);
+        setBubble({
+          text: bubbleText,
+          path,
+          shownAt: Date.now(),
+        });
+        router.push(path);
       }
     });
   }

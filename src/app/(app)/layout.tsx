@@ -7,6 +7,7 @@ import { countNewBookings } from "@/lib/booking/queries";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AssistantWidget } from "@/components/assistant/widget";
+import { AssistantProvider } from "@/components/assistant/assistant-context";
 
 export default async function AppLayout({
   children,
@@ -59,25 +60,27 @@ export default async function AppLayout({
         onboardingCompleted={!showOnboarding}
         firstStudentId={(firstStudent?.id as string | undefined) ?? null}
       >
-        <div className="flex-1 flex">
-          <Sidebar
-            badges={badges}
-            user={{ name: userName, email: profile.email }}
-            trial={trial}
-          />
-          <div className="flex-1 flex flex-col min-w-0">
-            <Topbar
-              userName={userName}
-              userEmail={profile.email}
+        <AssistantProvider>
+          <div className="flex-1 flex">
+            <Sidebar
               badges={badges}
+              user={{ name: userName, email: profile.email }}
               trial={trial}
             />
-            <main className="flex-1 flex flex-col">
-              <PageTransition>{children}</PageTransition>
-            </main>
+            <div className="flex-1 flex flex-col min-w-0">
+              <Topbar
+                userName={userName}
+                userEmail={profile.email}
+                badges={badges}
+                trial={trial}
+              />
+              <main className="flex-1 flex flex-col">
+                <PageTransition>{children}</PageTransition>
+              </main>
+            </div>
           </div>
-        </div>
-        <AssistantWidget />
+          <AssistantWidget />
+        </AssistantProvider>
       </TourProvider>
     </ThemeProvider>
   );

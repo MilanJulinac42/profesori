@@ -238,6 +238,27 @@
   animation: pulse-ring 2s ease-in-out infinite;
 }
 
+/* AssistantWidget — post-redirect bubble slide-in */
+@keyframes assistant-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-assistant-bubble {
+  animation: assistant-bubble-in 0.32s cubic-bezier(0.21, 0.47, 0.32, 0.98);
+  transform-origin: bottom right;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-assistant-bubble {
+    animation: none;
+  }
+}
+
 /* Shimmer animation for Skeleton component */
 @keyframes shimmer {
   100% {
