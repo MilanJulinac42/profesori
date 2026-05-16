@@ -279,6 +279,28 @@ export async function submitHomeworkAction(input: {
     revalidatePath(`/students/${hw.student_id}`);
     revalidatePath("/dashboard");
 
+    // Notify the teacher(s) via web push. We need the student's org + name —
+    // fetch in parallel with revalidation completing (already done above).
+    void (async () => {
+      try {
+        const { data: stu } = await supabase
+          .from("students")
+          .select("organization_id, full_name")
+          .eq("id", hw.student_id)
+          .maybeSingle();
+        if (!stu) return;
+        const { sendPushToOrg } = await import("@/lib/push/send");
+        await sendPushToOrg((stu as { organization_id: string }).organization_id, {
+          title: "Domaći predat",
+          body: `${(stu as { full_name: string }).full_name} je predao/la domaći`,
+          url: `/students/${hw.student_id}`,
+          tag: `hw-${hw.id}`,
+        });
+      } catch {
+        /* swallow */
+      }
+    })();
+
     return { ok: true };
   } catch (err) {
     return {

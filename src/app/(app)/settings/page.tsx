@@ -11,6 +11,8 @@ import { DangerZone } from "./_components/danger-zone";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
 import { ReportsRunsCard } from "./_components/reports-runs-card";
 import { TierMatrixCard } from "./_components/tier-matrix-card";
+import { PushCard } from "./_components/push-card";
+import { getPushPublicKey } from "@/lib/push/config";
 import { listReportRuns } from "@/lib/reports/runs";
 import { getConnectionForUser } from "@/lib/google/calendar";
 import { getAppValueStats } from "@/lib/dashboard/app-value";
@@ -69,6 +71,8 @@ export default async function SettingsPage({
         }
         bannerError={params.google_error ?? null}
       />
+
+      <PushCard publicKey={getPushPublicKey()} />
 
       <ReportsRunsCard initial={reportRuns} />
 

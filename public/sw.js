@@ -49,3 +49,43 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// ── Web Push ───────────────────────────────────────────────────────────
+// Payload shape (set by sendPushToUser):
+//   { title, body, url?, tag? }
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "Profesori", body: event.data.text() };
+  }
+  const title = payload.title || "Profesori";
+  const options = {
+    body: payload.body || "",
+    tag: payload.tag,
+    badge: "/icon",
+    icon: "/icon",
+    data: { url: payload.url || "/dashboard" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      // Focus existing tab if it's already pointed at the same origin.
+      for (const c of clientsArr) {
+        if ("focus" in c) {
+          c.navigate(url);
+          return c.focus();
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    }),
+  );
+});

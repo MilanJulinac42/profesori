@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sendPushToOrg } from "@/lib/push/send";
 import type { BookingStatus } from "./types";
 
 export type BookingFormState = {
@@ -45,6 +46,17 @@ export async function submitBooking(
   });
 
   if (error) return { error: "Slanje nije uspelo. Pokušaj ponovo." };
+
+  // Fire-and-forget push to every teacher in the org. Failure here doesn't
+  // block the booking insert — push is a nice-to-have, the row's already saved.
+  void sendPushToOrg(organizationId, {
+    title: "Nov upit za časove",
+    body: subject ? `${parentName} · ${subject}` : parentName,
+    url: "/profile/inbox",
+    tag: "booking",
+  }).catch(() => {
+    /* swallow */
+  });
 
   return { success: true };
 }
