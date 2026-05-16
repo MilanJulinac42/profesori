@@ -9,6 +9,8 @@ import { OrgSettingsForm } from "./_components/org-settings-form";
 import { DataExportCard } from "./_components/data-export";
 import { DangerZone } from "./_components/danger-zone";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
+import { ReportsRunsCard } from "./_components/reports-runs-card";
+import { listReportRuns } from "@/lib/reports/runs";
 import { getConnectionForUser } from "@/lib/google/calendar";
 import { getAppValueStats } from "@/lib/dashboard/app-value";
 import { AppValueWidget } from "@/app/(app)/dashboard/_components/app-value-widget";
@@ -27,11 +29,13 @@ export default async function SettingsPage({
     : profile.organizations;
 
   const params = (await searchParams) ?? {};
-  const [settings, googleConnection, appValueStats] = await Promise.all([
-    getOrgSettings(supabase, org!.id),
-    getConnectionForUser(supabase, profile.id),
-    getAppValueStats(supabase, org!.id, 30),
-  ]);
+  const [settings, googleConnection, appValueStats, reportRuns] =
+    await Promise.all([
+      getOrgSettings(supabase, org!.id),
+      getConnectionForUser(supabase, profile.id),
+      getAppValueStats(supabase, org!.id, 30),
+      listReportRuns(8),
+    ]);
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-8 max-w-3xl mx-auto w-full">
@@ -64,6 +68,8 @@ export default async function SettingsPage({
         }
         bannerError={params.google_error ?? null}
       />
+
+      <ReportsRunsCard initial={reportRuns} />
 
       <SubscriptionCard
         plan={org?.subscription_tier ?? "start"}

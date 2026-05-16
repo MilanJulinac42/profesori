@@ -56,6 +56,20 @@ export async function GET(request: Request) {
   const period = getPastReportPeriod(kind);
   const periodStartIso = period.start.toISOString().slice(0, 10);
 
+  // Open a run-log row so the UI can see "running" while we work.
+  const { data: logRow } = await supabase
+    .from("cron_run_logs")
+    .insert({
+      kind,
+      source: "cron",
+      organization_id: null,
+      started_at: new Date(startTime).toISOString(),
+      status: "running",
+    })
+    .select("id")
+    .single();
+  const logId = (logRow as { id: number } | null)?.id;
+
   const stats = {
     kind,
     period_start: periodStartIso,
@@ -145,6 +159,24 @@ export async function GET(request: Request) {
   }
 
   const durationMs = Date.now() - startTime;
+  const overallStatus: "ok" | "partial" | "failed" =
+    stats.failed === 0
+      ? "ok"
+      : stats.sent === 0
+        ? "failed"
+        : "partial";
+
+  if (logId) {
+    await supabase
+      .from("cron_run_logs")
+      .update({
+        finished_at: new Date().toISOString(),
+        status: overallStatus,
+        stats,
+      })
+      .eq("id", logId);
+  }
+
   return NextResponse.json({ ok: true, durationMs, ...stats });
 }
 
