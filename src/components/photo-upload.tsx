@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { resizeImage, AVATAR_RESIZE } from "@/lib/images";
+import { AvatarCropperDialog } from "./avatar-cropper";
 
 const MAX_BYTES = 8 * 1024 * 1024; // raw camera photos can exceed 5 MB on phones
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
@@ -23,9 +24,10 @@ export function PhotoUpload({
   fallbackName: string;
 }) {
   const [uploading, setUploading] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFile(file: File) {
+  function pickFile(file: File) {
     if (!ALLOWED.includes(file.type)) {
       toast.error("Format nije podržan", {
         description: "Dozvoljeni: JPG, PNG, WebP.",
@@ -38,19 +40,26 @@ export function PhotoUpload({
       });
       return;
     }
+    setPendingFile(file);
+    // Reset input so the same file can be picked again after cancel.
+    if (inputRef.current) inputRef.current.value = "";
+  }
 
+  async function uploadCropped(cropped: File) {
+    setPendingFile(null);
     setUploading(true);
     try {
-      // Resize on-device before upload — avatars don't need more than ~512px.
-      const resized = await resizeImage(file, AVATAR_RESIZE);
+      // Cropper outputs 512×512 JPEG ~80-150 KB — resize pass is mostly
+      // a safety net (no-op for already-small files).
+      const final = await resizeImage(cropped, AVATAR_RESIZE);
 
       const supabase = createClient();
-      const ext = resized.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const ext = final.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const path = `${orgId}/avatar-${Date.now()}.${ext}`;
 
       const { error } = await supabase.storage
         .from("avatars")
-        .upload(path, resized, { contentType: resized.type, upsert: false });
+        .upload(path, final, { contentType: final.type, upsert: false });
 
       if (error) throw error;
 
@@ -66,7 +75,6 @@ export function PhotoUpload({
       });
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   }
 
@@ -113,7 +121,7 @@ export function PhotoUpload({
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) handleFile(file);
+            if (file) pickFile(file);
           }}
         />
         <div className="flex items-center gap-2">
@@ -141,9 +149,17 @@ export function PhotoUpload({
           )}
         </div>
         <p className={cn("text-[11px] text-muted-foreground")}>
-          JPG, PNG, WebP · do 5 MB
+          JPG, PNG, WebP · do 8 MB · ti biraš isečak
         </p>
       </div>
+
+      {pendingFile && (
+        <AvatarCropperDialog
+          file={pendingFile}
+          onCancel={() => setPendingFile(null)}
+          onConfirm={(cropped) => uploadCropped(cropped)}
+        />
+      )}
     </div>
   );
 }
