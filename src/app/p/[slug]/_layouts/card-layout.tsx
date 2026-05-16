@@ -94,6 +94,8 @@ export function CardLayout({
                   name={profile.display_name}
                   photoUrl={profile.photo_url}
                   className="relative size-24 sm:size-28 text-3xl ring-4 ring-background shadow-lg"
+                  priority
+                  sizes="(max-width: 640px) 96px, 112px"
                 />
               </div>
 

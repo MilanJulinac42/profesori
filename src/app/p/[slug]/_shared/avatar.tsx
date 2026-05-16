@@ -1,22 +1,38 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 export function Avatar({
   name,
   photoUrl,
   className,
+  priority = false,
+  sizes = "180px",
 }: {
   name: string;
   photoUrl: string | null;
   className?: string;
+  /** Set true for the LCP avatar (hero photo on /p/[slug]). */
+  priority?: boolean;
+  /** Passed to next/image sizes prop — caller hint for responsive selection. */
+  sizes?: string;
 }) {
   if (photoUrl) {
-    // eslint-disable-next-line @next/next/no-img-element
     return (
-      <img
-        src={photoUrl}
-        alt={name}
-        className={cn("shrink-0 rounded-full object-cover", className)}
-      />
+      <div
+        className={cn(
+          "relative shrink-0 rounded-full overflow-hidden",
+          className,
+        )}
+      >
+        <Image
+          src={photoUrl}
+          alt={name}
+          fill
+          sizes={sizes}
+          priority={priority}
+          className="object-cover"
+        />
+      </div>
     );
   }
   const initials = name

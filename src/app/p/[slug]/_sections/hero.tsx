@@ -80,6 +80,8 @@ export function HeroSection({
               name={profile.display_name}
               photoUrl={profile.photo_url}
               className="relative size-36 sm:size-44 text-5xl ring-[5px] ring-background shadow-[0_24px_64px_-16px_oklch(0_0_0/0.5)]"
+              priority
+              sizes="(max-width: 640px) 144px, 176px"
             />
           </div>
 

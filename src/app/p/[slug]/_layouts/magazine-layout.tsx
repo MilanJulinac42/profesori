@@ -89,6 +89,8 @@ export function MagazineLayout({
                 name={profile.display_name}
                 photoUrl={profile.photo_url}
                 className="relative size-28 sm:size-32 text-3xl ring-2 ring-foreground"
+                priority
+                sizes="(max-width: 640px) 112px, 128px"
               />
             </div>
           </div>

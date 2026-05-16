@@ -155,6 +155,8 @@ function SidebarHero({
             name={profile.display_name}
             photoUrl={profile.photo_url}
             className="relative size-32 sm:size-36 text-3xl ring-4 ring-background shadow-2xl"
+            priority
+            sizes="(max-width: 640px) 128px, 144px"
           />
         </div>
 
