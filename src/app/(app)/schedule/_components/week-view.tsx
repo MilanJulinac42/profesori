@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,7 +28,11 @@ import {
   type LessonWithStudent,
   type LessonStatus,
 } from "@/lib/lessons/types";
+import { moveLesson } from "@/lib/lessons/bulk-actions";
+import { toast } from "sonner";
 import dynamic from "next/dynamic";
+
+const SNAP_MINUTES = 15;
 
 const LessonDialog = dynamic(
   () => import("./lesson-dialog").then((m) => m.LessonDialog),
@@ -79,6 +83,7 @@ export function WeekView({
   );
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [, startMoveTransition] = useTransition();
   const [mobileDay, setMobileDay] = useState<Date>(() => {
     const todayInWeek = days.find((d) => isToday(d));
     return todayInWeek ?? days[0];
@@ -113,6 +118,29 @@ export function WeekView({
   };
 
   const noStudents = students.length === 0;
+
+  const handleLessonDrop = (lessonId: string, newDate: Date) => {
+    const lesson = lessons.find((l) => l.id === lessonId);
+    if (!lesson) return;
+    // No-op if dropped on the exact same minute (within snap).
+    const original = parseISO(lesson.scheduled_at);
+    if (Math.abs(newDate.getTime() - original.getTime()) < 60_000) return;
+
+    startMoveTransition(async () => {
+      const res = await moveLesson({
+        lessonId,
+        newIso: newDate.toISOString(),
+      });
+      if (!res.ok) {
+        toast.error("Nije moguće pomeriti čas", { description: res.error });
+        return;
+      }
+      toast.success(
+        `${lesson.students?.full_name ?? "Čas"} pomeren u ${format(newDate, "EEE d. MMM, HH:mm", { locale: sr })}`,
+      );
+      router.refresh();
+    });
+  };
 
   return (
     <>
@@ -244,6 +272,7 @@ export function WeekView({
                 ]}
                 onSlotClick={(d, h) => openCreate(d, h)}
                 onLessonClick={(l) => setDialog({ mode: "edit", lesson: l })}
+                onLessonDrop={handleLessonDrop}
               />
             </div>
 
@@ -254,6 +283,7 @@ export function WeekView({
                 lessonsByDay={days.map((_, idx) => byDay[idx] ?? [])}
                 onSlotClick={(d, h) => openCreate(d, h)}
                 onLessonClick={(l) => setDialog({ mode: "edit", lesson: l })}
+                onLessonDrop={handleLessonDrop}
               />
             </div>
           </div>
@@ -285,11 +315,13 @@ function TimeGrid({
   lessonsByDay,
   onSlotClick,
   onLessonClick,
+  onLessonDrop,
 }: {
   days: Date[];
   lessonsByDay: LessonWithStudent[][];
   onSlotClick: (day: Date, hour: number) => void;
   onLessonClick: (lesson: LessonWithStudent) => void;
+  onLessonDrop: (lessonId: string, newDate: Date) => void;
 }) {
   return (
     <div className="card-elevated card-glow rounded-2xl overflow-hidden">
@@ -321,6 +353,7 @@ function TimeGrid({
               lessons={lessonsByDay[idx] ?? []}
               onSlotClick={(h) => onSlotClick(day, h)}
               onLessonClick={onLessonClick}
+              onLessonDrop={onLessonDrop}
               isLast={idx === days.length - 1}
             />
           ))}
@@ -335,15 +368,56 @@ function DayColumn({
   lessons,
   onSlotClick,
   onLessonClick,
+  onLessonDrop,
   isLast,
 }: {
   day: Date;
   lessons: LessonWithStudent[];
   onSlotClick: (hour: number) => void;
   onLessonClick: (lesson: LessonWithStudent) => void;
+  onLessonDrop: (lessonId: string, newDate: Date) => void;
   isLast: boolean;
 }) {
   const today = isToday(day);
+  const [dragOver, setDragOver] = useState(false);
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    // Only accept lesson drops (set by LessonBlock via "text/lesson-id").
+    const types = e.dataTransfer.types;
+    if (!types.includes("text/lesson-id") && !types.includes("text/plain")) {
+      return;
+    }
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    if (!dragOver) setDragOver(true);
+  }
+
+  function handleDragLeave() {
+    setDragOver(false);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    const lessonId =
+      e.dataTransfer.getData("text/lesson-id") ||
+      e.dataTransfer.getData("text/plain");
+    if (!lessonId) return;
+
+    // Compute the drop time from the cursor's Y offset inside this grid area.
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const totalMinutes = (y / HOUR_HEIGHT) * 60;
+    const snapped =
+      Math.round(totalMinutes / SNAP_MINUTES) * SNAP_MINUTES;
+    const hour = START_HOUR + Math.floor(snapped / 60);
+    const minute = snapped % 60;
+    // Clamp to grid bounds.
+    const clampedHour = Math.max(START_HOUR, Math.min(END_HOUR - 1, hour));
+    const target = new Date(day);
+    target.setHours(clampedHour, minute, 0, 0);
+    onLessonDrop(lessonId, target);
+  }
 
   return (
     <div className={cn("relative", !isLast && "border-r border-border")}>
@@ -376,8 +450,16 @@ function DayColumn({
         </div>
       </div>
 
-      {/* Hour cells (clickable backgrounds) */}
-      <div className="relative">
+      {/* Hour cells (clickable backgrounds; also drop target for D&D) */}
+      <div
+        className={cn(
+          "relative transition-colors",
+          dragOver && "bg-brand-soft/40 dark:bg-[oklch(0.78_0.16_205/0.06)]",
+        )}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {HOURS.map((h, i) => (
           <button
             type="button"
@@ -509,15 +591,29 @@ function LessonBlock({
     !lesson.notes_after_lesson &&
     (!lesson.topics_covered || lesson.topics_covered.length === 0);
 
+  const draggable = lesson.status === "scheduled";
+
   return (
     <button
       type="button"
       onClick={onClick}
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!draggable) {
+          e.preventDefault();
+          return;
+        }
+        // Custom type so DayColumn knows it's a lesson, not random text.
+        e.dataTransfer.setData("text/lesson-id", lesson.id);
+        e.dataTransfer.setData("text/plain", lesson.id);
+        e.dataTransfer.effectAllowed = "move";
+      }}
       className={cn(
         "absolute left-1 right-1 rounded-md border text-left px-2 py-1 transition-colors overflow-hidden",
         tone.border,
         tone.bg,
         tone.hover,
+        draggable && "cursor-grab active:cursor-grabbing",
         "z-10 shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
       )}
       style={{ top: top + 1, height: height - 2 }}

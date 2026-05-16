@@ -30,6 +30,65 @@ export type BulkResult =
   | { ok: true; affected: number }
   | { ok: false; error: string };
 
+export type MoveLessonResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+/**
+ * Move a single scheduled lesson to a new datetime. Used by the drag-and-drop
+ * affordance on the schedule. Refuses to move non-scheduled lessons so we
+ * don't accidentally rewrite history.
+ */
+export async function moveLesson(input: {
+  lessonId: string;
+  newIso: string;
+}): Promise<MoveLessonResult> {
+  try {
+    const { profile } = await requireUser();
+    const supabase = await createClient();
+
+    const next = new Date(input.newIso);
+    if (!Number.isFinite(next.getTime())) {
+      return { ok: false, error: "Neispravan datum." };
+    }
+
+    // Verify the lesson exists, belongs to this org, and is still scheduled.
+    const { data: existing, error: selErr } = await supabase
+      .from("lessons")
+      .select("id, status")
+      .eq("id", input.lessonId)
+      .eq("organization_id", profile.organization_id)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (selErr) return { ok: false, error: selErr.message };
+    if (!existing) {
+      return { ok: false, error: "Čas nije pronađen." };
+    }
+    if ((existing as { status: string }).status !== "scheduled") {
+      return {
+        ok: false,
+        error: "Mogu se pomerati samo zakazani časovi.",
+      };
+    }
+
+    const { error: updErr } = await supabase
+      .from("lessons")
+      .update({ scheduled_at: next.toISOString() })
+      .eq("id", input.lessonId);
+    if (updErr) return { ok: false, error: updErr.message };
+
+    revalidatePath("/schedule");
+    revalidatePath("/dashboard");
+
+    return { ok: true };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Greška.",
+    };
+  }
+}
+
 const MAX_AFFECTED = 200;
 
 function cancelReasonValid(reason: string): reason is LessonStatus {
