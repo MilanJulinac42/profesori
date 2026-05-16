@@ -14,6 +14,7 @@ import {
   MessageCircle,
   RefreshCw,
   FileEdit,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,10 +231,20 @@ export function ReportsPanel({
 
         {logs.length > 0 && (
           <div className="border-t border-border">
-            <div className="px-5 py-2.5 bg-secondary/30">
+            <div className="px-5 py-2.5 bg-secondary/30 flex items-center justify-between gap-3">
               <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-muted-foreground">
                 Istorija ({logs.length})
               </p>
+              <Link
+                href={`/students/${studentId}/reports/print?year=${new Date().getFullYear()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                title="Štampa svih izveštaja za tekuću godinu — možeš sačuvati kao PDF"
+              >
+                <Printer className="size-3" strokeWidth={1.75} />
+                Sve za {new Date().getFullYear()}.
+              </Link>
             </div>
             <ul className="divide-y divide-border">
               {logs.map((l) => (
@@ -510,6 +521,16 @@ function LogRow({
           <MessageCircle className="size-3.5" strokeWidth={1.75} />
         </a>
       )}
+      <Link
+        href={`/reports/${log.id}/print`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-muted-foreground hover:text-foreground"
+        aria-label={`Štampaj ili sačuvaj kao PDF — ${studentName}`}
+        title="Štampa / PDF"
+      >
+        <Printer className="size-3.5" strokeWidth={1.75} />
+      </Link>
       <Link
         href={`/reports/${log.id}`}
         className="text-xs text-muted-foreground hover:text-foreground"
