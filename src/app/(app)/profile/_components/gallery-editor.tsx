@@ -6,9 +6,10 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { resizeImage, GALLERY_RESIZE } from "@/lib/images";
 import type { GalleryImage } from "@/lib/public-profile/types";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 12 * 1024 * 1024; // raw camera photos can be >5 MB
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 
 export function GalleryEditor({
@@ -34,16 +35,22 @@ export function GalleryEditor({
         continue;
       }
       if (file.size > MAX_BYTES) {
-        toast.error(`${file.name}: prevelika (max 5 MB)`);
+        toast.error(`${file.name}: prevelika (max 12 MB)`);
         continue;
       }
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      // Resize on-device before upload — gallery images render at most
+      // ~800px on screen, so 1600px source is plenty.
+      const resized = await resizeImage(file, GALLERY_RESIZE);
+      const ext = resized.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const path = `${orgId}/gallery-${Date.now()}-${Math.random()
         .toString(36)
         .slice(2, 7)}.${ext}`;
       const { error } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, resized, {
+          contentType: resized.type,
+          upsert: false,
+        });
       if (error) {
         toast.error(`${file.name}: ${error.message}`);
         continue;

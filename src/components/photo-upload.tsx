@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { resizeImage, AVATAR_RESIZE } from "@/lib/images";
 
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 8 * 1024 * 1024; // raw camera photos can exceed 5 MB on phones
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
 
 export function PhotoUpload({
@@ -33,20 +34,23 @@ export function PhotoUpload({
     }
     if (file.size > MAX_BYTES) {
       toast.error("Slika je prevelika", {
-        description: "Maksimalno 5 MB.",
+        description: "Maksimalno 8 MB.",
       });
       return;
     }
 
     setUploading(true);
     try {
+      // Resize on-device before upload — avatars don't need more than ~512px.
+      const resized = await resizeImage(file, AVATAR_RESIZE);
+
       const supabase = createClient();
-      const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const ext = resized.name.split(".").pop()?.toLowerCase() ?? "jpg";
       const path = `${orgId}/avatar-${Date.now()}.${ext}`;
 
       const { error } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, resized, { contentType: resized.type, upsert: false });
 
       if (error) throw error;
 

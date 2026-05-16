@@ -9,6 +9,7 @@ import {
   submitHomeworkAction,
   uploadHomeworkImageAction,
 } from "@/lib/homework/actions";
+import { resizeImage, HOMEWORK_RESIZE } from "@/lib/images";
 
 type UploadedImage = {
   localPreview: string; // blob URL za pre upload-a
@@ -18,51 +19,6 @@ type UploadedImage = {
 };
 
 const MAX_IMAGES = 5;
-const RESIZE_MAX_DIM = 1600;
-const RESIZE_QUALITY = 0.85;
-
-/**
- * Resizing slike u browseru pre uploada — ručno snimljene fotografije
- * sveske su često 5-12 MB; resize na 1600px dim. + JPEG 0.85 svodi
- * na ~400-800 KB bez vidljivog gubitka kvaliteta.
- */
-async function resizeImage(file: File): Promise<File> {
-  // HEIC ne radi u canvas-u svuda — pošalji original.
-  if (file.type === "image/heic") return file;
-
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const i = new window.Image();
-    i.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(i);
-    };
-    i.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Slika ne može da se učita."));
-    };
-    i.src = url;
-  });
-
-  const ratio = Math.min(1, RESIZE_MAX_DIM / Math.max(img.width, img.height));
-  if (ratio === 1 && file.size < 1 * 1024 * 1024) return file;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(img.width * ratio);
-  canvas.height = Math.round(img.height * ratio);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return file;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", RESIZE_QUALITY),
-  );
-  if (!blob) return file;
-
-  return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
-    type: "image/jpeg",
-  });
-}
 
 export function SubmissionForm({ publicToken }: { publicToken: string }) {
   const [note, setNote] = useState("");
@@ -93,7 +49,7 @@ export function SubmissionForm({ publicToken }: { publicToken: string }) {
       ]);
 
       try {
-        const resized = await resizeImage(rawFile);
+        const resized = await resizeImage(rawFile, HOMEWORK_RESIZE);
         const fd = new FormData();
         fd.set("token", publicToken);
         fd.set("file", resized);
