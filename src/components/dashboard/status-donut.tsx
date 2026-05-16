@@ -1,14 +1,14 @@
+"use client";
+
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { cn } from "@/lib/utils";
 
 export type DonutSlice = {
   key: string;
   label: string;
   value: number;
-  color: string;
+  color: string; // CSS color or var(--*)
 };
-
-const STROKE_W = 22;
-const GAP_DEG = 4; // gap between slices, in degrees
 
 export function StatusDonut({
   data,
@@ -22,55 +22,51 @@ export function StatusDonut({
   size?: number;
 }) {
   const total = data.reduce((s, d) => s + d.value, 0);
-  const r = (size - STROKE_W) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circumference = 2 * Math.PI * r;
-
-  // Calculate offsets. We render slices as stroke-dasharray segments on a single
-  // circle rotated -90deg so 0 starts at top.
-  let cursor = 0;
-  const segments = data.map((d) => {
-    const pct = total > 0 ? d.value / total : 0;
-    const sliceDeg = pct * 360;
-    const drawDeg = Math.max(0, sliceDeg - GAP_DEG);
-    const dash = (drawDeg / 360) * circumference;
-    const offset = -((cursor / 360) * circumference);
-    cursor += sliceDeg;
-    return {
-      ...d,
-      pct,
-      dash,
-      offset,
-    };
-  });
 
   return (
     <div className="flex items-center gap-6 flex-wrap">
       <div className="relative shrink-0" style={{ width: size, height: size }}>
-        <svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          role="img"
-          aria-label={`${centerLabel}: ${centerValue}`}
-          style={{ transform: "rotate(-90deg)" }}
-        >
-          {segments.map((seg) => (
-            <circle
-              key={seg.key}
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill="none"
-              stroke={seg.color}
-              strokeWidth={STROKE_W}
-              strokeDasharray={`${seg.dash} ${circumference - seg.dash}`}
-              strokeDashoffset={seg.offset}
-              strokeLinecap="butt"
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Tooltip
+              cursor={false}
+              contentStyle={{
+                background: "var(--popover)",
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                fontSize: 12,
+                boxShadow: "0 8px 24px -8px rgba(0,0,0,0.35)",
+                color: "var(--foreground)",
+              }}
+              formatter={(value, _name, p) => {
+                const v = Number(value) || 0;
+                const label =
+                  (p as { payload?: { label?: string } })?.payload?.label ?? "";
+                return [
+                  `${v} (${total > 0 ? Math.round((v / total) * 100) : 0}%)`,
+                  label,
+                ];
+              }}
             />
-          ))}
-        </svg>
+            <Pie
+              data={data}
+              dataKey="value"
+              nameKey="key"
+              innerRadius="65%"
+              outerRadius="100%"
+              paddingAngle={2}
+              stroke="var(--card)"
+              strokeWidth={3}
+              startAngle={90}
+              endAngle={450}
+              animationDuration={900}
+            >
+              {data.map((d) => (
+                <Cell key={d.key} fill={d.color} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             {centerLabel}
@@ -87,7 +83,9 @@ export function StatusDonut({
           return (
             <li key={d.key} className="flex items-center gap-2.5 text-xs">
               <span
-                className={cn("size-2.5 rounded-full shrink-0")}
+                className={cn(
+                  "size-2.5 rounded-full shrink-0",
+                )}
                 style={{ background: d.color }}
               />
               <span className="text-muted-foreground flex-1 truncate">
