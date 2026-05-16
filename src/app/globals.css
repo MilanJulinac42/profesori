@@ -253,8 +253,23 @@
   animation: assistant-bubble-in 0.32s cubic-bezier(0.21, 0.47, 0.32, 0.98);
   transform-origin: bottom right;
 }
+
+/* AssistantWidget — mobile bottom sheet slide-up */
+@keyframes assistant-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-assistant-sheet-up {
+  animation: assistant-sheet-up 0.28s cubic-bezier(0.21, 0.47, 0.32, 0.98);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-assistant-bubble {
+  .animate-assistant-bubble,
+  .animate-assistant-sheet-up {
     animation: none;
   }
 }

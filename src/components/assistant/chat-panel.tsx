@@ -6,7 +6,11 @@ import { AnimatePresence, motion } from "motion/react";
 import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { sendChatMessage, type HistoryMessage } from "@/lib/assistant/chat";
+import type { HistoryMessage } from "@/lib/assistant/chat";
+import {
+  getAssistantSuggestions,
+  type AssistantSuggestion,
+} from "@/lib/assistant/suggestions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProposalCard } from "./proposal-card";
@@ -95,11 +99,11 @@ const MD_COMPONENTS = {
   ),
 };
 
-const SUGGESTIONS = [
-  "Daj mi istoriju za Marka",
-  "Zakazi cas Marka u utorak u 17h, 60 min, default cena",
-  "Ko mi sve duguje preko 5000?",
-  "Otkaži Markov sledeći čas, otkazao učenik",
+const FALLBACK_SUGGESTIONS: AssistantSuggestion[] = [
+  { label: "Ko mi duguje?", prompt: "Pokaži mi sve učenike koji duguju, sortirano po iznosu." },
+  { label: "Kako da zakažem čas?", prompt: "Kako da zakažem novi čas?" },
+  { label: "Gde su mi domaći?", prompt: "Gde mogu da vidim domaće zadatke?" },
+  { label: "Pokaži aktivnost", prompt: "Šta se dešavalo poslednjih dana?" },
 ];
 
 export function ChatPanel({
@@ -118,6 +122,10 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [suggestions, setSuggestions] = useState<AssistantSuggestion[]>(
+    FALLBACK_SUGGESTIONS,
+  );
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -129,65 +137,163 @@ export function ChatPanel({
     });
   }, [messages]);
 
+  // Fetch context-aware suggestions once when the empty-state is shown.
+  useEffect(() => {
+    if (messages.length > 0) return;
+    let cancelled = false;
+    setSuggestionsLoading(true);
+    getAssistantSuggestions()
+      .then((s) => {
+        if (!cancelled && s.length > 0) setSuggestions(s);
+      })
+      .finally(() => {
+        if (!cancelled) setSuggestionsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [messages.length]);
+
   function send(textOverride?: string) {
     const text = (textOverride ?? input).trim();
     if (!text) return;
 
     setError(null);
     setInput("");
+
     const userMsg: UIMessage = {
       id: `u-${Date.now()}`,
       role: "user",
       text,
     };
-    setMessages((prev) => [...prev, userMsg]);
+    // Placeholder we mutate in-place as text deltas arrive.
+    const placeholderId = `a-${Date.now()}`;
+    const placeholder: UIMessage = {
+      id: placeholderId,
+      role: "assistant",
+      text: "",
+    };
+    setMessages((prev) => [...prev, userMsg, placeholder]);
 
     startTransition(async () => {
-      const res = await sendChatMessage({
-        history,
-        userMessage: text,
-        pageContext: { path: pathname },
-      });
-
-      if (!res.ok) {
-        setError(res.error);
+      let res: Response;
+      try {
+        res = await fetch("/api/assistant/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            history,
+            userMessage: text,
+            pageContext: { path: pathname },
+          }),
+        });
+      } catch {
+        setError("Mreža je u problemu. Pokušaj ponovo.");
+        setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
         return;
       }
 
-      // Append all new turns (user msg + tool rounds + final assistant) to
-      // the raw history so the next call sends the full context.
-      setHistory((prev) => [...prev, ...res.newTurns]);
+      if (!res.ok || !res.body) {
+        let msg = "Greška.";
+        try {
+          const j = (await res.json()) as { error?: string };
+          if (j.error) msg = j.error;
+        } catch {
+          // body wasn't JSON
+        }
+        setError(msg);
+        setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
+        return;
+      }
 
-      // Ekstrahuj plain text iz Anthropic content blokova
-      const textBlocks = res.assistantMessage
-        .filter((b) => b.type === "text")
-        .map((b) => (b as { text: string }).text)
-        .join("\n");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let accumulatedText = "";
+      let proposal: Proposal | undefined;
+      let navigation: { path: string; reason?: string } | undefined;
+      let receivedNewTurns: HistoryMessage[] | undefined;
+      let streamError: string | undefined;
 
-      const aMsg: UIMessage = {
-        id: `a-${Date.now()}`,
-        role: "assistant",
-        text: textBlocks,
-        proposal: res.proposal as Proposal | undefined,
-        proposalState: res.proposal ? "pending" : undefined,
+      const processLine = (line: string) => {
+        if (!line) return;
+        let evt: Record<string, unknown>;
+        try {
+          evt = JSON.parse(line) as Record<string, unknown>;
+        } catch {
+          return;
+        }
+        const t = evt.type as string | undefined;
+        if (t === "text" && typeof evt.delta === "string") {
+          accumulatedText += evt.delta;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === placeholderId ? { ...m, text: accumulatedText } : m,
+            ),
+          );
+        } else if (t === "done") {
+          if (Array.isArray(evt.newTurns)) {
+            receivedNewTurns = evt.newTurns as HistoryMessage[];
+          }
+          proposal = evt.proposal as Proposal | undefined;
+          navigation = evt.navigation as
+            | { path: string; reason?: string }
+            | undefined;
+        } else if (t === "error" && typeof evt.error === "string") {
+          streamError = evt.error;
+        }
+        // tool_call / tool_done / turn_complete: not surfaced to UI for now
       };
 
-      setMessages((prev) => [...prev, aMsg]);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, nl).trim();
+            buf = buf.slice(nl + 1);
+            processLine(line);
+          }
+        }
+        if (buf.trim()) processLine(buf.trim());
+      } catch {
+        setError("Veza je prekinuta tokom odgovora.");
+        return;
+      }
 
-      // Auto-navigation tool result: minimize the panel, push the user to
-      // the new route, and surface the assistant's reply as a floating
-      // bubble so they can resume the conversation with one click.
-      if (res.navigation?.path) {
-        const path = res.navigation.path;
-        const bubbleText = textBlocks.trim()
-          ? truncateForBubble(textBlocks)
+      if (streamError) {
+        setError(streamError);
+        setMessages((prev) => prev.filter((m) => m.id !== placeholderId));
+        return;
+      }
+
+      // Mirror server-side history (user + tool rounds + final assistant)
+      if (receivedNewTurns) {
+        const turns = receivedNewTurns;
+        setHistory((prev) => [...prev, ...turns]);
+      }
+
+      // Attach proposal to the streamed message if one came along.
+      if (proposal) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === placeholderId
+              ? { ...m, proposal, proposalState: "pending" }
+              : m,
+          ),
+        );
+      }
+
+      // Auto-navigation: minimize the panel + surface a bubble.
+      if (navigation?.path) {
+        const path = navigation.path;
+        const bubbleText = accumulatedText.trim()
+          ? truncateForBubble(accumulatedText)
           : `Otvorio sam ti ${labelForPath(path)}. Želiš li još nešto?`;
         setOpen(false);
-        setBubble({
-          text: bubbleText,
-          path,
-          shownAt: Date.now(),
-        });
+        setBubble({ text: bubbleText, path, shownAt: Date.now() });
         router.push(path);
       }
     });
@@ -253,17 +359,24 @@ export function ChatPanel({
               tražiš da nešto uradim. Pokušaj jedan od predloga ispod.
             </p>
             <div className="flex flex-wrap gap-1.5 justify-center mt-4">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => send(s)}
-                  disabled={pending}
-                  className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-secondary transition text-left max-w-xs"
-                >
-                  {s}
-                </button>
-              ))}
+              {suggestionsLoading
+                ? [0, 1, 2, 3].map((i) => (
+                    <span
+                      key={i}
+                      className="h-7 w-32 rounded-md bg-secondary/60 animate-pulse"
+                    />
+                  ))
+                : suggestions.map((s) => (
+                    <button
+                      key={s.label}
+                      type="button"
+                      onClick={() => send(s.prompt)}
+                      disabled={pending}
+                      className="text-xs px-2.5 py-1.5 rounded-md border border-border bg-background hover:bg-secondary transition text-left max-w-xs"
+                    >
+                      {s.label}
+                    </button>
+                  ))}
             </div>
           </div>
         )}

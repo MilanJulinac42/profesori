@@ -43,6 +43,9 @@ const STORAGE_KEY = "profesori_assistant_v2";
 // Cap to keep localStorage payload small. Older turns are dropped first.
 const MAX_PERSISTED_MESSAGES = 50;
 const MAX_PERSISTED_HISTORY = 60;
+// Floating post-redirect bubble auto-dismisses after this many ms so it
+// doesn't sit on top of the new page indefinitely.
+const BUBBLE_AUTO_DISMISS_MS = 25_000;
 
 type PersistShape = {
   messages: UIMessage[];
@@ -107,6 +110,41 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => {
     setOpenState((v) => !v);
     setBubble(null);
+  }, []);
+
+  // Bubble auto-dismiss: clear after BUBBLE_AUTO_DISMISS_MS unless user
+  // already interacted (clicked it open or x'd it).
+  useEffect(() => {
+    if (!bubble) return;
+    const id = window.setTimeout(
+      () => setBubble(null),
+      BUBBLE_AUTO_DISMISS_MS,
+    );
+    return () => window.clearTimeout(id);
+  }, [bubble]);
+
+  // Cmd/Ctrl+K toggles the assistant globally. Ignored while user is typing
+  // in form fields so we don't steal text-shortcut combos.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const isModK =
+        (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
+      if (!isModK) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      if (
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      e.preventDefault();
+      setOpenState((v) => !v);
+      setBubble(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const clearConversation = useCallback(() => {

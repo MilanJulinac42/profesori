@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Sparkles, X, Maximize2 } from "lucide-react";
+import { Sparkles, X, Maximize2, RotateCcw } from "lucide-react";
 import { useAssistant } from "./assistant-context";
 
 const ChatPanel = dynamic(
@@ -19,16 +19,28 @@ function ChatPanelSkeleton() {
 }
 
 export function AssistantWidget() {
-  const { open, toggle, setOpen, bubble, setBubble } = useAssistant();
+  const {
+    open,
+    toggle,
+    setOpen,
+    bubble,
+    setBubble,
+    messages,
+    clearConversation,
+  } = useAssistant();
 
   return (
     <>
-      {/* Floating button */}
+      {/* Floating button — hidden on mobile when panel is open to avoid
+          overlapping the sheet's close affordance. */}
       <button
         type="button"
         onClick={toggle}
-        aria-label={open ? "Zatvori AI asistenta" : "Otvori AI asistenta"}
-        className="fixed bottom-5 right-5 z-50 size-12 rounded-full bg-foreground text-background shadow-lg hover:scale-105 transition print:hidden flex items-center justify-center"
+        aria-label={open ? "Zatvori AI asistenta" : "Otvori AI asistenta (Ctrl+K)"}
+        title={open ? "Zatvori asistenta" : "Otvori asistenta (Ctrl+K)"}
+        className={`fixed bottom-5 right-5 z-50 size-12 rounded-full bg-foreground text-background shadow-lg hover:scale-105 transition print:hidden flex items-center justify-center ${
+          open ? "max-sm:hidden" : ""
+        }`}
       >
         {open ? (
           <X className="size-5" strokeWidth={2} />
@@ -72,25 +84,74 @@ export function AssistantWidget() {
         </button>
       )}
 
-      {/* Panel */}
+      {/* Panel:
+          - <sm: full-width bottom sheet (slide up), max 85vh height
+          - ≥sm: floating card bottom-right */}
       {open && (
-        <div className="fixed bottom-20 right-5 z-40 w-[380px] max-w-[calc(100vw-2.5rem)] rounded-xl border border-border bg-card shadow-2xl overflow-hidden print:hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-amber-700" strokeWidth={1.75} />
-              <p className="text-sm font-medium">Asistent</p>
+        <>
+          {/* Mobile backdrop — clicking it closes the panel */}
+          <div
+            aria-hidden
+            onClick={() => setOpen(false)}
+            className="sm:hidden fixed inset-0 z-30 bg-background/40 backdrop-blur-sm print:hidden"
+          />
+          <div
+            role="dialog"
+            aria-label="AI Asistent"
+            className="
+              fixed z-40 print:hidden bg-card border border-border shadow-2xl
+              max-sm:inset-x-0 max-sm:bottom-0 max-sm:rounded-t-2xl max-sm:rounded-b-none max-sm:max-h-[88vh] max-sm:animate-assistant-sheet-up
+              sm:bottom-20 sm:right-5 sm:w-[380px] sm:max-w-[calc(100vw-2.5rem)] sm:rounded-xl
+              overflow-hidden flex flex-col
+            "
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <Sparkles
+                  className="size-4 text-amber-700 shrink-0"
+                  strokeWidth={1.75}
+                />
+                <p className="text-sm font-medium truncate">Asistent</p>
+              </div>
+              <div className="flex items-center gap-1">
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ok = window.confirm(
+                        "Obrisati tekuću konverzaciju?",
+                      );
+                      if (ok) clearConversation();
+                    }}
+                    aria-label="Novi razgovor (obriši istoriju)"
+                    title="Novi razgovor"
+                    className="inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  >
+                    <RotateCcw className="size-3.5" strokeWidth={2} />
+                  </button>
+                )}
+                <Link
+                  href="/asistent"
+                  onClick={() => setOpen(false)}
+                  className="inline-flex items-center gap-1 px-2 h-7 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-secondary"
+                  title="Otvori puni razgovor"
+                >
+                  <Maximize2 className="size-3" strokeWidth={1.75} />
+                  <span className="hidden sm:inline">Puni prozor</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  aria-label="Zatvori"
+                  className="sm:hidden inline-flex items-center justify-center size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+                >
+                  <X className="size-4" strokeWidth={2} />
+                </button>
+              </div>
             </div>
-            <Link
-              href="/asistent"
-              className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
-              title="Otvori puni razgovor"
-            >
-              <Maximize2 className="size-3" strokeWidth={1.75} />
-              Puni prozor
-            </Link>
+            <ChatPanel />
           </div>
-          <ChatPanel />
-        </div>
+        </>
       )}
     </>
   );
