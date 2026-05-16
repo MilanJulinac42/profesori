@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Plus,
   CalendarDays,
+  Wand2,
 } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
@@ -31,6 +32,12 @@ import dynamic from "next/dynamic";
 
 const LessonDialog = dynamic(
   () => import("./lesson-dialog").then((m) => m.LessonDialog),
+  { ssr: false },
+);
+
+const BulkActionsDialog = dynamic(
+  () =>
+    import("./bulk-actions-dialog").then((m) => m.BulkActionsDialog),
   { ssr: false },
 );
 
@@ -71,6 +78,7 @@ export function WeekView({
     [weekStart],
   );
   const [dialog, setDialog] = useState<DialogState>({ mode: "closed" });
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [mobileDay, setMobileDay] = useState<Date>(() => {
     const todayInWeek = days.find((d) => isToday(d));
     return todayInWeek ?? days[0];
@@ -113,22 +121,33 @@ export function WeekView({
           title="Raspored"
           description={`${monthLabel} · ${rangeLabel}`}
           actions={
-            <button
-              type="button"
-              data-tour="schedule-create"
-              onClick={() => {
-                const today = new Date();
-                const target = days.some((d) => isSameDay(d, today))
-                  ? today
-                  : days[0];
-                openCreate(target);
-              }}
-              disabled={noStudents}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
-            >
-              <Plus className="size-3.5" strokeWidth={2.25} />
-              Novi čas
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkOpen(true)}
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+                title="Grupne akcije nad zakazanim časovima"
+              >
+                <Wand2 className="size-3.5" strokeWidth={1.75} />
+                <span className="hidden sm:inline">Grupne akcije</span>
+              </button>
+              <button
+                type="button"
+                data-tour="schedule-create"
+                onClick={() => {
+                  const today = new Date();
+                  const target = days.some((d) => isSameDay(d, today))
+                    ? today
+                    : days[0];
+                  openCreate(target);
+                }}
+                disabled={noStudents}
+                className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+              >
+                <Plus className="size-3.5" strokeWidth={2.25} />
+                Novi čas
+              </button>
+            </div>
           }
         />
 
@@ -247,6 +266,12 @@ export function WeekView({
           students={students}
           topicSuggestions={topicSuggestions}
           onClose={() => setDialog({ mode: "closed" })}
+        />
+      )}
+      {bulkOpen && (
+        <BulkActionsDialog
+          initialMode="cancel"
+          onClose={() => setBulkOpen(false)}
         />
       )}
     </>
