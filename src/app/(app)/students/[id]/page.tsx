@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -19,7 +20,6 @@ import {
   ClipboardList,
   FileText,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { EmptyState } from "@/components/empty-state";
@@ -41,16 +41,21 @@ import {
   type LessonStatus,
 } from "@/lib/lessons/types";
 import { getStudentBilling } from "@/lib/payments/queries";
-import { computeBillableStatuses } from "@/lib/payments/types";
 import { getRemindersForStudent } from "@/lib/reminders/queries";
-import { getOrgSettings } from "@/lib/settings/queries";
 import { listReportLogs } from "@/lib/reports/queries";
 import { listHomeworkForStudent } from "@/lib/homework/queries";
-import { requireUser } from "@/lib/supabase/auth";
 import { BillingSection } from "./_components/billing-section";
 import { ReportsPanel } from "./_components/reports-panel";
 import { HomeworkPanel } from "./_components/homework-panel";
 import { ParentLinkButton } from "./_components/parent-link-button";
+import {
+  getSupabase,
+  getTeacherCtx,
+  getStudentLessons,
+  getStudentBillingCached,
+  getHomeworkCount,
+  getReportsCount,
+} from "./_data";
 
 type TabValue = "pregled" | "naplata" | "casovi" | "domaci" | "izvestaji";
 
@@ -75,120 +80,17 @@ export default async function StudentPage({
     ? (sp.tab as TabValue)
     : "pregled";
 
-  const supabase = await createClient();
+  const supabase = await getSupabase();
   const { data, error } = await supabase
     .from("students")
     .select("*")
     .eq("id", id)
     .is("deleted_at", null)
     .maybeSingle();
-
   if (error || !data) notFound();
   const s = data as Student;
 
-  // Lessons for this student — always needed (hero stats, tabs badges, časovi tab).
-  const { data: lessonsData } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("student_id", s.id)
-    .is("deleted_at", null)
-    .order("scheduled_at", { ascending: false });
-  const lessons = (lessonsData as Lesson[] | null) ?? [];
-
-  const upcomingLessons = lessons.filter(
-    (l) => l.status === "scheduled" && new Date(l.scheduled_at) >= new Date(),
-  );
-  const pastLessons = lessons.filter(
-    (l) =>
-      !(l.status === "scheduled" && new Date(l.scheduled_at) >= new Date()),
-  );
-
-  const totalLessonsHeld = lessons.filter(
-    (l) => l.status === "completed",
-  ).length;
-  const nextLesson = upcomingLessons[upcomingLessons.length - 1];
-
-  // Always: teacher profile + settings + billing (needed for stat cards / hero).
-  const [{ profile: teacherProfile }] = await Promise.all([requireUser()]);
-  const teacherOrg = Array.isArray(teacherProfile.organizations)
-    ? teacherProfile.organizations[0]
-    : teacherProfile.organizations;
-  const settings = await getOrgSettings(supabase, teacherOrg!.id);
-  const billableStatuses = computeBillableStatuses(settings);
-  const billing = await getStudentBilling(supabase, s.id, billableStatuses);
-
-  // Tab-conditional heavy fetches — only for the active tab.
-  const needsReminders = tab === "naplata";
-  const needsReportLogs = tab === "izvestaji";
-  const needsHomework = tab === "domaci" || tab === "pregled";
-
-  const [reminders, reportLogs, homeworkItems] = await Promise.all([
-    needsReminders
-      ? getRemindersForStudent(supabase, s.id, 20)
-      : Promise.resolve([] as Awaited<ReturnType<typeof getRemindersForStudent>>),
-    needsReportLogs
-      ? listReportLogs(supabase, s.id, 12)
-      : Promise.resolve([] as Awaited<ReturnType<typeof listReportLogs>>),
-    needsHomework
-      ? listHomeworkForStudent(supabase, s.id, 20)
-      : Promise.resolve(
-          [] as Awaited<ReturnType<typeof listHomeworkForStudent>>,
-        ),
-  ]);
-
-  // Lightweight count queries for tab badges (only when not already loaded).
-  const homeworkCount = needsHomework
-    ? homeworkItems.length
-    : (
-        await supabase
-          .from("homework")
-          .select("*", { count: "exact", head: true })
-          .eq("student_id", s.id)
-          .is("deleted_at", null)
-      ).count ?? 0;
-  const reportsCount = needsReportLogs
-    ? reportLogs.length
-    : (
-        await supabase
-          .from("report_logs")
-          .select("*", { count: "exact", head: true })
-          .eq("student_id", s.id)
-      ).count ?? 0;
-
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-  const teacherName = teacherProfile.full_name ?? "Profesor";
-  const customTemplate = settings.reminder_template ?? null;
-
-  const TABS: TabItem<TabValue>[] = [
-    { value: "pregled", label: "Pregled", icon: LayoutDashboard },
-    {
-      value: "naplata",
-      label: "Naplata",
-      icon: Wallet,
-      badge: billing.unpaidLessons.length,
-    },
-    {
-      value: "casovi",
-      label: "Časovi",
-      icon: CalendarDays,
-      badge: lessons.length,
-    },
-    {
-      value: "domaci",
-      label: "Domaći",
-      icon: ClipboardList,
-      badge: homeworkCount,
-    },
-    {
-      value: "izvestaji",
-      label: "Izveštaji",
-      icon: FileText,
-      badge: reportsCount,
-    },
-  ];
-
-  const debtTile: "rose" | "emerald" | "cyan" =
-    billing.debt > 0 ? "rose" : billing.debt < 0 ? "emerald" : "cyan";
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-6 max-w-6xl mx-auto w-full">
@@ -205,229 +107,23 @@ export default async function StudentPage({
         </Link>
       </div>
 
-      {/* HERO */}
-      <section className="relative overflow-hidden rounded-3xl bg-hero-mesh border border-border/60 dark:border-white/[0.08]">
-        <div
-          aria-hidden
-          className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/15"
-        />
-        <div className="relative px-6 sm:px-10 py-7 sm:py-9 flex flex-col sm:flex-row sm:items-center gap-6">
-          <Avatar name={s.full_name} size="xl" className="size-20 text-xl shrink-0" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-none">
-                {s.full_name}
-              </h1>
-              <StatusPill status={s.status} />
-            </div>
-            <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
-              {s.grade && (
-                <span className="inline-flex items-center gap-1.5">
-                  <GraduationCap
-                    className="size-3.5 text-muted-foreground/60"
-                    strokeWidth={1.75}
-                  />
-                  {s.grade}
-                </span>
-              )}
-              {s.parent_name && (
-                <>
-                  <span aria-hidden className="text-muted-foreground/40">·</span>
-                  <span>roditelj {s.parent_name}</span>
-                </>
-              )}
-              {s.parent_phone && (
-                <>
-                  <span aria-hidden className="text-muted-foreground/40">·</span>
-                  <span className="inline-flex items-center gap-1.5 tabular-nums">
-                    <Phone
-                      className="size-3.5 text-muted-foreground/60"
-                      strokeWidth={1.75}
-                    />
-                    {s.parent_phone}
-                  </span>
-                </>
-              )}
-            </div>
-            {s.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {s.tags.map((t) => (
-                  <span
-                    key={t}
-                    className="text-[11px] px-2 py-0.5 rounded-full bg-card/70 backdrop-blur-sm border border-border/60 text-muted-foreground"
-                  >
-                    {t}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            <ParentLinkButton
-              studentId={s.id}
-              studentName={s.full_name}
-              initialToken={s.parent_portal_token}
-              parentName={s.parent_name}
-              parentPhone={s.parent_phone}
-              parentEmail={s.parent_email}
-              appBaseUrl={appBaseUrl}
-            />
-            <Link
-              href={`/students/${s.id}/edit`}
-              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card/70 backdrop-blur-md border border-border text-sm font-medium hover:bg-card transition-colors"
-            >
-              <Pencil className="size-3.5" strokeWidth={1.75} />
-              Izmeni
-            </Link>
-            <form action={archiveStudent.bind(null, s.id)}>
-              <button
-                type="submit"
-                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              >
-                <Archive className="size-3.5" strokeWidth={1.75} />
-                Arhiviraj
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+      <HeroHeader student={s} appBaseUrl={appBaseUrl} />
 
-      {/* Stat strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          label={billing.debt < 0 ? "Pretplata" : "Dug"}
-          value={
-            billing.debt < 0
-              ? formatRsd(-billing.debt, false)
-              : formatRsd(billing.debt, false)
-          }
-          unit="RSD"
-          icon={Wallet}
-          tile={debtTile}
-          hint={
-            billing.debt > 0
-              ? `${billing.unpaidLessons.length} neplaćenih`
-              : billing.debt < 0
-                ? "Učenik je preplatio"
-                : billing.billableLessonsCount > 0
-                  ? "Sve plaćeno"
-                  : "Nema naplata"
-          }
-        />
-        <StatCard
-          label="Časova održano"
-          value={String(totalLessonsHeld)}
-          icon={CheckCircle2}
-          tile="cyan"
-          hint={`${lessons.length} ukupno`}
-        />
-        <StatCard
-          label="Sledeći čas"
-          value={
-            nextLesson
-              ? new Date(nextLesson.scheduled_at).toLocaleDateString(
-                  "sr-Latn-RS",
-                  { day: "numeric", month: "short" },
-                )
-              : "—"
-          }
-          icon={Clock}
-          tile="violet"
-          hint={
-            nextLesson
-              ? new Date(nextLesson.scheduled_at).toLocaleTimeString(
-                  "sr-Latn-RS",
-                  { hour: "2-digit", minute: "2-digit" },
-                )
-              : "Nije zakazan"
-          }
-        />
-        <StatCard
-          label="Cena po času"
-          value={
-            s.default_price_per_lesson > 0
-              ? formatRsd(s.default_price_per_lesson, false)
-              : "—"
-          }
-          unit={s.default_price_per_lesson > 0 ? "RSD" : undefined}
-          icon={Banknote}
-          tile="amber"
-          hint={`${s.default_lesson_duration_minutes} min default`}
-        />
-      </div>
+      <Suspense fallback={<StatStripSkeleton />}>
+        <StatStripBlock student={s} />
+      </Suspense>
 
-      {/* Tab nav */}
-      <TabNav
-        basePath={`/students/${s.id}`}
-        active={tab}
-        tabs={TABS}
-        param="tab"
-      />
+      <Suspense fallback={<TabNavSkeleton studentId={s.id} active={tab} />}>
+        <TabNavBlock studentId={s.id} active={tab} />
+      </Suspense>
 
-      {/* Body grid */}
       <div className="grid lg:grid-cols-[1fr_320px] gap-6">
         <div className="space-y-6 min-w-0">
-          {tab === "pregled" && (
-            <OverviewTab
-              studentId={s.id}
-              billing={billing}
-              upcomingCount={upcomingLessons.length}
-              nextLesson={nextLesson}
-              totalLessonsHeld={totalLessonsHeld}
-              homeworkCount={homeworkCount}
-              reportsCount={reportsCount}
-              lessons={lessons}
-            />
-          )}
-          {tab === "naplata" && (
-            <BillingSection
-              studentId={s.id}
-              studentName={s.full_name}
-              parentName={s.parent_name}
-              parentPhone={s.parent_phone}
-              parentEmail={s.parent_email}
-              teacherName={teacherName}
-              debt={billing.debt}
-              paidTotal={billing.paidTotal}
-              billableTotal={billing.billableTotal}
-              unpaidLessons={billing.unpaidLessons}
-              unpaidLessonsCount={billing.unpaidLessons.length}
-              oldestUnpaidAt={billing.oldestUnpaidAt}
-              payments={billing.payments}
-              reminders={reminders}
-              customTemplate={customTemplate}
-            />
-          )}
-          {tab === "casovi" && (
-            <>
-              <LessonsList upcoming={upcomingLessons} past={pastLessons} />
-              <NotesList lessons={lessons} />
-            </>
-          )}
-          {tab === "domaci" && (
-            <HomeworkPanel
-              studentName={s.full_name}
-              parentPhone={s.parent_phone}
-              items={homeworkItems}
-              appBaseUrl={appBaseUrl}
-            />
-          )}
-          {tab === "izvestaji" && (
-            <ReportsPanel
-              studentId={s.id}
-              studentName={s.full_name}
-              hasParentEmail={!!s.parent_email}
-              hasStudentEmail={!!s.student_email}
-              parentPhone={s.parent_phone}
-              audience={s.report_audience}
-              weeklyEnabled={s.weekly_reports_enabled}
-              monthlyEnabled={s.monthly_reports_enabled}
-              logs={reportLogs}
-            />
-          )}
+          <Suspense fallback={<TabContentSkeleton />}>
+            <TabContentBlock student={s} tab={tab} appBaseUrl={appBaseUrl} />
+          </Suspense>
         </div>
 
-        {/* Side panel: details */}
         <aside className="space-y-6">
           <Panel title="Obrazovanje">
             <Row icon={GraduationCap} label="Razred" value={s.grade} />
@@ -455,6 +151,418 @@ export default async function StudentPage({
           )}
         </aside>
       </div>
+    </div>
+  );
+}
+
+/* ---------- HERO HEADER (sync, from student row) ---------- */
+function HeroHeader({
+  student: s,
+  appBaseUrl,
+}: {
+  student: Student;
+  appBaseUrl: string;
+}) {
+  return (
+    <section className="relative overflow-hidden rounded-3xl bg-hero-mesh border border-border/60 dark:border-white/[0.08]">
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent dark:via-white/15"
+      />
+      <div className="relative px-6 sm:px-10 py-7 sm:py-9 flex flex-col sm:flex-row sm:items-center gap-6">
+        <Avatar name={s.full_name} size="xl" className="size-20 text-xl shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="font-display text-3xl sm:text-4xl text-foreground leading-none">
+              {s.full_name}
+            </h1>
+            <StatusPill status={s.status} />
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
+            {s.grade && (
+              <span className="inline-flex items-center gap-1.5">
+                <GraduationCap
+                  className="size-3.5 text-muted-foreground/60"
+                  strokeWidth={1.75}
+                />
+                {s.grade}
+              </span>
+            )}
+            {s.parent_name && (
+              <>
+                <span aria-hidden className="text-muted-foreground/40">·</span>
+                <span>roditelj {s.parent_name}</span>
+              </>
+            )}
+            {s.parent_phone && (
+              <>
+                <span aria-hidden className="text-muted-foreground/40">·</span>
+                <span className="inline-flex items-center gap-1.5 tabular-nums">
+                  <Phone
+                    className="size-3.5 text-muted-foreground/60"
+                    strokeWidth={1.75}
+                  />
+                  {s.parent_phone}
+                </span>
+              </>
+            )}
+          </div>
+          {s.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {s.tags.map((t) => (
+                <span
+                  key={t}
+                  className="text-[11px] px-2 py-0.5 rounded-full bg-card/70 backdrop-blur-sm border border-border/60 text-muted-foreground"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <ParentLinkButton
+            studentId={s.id}
+            studentName={s.full_name}
+            initialToken={s.parent_portal_token}
+            parentName={s.parent_name}
+            parentPhone={s.parent_phone}
+            parentEmail={s.parent_email}
+            appBaseUrl={appBaseUrl}
+          />
+          <Link
+            href={`/students/${s.id}/edit`}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card/70 backdrop-blur-md border border-border text-sm font-medium hover:bg-card transition-colors"
+          >
+            <Pencil className="size-3.5" strokeWidth={1.75} />
+            Izmeni
+          </Link>
+          <form action={archiveStudent.bind(null, s.id)}>
+            <button
+              type="submit"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <Archive className="size-3.5" strokeWidth={1.75} />
+              Arhiviraj
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ---------- STAT STRIP (Suspense) ---------- */
+async function StatStripBlock({ student: s }: { student: Student }) {
+  const [lessons, billing] = await Promise.all([
+    getStudentLessons(s.id),
+    getStudentBillingCached(s.id),
+  ]);
+  const totalLessonsHeld = lessons.filter(
+    (l) => l.status === "completed",
+  ).length;
+  const upcomingLessons = lessons.filter(
+    (l) => l.status === "scheduled" && new Date(l.scheduled_at) >= new Date(),
+  );
+  const nextLesson = upcomingLessons[upcomingLessons.length - 1];
+
+  const debtTile: "rose" | "emerald" | "cyan" =
+    billing.debt > 0 ? "rose" : billing.debt < 0 ? "emerald" : "cyan";
+
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <StatCard
+        label={billing.debt < 0 ? "Pretplata" : "Dug"}
+        value={
+          billing.debt < 0
+            ? formatRsd(-billing.debt, false)
+            : formatRsd(billing.debt, false)
+        }
+        unit="RSD"
+        icon={Wallet}
+        tile={debtTile}
+        hint={
+          billing.debt > 0
+            ? `${billing.unpaidLessons.length} neplaćenih`
+            : billing.debt < 0
+              ? "Učenik je preplatio"
+              : billing.billableLessonsCount > 0
+                ? "Sve plaćeno"
+                : "Nema naplata"
+        }
+      />
+      <StatCard
+        label="Časova održano"
+        value={String(totalLessonsHeld)}
+        icon={CheckCircle2}
+        tile="cyan"
+        hint={`${lessons.length} ukupno`}
+      />
+      <StatCard
+        label="Sledeći čas"
+        value={
+          nextLesson
+            ? new Date(nextLesson.scheduled_at).toLocaleDateString(
+                "sr-Latn-RS",
+                { day: "numeric", month: "short" },
+              )
+            : "—"
+        }
+        icon={Clock}
+        tile="violet"
+        hint={
+          nextLesson
+            ? new Date(nextLesson.scheduled_at).toLocaleTimeString(
+                "sr-Latn-RS",
+                { hour: "2-digit", minute: "2-digit" },
+              )
+            : "Nije zakazan"
+        }
+      />
+      <StatCard
+        label="Cena po času"
+        value={
+          s.default_price_per_lesson > 0
+            ? formatRsd(s.default_price_per_lesson, false)
+            : "—"
+        }
+        unit={s.default_price_per_lesson > 0 ? "RSD" : undefined}
+        icon={Banknote}
+        tile="amber"
+        hint={`${s.default_lesson_duration_minutes} min default`}
+      />
+    </div>
+  );
+}
+
+function StatStripSkeleton() {
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div
+          key={i}
+          className="card-elevated rounded-2xl h-[140px] animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ---------- TAB NAV (Suspense) ---------- */
+async function TabNavBlock({
+  studentId,
+  active,
+}: {
+  studentId: string;
+  active: TabValue;
+}) {
+  const [lessons, billing, homeworkCount, reportsCount] = await Promise.all([
+    getStudentLessons(studentId),
+    getStudentBillingCached(studentId),
+    getHomeworkCount(studentId),
+    getReportsCount(studentId),
+  ]);
+  const TABS: TabItem<TabValue>[] = [
+    { value: "pregled", label: "Pregled", icon: LayoutDashboard },
+    {
+      value: "naplata",
+      label: "Naplata",
+      icon: Wallet,
+      badge: billing.unpaidLessons.length,
+    },
+    {
+      value: "casovi",
+      label: "Časovi",
+      icon: CalendarDays,
+      badge: lessons.length,
+    },
+    {
+      value: "domaci",
+      label: "Domaći",
+      icon: ClipboardList,
+      badge: homeworkCount,
+    },
+    {
+      value: "izvestaji",
+      label: "Izveštaji",
+      icon: FileText,
+      badge: reportsCount,
+    },
+  ];
+  return (
+    <TabNav
+      basePath={`/students/${studentId}`}
+      active={active}
+      tabs={TABS}
+      param="tab"
+    />
+  );
+}
+
+function TabNavSkeleton({
+  studentId,
+  active,
+}: {
+  studentId: string;
+  active: TabValue;
+}) {
+  // Render tabs immediately without badges; the real block fills them in.
+  const TABS: TabItem<TabValue>[] = [
+    { value: "pregled", label: "Pregled", icon: LayoutDashboard },
+    { value: "naplata", label: "Naplata", icon: Wallet },
+    { value: "casovi", label: "Časovi", icon: CalendarDays },
+    { value: "domaci", label: "Domaći", icon: ClipboardList },
+    { value: "izvestaji", label: "Izveštaji", icon: FileText },
+  ];
+  return (
+    <TabNav
+      basePath={`/students/${studentId}`}
+      active={active}
+      tabs={TABS}
+      param="tab"
+    />
+  );
+}
+
+/* ---------- TAB CONTENT (Suspense) ---------- */
+async function TabContentBlock({
+  student: s,
+  tab,
+  appBaseUrl,
+}: {
+  student: Student;
+  tab: TabValue;
+  appBaseUrl: string;
+}) {
+  switch (tab) {
+    case "pregled":
+      return <OverviewTabBlock student={s} />;
+    case "naplata":
+      return <BillingTabBlock student={s} />;
+    case "casovi":
+      return <LessonsTabBlock studentId={s.id} />;
+    case "domaci":
+      return <HomeworkTabBlock student={s} appBaseUrl={appBaseUrl} />;
+    case "izvestaji":
+      return <ReportsTabBlock student={s} />;
+  }
+}
+
+async function OverviewTabBlock({ student: s }: { student: Student }) {
+  const [lessons, billing, homeworkCount, reportsCount] = await Promise.all([
+    getStudentLessons(s.id),
+    getStudentBillingCached(s.id),
+    getHomeworkCount(s.id),
+    getReportsCount(s.id),
+  ]);
+  const upcomingLessons = lessons.filter(
+    (l) => l.status === "scheduled" && new Date(l.scheduled_at) >= new Date(),
+  );
+  const nextLesson = upcomingLessons[upcomingLessons.length - 1];
+  const totalLessonsHeld = lessons.filter(
+    (l) => l.status === "completed",
+  ).length;
+  return (
+    <OverviewTab
+      studentId={s.id}
+      billing={billing}
+      upcomingCount={upcomingLessons.length}
+      nextLesson={nextLesson}
+      totalLessonsHeld={totalLessonsHeld}
+      homeworkCount={homeworkCount}
+      reportsCount={reportsCount}
+      lessons={lessons}
+    />
+  );
+}
+
+async function BillingTabBlock({ student: s }: { student: Student }) {
+  const supabase = await getSupabase();
+  const [billing, reminders, ctx] = await Promise.all([
+    getStudentBillingCached(s.id),
+    getRemindersForStudent(supabase, s.id, 20),
+    getTeacherCtx(),
+  ]);
+  return (
+    <BillingSection
+      studentId={s.id}
+      studentName={s.full_name}
+      parentName={s.parent_name}
+      parentPhone={s.parent_phone}
+      parentEmail={s.parent_email}
+      teacherName={ctx.teacherName}
+      debt={billing.debt}
+      paidTotal={billing.paidTotal}
+      billableTotal={billing.billableTotal}
+      unpaidLessons={billing.unpaidLessons}
+      unpaidLessonsCount={billing.unpaidLessons.length}
+      oldestUnpaidAt={billing.oldestUnpaidAt}
+      payments={billing.payments}
+      reminders={reminders}
+      customTemplate={ctx.settings.reminder_template ?? null}
+    />
+  );
+}
+
+async function LessonsTabBlock({ studentId }: { studentId: string }) {
+  const lessons = await getStudentLessons(studentId);
+  const upcomingLessons = lessons.filter(
+    (l) => l.status === "scheduled" && new Date(l.scheduled_at) >= new Date(),
+  );
+  const pastLessons = lessons.filter(
+    (l) =>
+      !(l.status === "scheduled" && new Date(l.scheduled_at) >= new Date()),
+  );
+  return (
+    <>
+      <LessonsList upcoming={upcomingLessons} past={pastLessons} />
+      <NotesList lessons={lessons} />
+    </>
+  );
+}
+
+async function HomeworkTabBlock({
+  student: s,
+  appBaseUrl,
+}: {
+  student: Student;
+  appBaseUrl: string;
+}) {
+  const supabase = await getSupabase();
+  const homeworkItems = await listHomeworkForStudent(supabase, s.id, 20);
+  return (
+    <HomeworkPanel
+      studentName={s.full_name}
+      parentPhone={s.parent_phone}
+      items={homeworkItems}
+      appBaseUrl={appBaseUrl}
+    />
+  );
+}
+
+async function ReportsTabBlock({ student: s }: { student: Student }) {
+  const supabase = await getSupabase();
+  const reportLogs = await listReportLogs(supabase, s.id, 12);
+  return (
+    <ReportsPanel
+      studentId={s.id}
+      studentName={s.full_name}
+      hasParentEmail={!!s.parent_email}
+      hasStudentEmail={!!s.student_email}
+      parentPhone={s.parent_phone}
+      audience={s.report_audience}
+      weeklyEnabled={s.weekly_reports_enabled}
+      monthlyEnabled={s.monthly_reports_enabled}
+      logs={reportLogs}
+    />
+  );
+}
+
+function TabContentSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="card-elevated rounded-2xl h-[200px] animate-pulse" />
+      <div className="card-elevated rounded-2xl h-[300px] animate-pulse" />
     </div>
   );
 }

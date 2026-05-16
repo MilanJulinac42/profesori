@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   getOrgDebtors,
@@ -22,13 +23,22 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const supabase = await createClient();
   const params = await searchParams;
   const period: AnalyticsPeriod = (
     ["week", "month", "all"].includes(params.period ?? "")
       ? params.period
       : "month"
   ) as AnalyticsPeriod;
+
+  return (
+    <Suspense fallback={<BillingSkeleton />}>
+      <BillingBlock period={period} />
+    </Suspense>
+  );
+}
+
+async function BillingBlock({ period }: { period: AnalyticsPeriod }) {
+  const supabase = await createClient();
   const range = getRangeForPeriod(period);
 
   const { profile: teacherProfile } = await requireUser();
@@ -38,17 +48,13 @@ export default async function BillingPage({
   const settings = await getOrgSettings(supabase, teacherOrg!.id);
   const billableStatuses = computeBillableStatuses(settings);
 
-  const [
-    { totalDebt, totalCredit, debtors },
-    analytics,
-    recentPayments,
-  ] = await Promise.all([
-    getOrgDebtors(supabase, billableStatuses),
-    getBillingAnalytics(supabase, range, billableStatuses),
-    getRecentPayments(supabase, 8),
-  ]);
+  const [{ totalDebt, totalCredit, debtors }, analytics, recentPayments] =
+    await Promise.all([
+      getOrgDebtors(supabase, billableStatuses),
+      getBillingAnalytics(supabase, range, billableStatuses),
+      getRecentPayments(supabase, 8),
+    ]);
 
-  // Last reminder map for debtor rows.
   const lastReminders = await getLastReminderByStudent(
     supabase,
     debtors.map((d) => d.student_id),
@@ -58,7 +64,6 @@ export default async function BillingPage({
     lastReminderAt: lastReminders.get(d.student_id)?.sent_at ?? null,
   }));
 
-  // Build student list for the picker.
   const { data: allStudents } = await supabase
     .from("students")
     .select("id, full_name, parent_name, parent_phone, parent_email")
@@ -98,5 +103,23 @@ export default async function BillingPage({
       teacherName={teacherProfile.full_name ?? "Profesor"}
       customTemplate={settings.reminder_template ?? null}
     />
+  );
+}
+
+function BillingSkeleton() {
+  return (
+    <div className="px-4 sm:px-8 py-6 max-w-[1400px] mx-auto w-full space-y-6">
+      <div className="card-elevated rounded-2xl h-[120px] animate-pulse" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[0, 1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="card-elevated rounded-2xl h-[140px] animate-pulse"
+          />
+        ))}
+      </div>
+      <div className="card-elevated rounded-2xl h-[280px] animate-pulse" />
+      <div className="card-elevated rounded-2xl h-[240px] animate-pulse" />
+    </div>
   );
 }
