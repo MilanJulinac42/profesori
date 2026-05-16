@@ -9,6 +9,7 @@ import {
   Pause,
   Banknote,
   TrendingUp,
+  Upload,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
@@ -91,13 +92,22 @@ export default async function StudentsPage({
         title="Učenici"
         description="Lista učenika, kontakti i osnovni podaci."
         actions={
-          <Link
-            href="/students/new"
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
-          >
-            <Plus className="size-3.5" strokeWidth={2.25} />
-            Dodaj učenika
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/students/import"
+              className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+            >
+              <Upload className="size-3.5" strokeWidth={1.75} />
+              <span className="hidden sm:inline">Uvezi CSV</span>
+            </Link>
+            <Link
+              href="/students/new"
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-brand text-brand-foreground text-sm font-semibold hover:opacity-90 transition-all glow-brand"
+            >
+              <Plus className="size-3.5" strokeWidth={2.25} />
+              Dodaj učenika
+            </Link>
+          </div>
         }
       />
 

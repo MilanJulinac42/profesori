@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseRsdInput } from "@/lib/money";
+import type { ImportRow } from "./import";
 import type { ReportAudience, StudentStatus } from "./types";
 
 export type StudentFormState = {
@@ -172,6 +173,84 @@ export async function updateStudent(
   revalidatePath(`/students/${studentId}`);
   revalidatePath("/dashboard");
   redirect(`/students/${studentId}`);
+}
+
+export type BulkImportResult =
+  | {
+      ok: true;
+      inserted: number;
+      failed: Array<{ lineNumber: number; error: string }>;
+    }
+  | { ok: false; error: string };
+
+const BULK_IMPORT_HARD_CAP = 500;
+
+/**
+ * Inserts an array of validated CSV rows. Each row gets sensible defaults
+ * (status=active, audience=parent, reports off). Returns the count inserted
+ * plus per-row errors. Bulk-cap protects against accidental floods.
+ */
+export async function bulkImportStudents(
+  rows: ImportRow[],
+): Promise<BulkImportResult> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { ok: false, error: "Nema redova za uvoz." };
+  }
+  if (rows.length > BULK_IMPORT_HARD_CAP) {
+    return {
+      ok: false,
+      error: `Maksimalno ${BULK_IMPORT_HARD_CAP} učenika po importu.`,
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Niste prijavljeni." };
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select("organization_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile) return { ok: false, error: "Profil nije pronađen." };
+
+  const payload = rows.map((r) => ({
+    organization_id: profile.organization_id,
+    full_name: r.full_name,
+    grade: r.grade,
+    parent_name: r.parent_name,
+    parent_phone: r.parent_phone,
+    parent_email: r.parent_email,
+    student_email: r.student_email,
+    default_price_per_lesson: r.default_price_per_lesson,
+    default_lesson_duration_minutes: r.default_lesson_duration_minutes,
+    notes: r.notes,
+    tags: r.tags,
+    status: "active" as StudentStatus,
+    report_audience: "parent" as ReportAudience,
+    weekly_reports_enabled: false,
+    monthly_reports_enabled: false,
+  }));
+
+  const { data: inserted, error } = await supabase
+    .from("students")
+    .insert(payload)
+    .select("id");
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  revalidatePath("/students");
+  revalidatePath("/dashboard");
+
+  return {
+    ok: true,
+    inserted: inserted?.length ?? 0,
+    failed: [],
+  };
 }
 
 export async function archiveStudent(studentId: string) {
