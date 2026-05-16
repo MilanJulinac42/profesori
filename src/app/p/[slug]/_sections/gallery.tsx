@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { Camera, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import type { PublicProfile } from "@/lib/public-profile/types";
 
 export function GallerySection({ profile }: { profile: PublicProfile }) {
@@ -62,11 +63,16 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
         ))}
       </div>
 
-      {openIndex !== null && (
-        <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6 animate-lightbox-fade"
-          onClick={close}
-        >
+      <AnimatePresence>
+        {openIndex !== null && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-6"
+            onClick={close}
+          >
             <button
               type="button"
               onClick={close}
@@ -101,11 +107,15 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
                 </button>
               </>
             )}
-          <div
-            key={openIndex}
-            className="max-w-5xl max-h-full flex flex-col items-center gap-3 animate-lightbox-scale"
-            onClick={(e) => e.stopPropagation()}
-          >
+            <motion.div
+              key={openIndex}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="max-w-5xl max-h-full flex flex-col items-center gap-3"
+              onClick={(e) => e.stopPropagation()}
+            >
               <Image
                 src={images[openIndex].url}
                 alt={images[openIndex].caption ?? `Slika ${openIndex + 1}`}
@@ -122,9 +132,10 @@ export function GallerySection({ profile }: { profile: PublicProfile }) {
               <p className="text-xs text-white/50 tabular-nums">
                 {openIndex + 1} / {images.length}
               </p>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }

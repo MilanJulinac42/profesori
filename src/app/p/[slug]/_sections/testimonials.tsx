@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Quote,
 } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
 import type {
   PublicProfile,
   Testimonial,
@@ -65,9 +66,17 @@ function Carousel({
       onMouseLeave={() => setPaused(false)}
     >
       <div className="relative">
-        <div key={index} className="animate-card-fade">
-          <FeaturedCard t={items[index]} cardAccentBg={cardAccentBg} />
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: [0.21, 0.47, 0.32, 0.98] }}
+          >
+            <FeaturedCard t={items[index]} cardAccentBg={cardAccentBg} />
+          </motion.div>
+        </AnimatePresence>
 
         {items.length > 1 && (
           <>
