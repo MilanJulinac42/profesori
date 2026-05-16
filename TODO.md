@@ -276,6 +276,19 @@ Sve gurnuto na `main`, Vercel auto-deploy. Šest commita:
 - [ ] **Avatar crop** — 1:1 cropper pri upload-u profile slike.
 - [ ] **Onboarding wizard** — pravi step-by-step umesto setup-card.
 
+### Growth — kasnije
+
+- [ ] **Referral program** — "Pozovi drugog profesora, dobiješ mesec besplatno". Plan:
+  - [ ] Migracija: `referrals` (referrer_user_id, referred_user_id, referred_at, status, reward_granted_at, reward_kind)
+  - [ ] Generisati per-user referral kod/link u `/settings` ("Tvoj link: profesori.rs/r?ref=ABC123")
+  - [ ] Capture: na `signup` ako `?ref=` postoji, upiši pending red
+  - [ ] Reward trigger: nakon X dana aktivnog korišćenja, automatski produži trial / dodeli besplatni mesec
+  - [ ] UI: kartica u `/settings` koja prikazuje koliko ljudi je pozvao + status nagrada
+  - [ ] Anti-abuse: rate limit na linkove, ručna verifikacija pre nagrade
+- [ ] **SEO + blog** za organic traffic (sadržaj na temu privatnih časova)
+- [ ] **Landing page redesign** sa pravim screenshot-ima (kad bude pravih korisnika)
+- [ ] **Testimonials sekcija** — kad budu postojali realni korisnici sa stvarnim citatima
+
 ### Tier 3 — nice to have
 
 - [ ] A11y audit (skip links, focus rings, ARIA)

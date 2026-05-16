@@ -182,10 +182,10 @@ export default async function HomePage() {
                   <ArrowRight className="size-4" strokeWidth={2.25} />
                 </Link>
                 <Link
-                  href="/login"
+                  href="/demo"
                   className="inline-flex items-center h-11 px-5 rounded-lg bg-card/70 backdrop-blur-md border border-border text-sm font-medium hover:bg-card transition-colors"
                 >
-                  Već imam nalog
+                  Pogledaj demo
                 </Link>
               </div>
               <p className="inline-flex items-center gap-1.5 mt-5 text-xs text-muted-foreground">
