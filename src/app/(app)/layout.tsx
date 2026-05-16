@@ -10,6 +10,7 @@ import { AssistantWidget } from "@/components/assistant/widget";
 import { AssistantProvider } from "@/components/assistant/assistant-context";
 import { PaletteProvider } from "@/components/palette/palette-context";
 import { Palette } from "@/components/palette/palette";
+import { SkipLink } from "@/components/layout/skip-link";
 
 export default async function AppLayout({
   children,
@@ -64,6 +65,7 @@ export default async function AppLayout({
       >
         <AssistantProvider>
           <PaletteProvider>
+            <SkipLink />
             <div className="flex-1 flex">
               <Sidebar
                 badges={badges}
@@ -77,7 +79,7 @@ export default async function AppLayout({
                   badges={badges}
                   trial={trial}
                 />
-                <main className="flex-1 flex flex-col">
+                <main id="main-content" className="flex-1 flex flex-col">
                   <PageTransition>{children}</PageTransition>
                 </main>
               </div>

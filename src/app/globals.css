@@ -156,6 +156,16 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  /* Visible focus rings for keyboard navigation. The default Tailwind
+     outline is subtle; this bumps it to brand-coloured + offset so it
+     survives card glows. Mouse clicks don't trigger :focus-visible. */
+  *:focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
     font-feature-settings: "cv11", "ss01", "ss03", "cv02";
@@ -186,6 +196,14 @@
 .bg-hero-mesh {
   background-size: 200% 200%, 200% 200%, 200% 200%, 200% 200%, 100% 100%;
   animation: hero-drift 22s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-hero-mesh {
+    animation: none;
+  }
+  .pulse-dot {
+    animation: none;
+  }
 }
 
 /* Card glow border — gradient mask trick. Appears on hover. */
