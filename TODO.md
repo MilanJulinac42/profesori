@@ -281,6 +281,22 @@ Sve gurnuto na `main`, Vercel auto-deploy. Šest commita:
 - [ ] A11y audit (skip links, focus rings, ARIA)
 - [ ] Email template editor (sad samo `reminder_template` u settings)
 - [ ] Verifikuj cron `/api/cron/reports` u produkciji (radi li, šta šalje)
-- [ ] Bidirectional Google Calendar sync (sad samo push)
+- [ ] **Bidirectional Google Calendar sync** (sad samo push) — odložen za zasebnu sesiju (8-12h posla). Plan:
+  1. **Migracija**: dodati u `google_connections` polja `webhook_channel_id`, `webhook_resource_id`, `webhook_expires_at`, `sync_token`
+  2. **Inicijalni sync** prilikom konekcije: pozvati `events.list` bez `syncToken`, sačuvati nextSyncToken; preskočiti applying (samo se sinhronizujemo)
+  3. **Watch channel**: posle inicijalnog synca, pozvati `events.watch` sa webhook URL-om (`/api/google/webhook`), TTL do 7 dana. Sačuvati `channel.id`, `channel.resourceId`, `channel.expiration`.
+  4. **Cron za refresh kanala**: dodati `/api/cron/google-watch-refresh` u `vercel.json` (dnevno), proveriti kanale koji ističu u sledećih 24h, pozvati `stop` + novi `watch`.
+  5. **Webhook endpoint `/api/google/webhook`**: verifikuje `X-Goog-Channel-Id` + `X-Goog-Resource-State`. Na `sync`/`exists` događaje pokreće incremental sync (events.list sa `syncToken`).
+  6. **Apply changes**: za svaki promenjeni event:
+     - Match po `google_event_id` na `lessons` tabeli
+     - Status `cancelled` u Google → setLessonStatus("cancelled_by_teacher") + log
+     - Promenjen `start.dateTime` → update `lessons.scheduled_at`
+     - Promenjen `summary`/`description` → ignorisati (Profesori je source of truth za beleške)
+     - Novi event bez matching lesson-a → ignorisati (kreirao ga je profesor direktno u Google, ne diramo)
+  7. **Conflict handling**: jednostavna last-write-wins. Ako je naša izmena unutar poslednjih 60s (`updated_at`), preskoči Google promenu. Inače primeni.
+  8. **Audit log**: nova `google_sync_log` tabela ili reuse `cron_run_logs` sa `source='google_webhook'`.
+  9. **Testovi na živo**: konektuj Google nalog, kreiraj događaj iz Google → vidi da se pojavi otkazano u Profesori; pomeriš čas u Google → pomeri se i u Profesori.
+
+  Sve ostalo (initial scope, error retry, rate limit od Google strane, etc.) — handle u toj sesiji.
 - [ ] Subscription tier matrix — koji feature je na kom planu
 
