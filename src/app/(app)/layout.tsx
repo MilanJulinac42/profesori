@@ -4,6 +4,7 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
 import { PageTransition } from "@/components/layout/page-transition";
 import { countNewBookings } from "@/lib/booking/queries";
+import { getNotificationFeed } from "@/lib/notifications";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AssistantWidget } from "@/components/assistant/widget";
@@ -18,17 +19,19 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-  const [{ profile }, newBookings, { data: firstStudent }] = await Promise.all([
-    requireUser(),
-    countNewBookings(supabase),
-    supabase
-      .from("students")
-      .select("id")
-      .is("deleted_at", null)
-      .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const [{ profile }, newBookings, { data: firstStudent }, notifications] =
+    await Promise.all([
+      requireUser(),
+      countNewBookings(supabase),
+      supabase
+        .from("students")
+        .select("id")
+        .is("deleted_at", null)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      getNotificationFeed(),
+    ]);
   const userName = profile.full_name ?? profile.email;
   const badges = { newBookings };
   const showOnboarding = !profile.onboarding_completed_at;
@@ -78,6 +81,8 @@ export default async function AppLayout({
                   userEmail={profile.email}
                   badges={badges}
                   trial={trial}
+                  notificationItems={notifications.items}
+                  notificationUnread={notifications.unreadCount}
                 />
                 <main id="main-content" className="flex-1 flex flex-col">
                   <PageTransition>{children}</PageTransition>
