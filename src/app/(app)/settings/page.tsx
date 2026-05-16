@@ -10,6 +10,7 @@ import { DataExportCard } from "./_components/data-export";
 import { DangerZone } from "./_components/danger-zone";
 import { GoogleCalendarCard } from "./_components/google-calendar-card";
 import { ReportsRunsCard } from "./_components/reports-runs-card";
+import { TierMatrixCard } from "./_components/tier-matrix-card";
 import { listReportRuns } from "@/lib/reports/runs";
 import { getConnectionForUser } from "@/lib/google/calendar";
 import { getAppValueStats } from "@/lib/dashboard/app-value";
@@ -76,6 +77,8 @@ export default async function SettingsPage({
         status={org?.subscription_status ?? "trialing"}
         trialEndsAt={org?.trial_ends_at ?? null}
       />
+
+      <TierMatrixCard currentPlan={org?.subscription_tier ?? "start"} />
 
       <section>
         <h2 className="text-sm font-semibold mb-3 text-foreground">
