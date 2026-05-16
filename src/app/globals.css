@@ -254,6 +254,33 @@
   transform-origin: bottom right;
 }
 
+/* Command palette — backdrop fade + card pop */
+@keyframes palette-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-palette-fade {
+  animation: palette-fade 0.15s ease-out;
+}
+
+@keyframes palette-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-palette-pop {
+  animation: palette-pop 0.2s cubic-bezier(0.21, 0.47, 0.32, 0.98);
+}
+
 /* AssistantWidget — mobile bottom sheet slide-up */
 @keyframes assistant-sheet-up {
   from {
@@ -269,7 +296,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-assistant-bubble,
-  .animate-assistant-sheet-up {
+  .animate-assistant-sheet-up,
+  .animate-palette-fade,
+  .animate-palette-pop {
     animation: none;
   }
 }

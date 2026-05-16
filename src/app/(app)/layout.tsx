@@ -8,6 +8,8 @@ import { TourProvider } from "@/components/tour/tour-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AssistantWidget } from "@/components/assistant/widget";
 import { AssistantProvider } from "@/components/assistant/assistant-context";
+import { PaletteProvider } from "@/components/palette/palette-context";
+import { Palette } from "@/components/palette/palette";
 
 export default async function AppLayout({
   children,
@@ -61,25 +63,28 @@ export default async function AppLayout({
         firstStudentId={(firstStudent?.id as string | undefined) ?? null}
       >
         <AssistantProvider>
-          <div className="flex-1 flex">
-            <Sidebar
-              badges={badges}
-              user={{ name: userName, email: profile.email }}
-              trial={trial}
-            />
-            <div className="flex-1 flex flex-col min-w-0">
-              <Topbar
-                userName={userName}
-                userEmail={profile.email}
+          <PaletteProvider>
+            <div className="flex-1 flex">
+              <Sidebar
                 badges={badges}
+                user={{ name: userName, email: profile.email }}
                 trial={trial}
               />
-              <main className="flex-1 flex flex-col">
-                <PageTransition>{children}</PageTransition>
-              </main>
+              <div className="flex-1 flex flex-col min-w-0">
+                <Topbar
+                  userName={userName}
+                  userEmail={profile.email}
+                  badges={badges}
+                  trial={trial}
+                />
+                <main className="flex-1 flex flex-col">
+                  <PageTransition>{children}</PageTransition>
+                </main>
+              </div>
             </div>
-          </div>
-          <AssistantWidget />
+            <AssistantWidget />
+            <Palette />
+          </PaletteProvider>
         </AssistantProvider>
       </TourProvider>
     </ThemeProvider>

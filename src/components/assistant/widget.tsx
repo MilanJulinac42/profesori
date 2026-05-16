@@ -36,8 +36,8 @@ export function AssistantWidget() {
       <button
         type="button"
         onClick={toggle}
-        aria-label={open ? "Zatvori AI asistenta" : "Otvori AI asistenta (Ctrl+K)"}
-        title={open ? "Zatvori asistenta" : "Otvori asistenta (Ctrl+K)"}
+        aria-label={open ? "Zatvori AI asistenta" : "Otvori AI asistenta (Ctrl+I)"}
+        title={open ? "Zatvori asistenta" : "Otvori asistenta (Ctrl+I)"}
         className={`fixed bottom-5 right-5 z-50 size-12 rounded-full bg-foreground text-background shadow-lg hover:scale-105 transition print:hidden flex items-center justify-center ${
           open ? "max-sm:hidden" : ""
         }`}

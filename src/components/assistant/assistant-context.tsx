@@ -123,13 +123,13 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     return () => window.clearTimeout(id);
   }, [bubble]);
 
-  // Cmd/Ctrl+K toggles the assistant globally. Ignored while user is typing
-  // in form fields so we don't steal text-shortcut combos.
+  // Cmd/Ctrl+I toggles the assistant globally. (Cmd+K is the search palette.)
+  // Ignored while user is typing in form fields so we don't steal text combos.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const isModK =
-        (e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K");
-      if (!isModK) return;
+      const isModI =
+        (e.metaKey || e.ctrlKey) && (e.key === "i" || e.key === "I");
+      if (!isModI) return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       if (
