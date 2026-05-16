@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeSections } from "./sections";
 
@@ -286,5 +286,6 @@ export async function savePublicProfile(
 
   revalidatePath("/profile");
   revalidatePath(`/p/${slug}`);
+  revalidateTag(`profile-${slug}`, "max");
   return undefined;
 }

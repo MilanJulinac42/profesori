@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { getPublishedProfileBySlug } from "@/lib/public-profile/queries";
 import { THEMES, type ThemeId } from "@/lib/public-profile/themes";
 import type { LayoutId } from "@/lib/public-profile/layouts";
@@ -14,8 +13,7 @@ export default async function PublicProfilePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = await createClient();
-  const profile = await getPublishedProfileBySlug(supabase, slug);
+  const profile = await getPublishedProfileBySlug(slug);
   if (!profile) notFound();
 
   const themeId = (profile.theme as ThemeId) ?? "aurora";
