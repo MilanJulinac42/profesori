@@ -101,6 +101,10 @@ export async function updateOrgSettings(
     String(formData.get("reminder_template") ?? "").trim() || undefined;
   const autoReminders =
     String(formData.get("send_automatic_reminders") ?? "") === "on";
+  const closingParent =
+    String(formData.get("report_closing_parent") ?? "").trim() || undefined;
+  const closingStudent =
+    String(formData.get("report_closing_student") ?? "").trim() || undefined;
 
   const fieldErrors: Record<string, string> = {};
   let priceP: number | undefined;
@@ -128,6 +132,8 @@ export async function updateOrgSettings(
     charge_for_no_show: chargeNoShow,
     reminder_template: reminderTemplate,
     send_automatic_reminders: autoReminders,
+    report_closing_parent: closingParent,
+    report_closing_student: closingStudent,
   };
 
   const { error } = await supabase

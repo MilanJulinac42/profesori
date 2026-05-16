@@ -11,6 +11,11 @@ export type OrgSettings = {
   reminder_template?: string;
   /** Whether to send automatic email reminders to parents. Default false. */
   send_automatic_reminders?: boolean;
+  /** Custom closing/signature line on weekly+monthly reports.
+   *  Supports {ime_profesora}. Empty → use default ("Hvala na poverenju."). */
+  report_closing_parent?: string;
+  /** Same as above for the student audience. */
+  report_closing_student?: string;
 };
 
 export const DEFAULT_SETTINGS: OrgSettings = {

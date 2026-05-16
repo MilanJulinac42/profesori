@@ -245,6 +245,12 @@ export async function generateReport(
     homeworkSubmitted: homeworkStats.submitted,
   });
 
+  // Pull the org's custom closing line (for the audience), if set.
+  const customClosing =
+    input.student.report_audience === "parent"
+      ? settings.report_closing_parent
+      : settings.report_closing_student;
+
   return {
     kind: input.kind,
     audience: input.student.report_audience,
@@ -252,6 +258,7 @@ export async function generateReport(
     studentGrade: input.student.grade,
     parentName: input.student.parent_name,
     teacherName: input.teacherName,
+    customClosing,
     periodStart: period.start,
     periodEnd: period.end,
     periodLabel: period.label,

@@ -55,6 +55,9 @@ export type ReportData = {
   // AI uvodni paragraf — kratak, prirodan, lice prilagođeno publici.
   aiIntro: string;
 
+  /** Optional custom closing line set in Podešavanja. Supports {ime_profesora}. */
+  customClosing?: string;
+
   // Telemetry.
   aiInputTokens: number;
   aiOutputTokens: number;

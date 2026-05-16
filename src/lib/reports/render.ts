@@ -236,6 +236,12 @@ function renderGreeting(data: ReportData): string {
 }
 
 function renderClosing(data: ReportData): string {
+  if (data.customClosing && data.customClosing.trim()) {
+    return data.customClosing.replace(
+      /\{ime_profesora\}/g,
+      data.teacherName,
+    );
+  }
   return data.audience === "student"
     ? `Vidimo se na sledećem času.`
     : `Hvala na poverenju.`;

@@ -47,6 +47,12 @@ export function OrgSettingsForm({
   const [autoReminders, setAutoReminders] = useState(
     initial.send_automatic_reminders ?? false,
   );
+  const [closingParent, setClosingParent] = useState(
+    initial.report_closing_parent ?? "",
+  );
+  const [closingStudent, setClosingStudent] = useState(
+    initial.report_closing_student ?? "",
+  );
 
   const saved =
     !pending && state !== undefined && !state.error && !state.fieldErrors;
@@ -189,6 +195,51 @@ export function OrgSettingsForm({
             label="Automatski email-podsetnici roditeljima pre časa"
             hint="Šalje email 24h i 2h pre časa. Aktiviraćemo kad uvedemo Resend integraciju."
           />
+        </div>
+      </div>
+
+      {/* Report closing lines */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h2 className="text-base font-medium">Završnica izveštaja</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Poslednja rečenica koja ide ispod tabele u nedeljnim i mesečnim
+            izveštajima. Ostavi prazno za default. Možeš koristiti
+            <code className="mx-1 font-mono text-[11px] px-1 py-0.5 rounded bg-secondary">
+              {"{ime_profesora}"}
+            </code>{" "}
+            za potpis.
+          </p>
+        </div>
+        <div className="px-5 py-5 space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="report_closing_parent" className="text-sm font-medium">
+              Za roditelja
+            </Label>
+            <Textarea
+              id="report_closing_parent"
+              name="report_closing_parent"
+              rows={3}
+              value={closingParent}
+              onChange={(e) => setClosingParent(e.target.value)}
+              placeholder="Hvala na poverenju."
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="report_closing_student" className="text-sm font-medium">
+              Za učenika
+            </Label>
+            <Textarea
+              id="report_closing_student"
+              name="report_closing_student"
+              rows={3}
+              value={closingStudent}
+              onChange={(e) => setClosingStudent(e.target.value)}
+              placeholder="Vidimo se na sledećem času."
+              className="text-sm"
+            />
+          </div>
         </div>
       </div>
 
