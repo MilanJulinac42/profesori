@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ExternalLink, Inbox, Globe, Lightbulb } from "lucide-react";
+import { ExternalLink, Inbox, Globe, Lightbulb, Eye } from "lucide-react";
 import { requireUser } from "@/lib/supabase/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
@@ -56,6 +56,7 @@ export default async function PublicProfilePage() {
   const publicUrl = profile?.published
     ? `/p/${profile.slug}`
     : null;
+  const previewUrl = profile?.slug ? `/p/${profile.slug}?preview=1` : null;
 
   return (
     <div className="px-4 sm:px-8 py-6 space-y-6 max-w-[1400px] mx-auto w-full">
@@ -64,6 +65,21 @@ export default async function PublicProfilePage() {
         description="Stranica koju roditelji vide kad im pošalješ link."
         actions={
           <div className="flex items-center gap-2">
+            {previewUrl && (
+              <Link
+                href={previewUrl}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
+                title={
+                  publicUrl
+                    ? "Pregled stranice (objavljena)"
+                    : "Pregled pre objave — vidiš samo ti"
+                }
+              >
+                <Eye className="size-3.5" strokeWidth={1.75} />
+                Pregled
+              </Link>
+            )}
             {publicUrl && (
               <Link
                 href={publicUrl}
@@ -71,7 +87,7 @@ export default async function PublicProfilePage() {
                 className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-card border border-border text-foreground text-sm font-medium hover:bg-secondary transition-colors"
               >
                 <ExternalLink className="size-3.5" strokeWidth={1.75} />
-                Otvori javnu stranicu
+                Javni link
               </Link>
             )}
             <Link
