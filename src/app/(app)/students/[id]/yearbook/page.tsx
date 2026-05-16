@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Star, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import {
   startOfYear,
   endOfYear,
@@ -9,6 +9,7 @@ import {
   startOfMonth,
   endOfMonth,
   isWithinInterval,
+  startOfWeek,
 } from "date-fns";
 import { srLatn } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
@@ -18,6 +19,8 @@ import { getOrgSettings } from "@/lib/settings/queries";
 import { AutoPrint, PrintButton } from "@/components/auto-print";
 import { cn } from "@/lib/utils";
 import type { Student } from "@/lib/students/types";
+import { YearPicker } from "./_components/year-picker";
+import { MonthlyChart } from "./_components/monthly-chart";
 
 type Search = { year?: string };
 
@@ -141,6 +144,98 @@ export default async function YearbookPage({
   });
   const monthsWithLessons = monthBreakdown.filter((m) => m.completedCount > 0);
 
+  // Streak / consistency: count of distinct weeks with at least one completed
+  // lesson, longest consecutive run of such weeks, longest gap.
+  const weekKeys = new Set<string>();
+  for (const l of completed) {
+    const w = startOfWeek(new Date(l.scheduled_at), { weekStartsOn: 1 });
+    weekKeys.add(w.toISOString().slice(0, 10));
+  }
+  const weeksActive = weekKeys.size;
+  const totalWeeksInYear = 52;
+  // Compute longest streak + longest gap over the year.
+  let longestStreak = 0;
+  let longestGap = 0;
+  let curStreak = 0;
+  let curGap = 0;
+  const weekStart0 = startOfWeek(periodStart, { weekStartsOn: 1 });
+  for (let w = 0; w < totalWeeksInYear; w++) {
+    const wDate = new Date(weekStart0.getTime() + w * 7 * 86400000);
+    // Skip weeks that fall outside the current year (start before, end after).
+    const key = wDate.toISOString().slice(0, 10);
+    if (weekKeys.has(key)) {
+      curStreak += 1;
+      curGap = 0;
+      if (curStreak > longestStreak) longestStreak = curStreak;
+    } else {
+      curGap += 1;
+      curStreak = 0;
+      if (curGap > longestGap) longestGap = curGap;
+    }
+  }
+
+  // Year-over-year comparison: fetch prior year's lessons + payments.
+  const prevYr = yr - 1;
+  const prevStart = startOfYear(new Date(prevYr, 0, 1));
+  const prevEnd = endOfYear(new Date(prevYr, 0, 1));
+  const { data: prevLessonsRaw } = await supabase
+    .from("lessons")
+    .select("status, duration_minutes, price, lesson_rating")
+    .eq("student_id", id)
+    .is("deleted_at", null)
+    .gte("scheduled_at", prevStart.toISOString())
+    .lte("scheduled_at", prevEnd.toISOString());
+  const prevLessons = (prevLessonsRaw ?? []) as Array<{
+    status: string;
+    duration_minutes: number;
+    price: number;
+    lesson_rating: number | null;
+  }>;
+  const prevCompleted = prevLessons.filter((l) => l.status === "completed");
+  const prevMinutes = prevCompleted.reduce(
+    (s, l) => s + l.duration_minutes,
+    0,
+  );
+  const prevRatings = prevCompleted
+    .map((l) => l.lesson_rating)
+    .filter((r): r is number => r !== null);
+  const prevAvgRating =
+    prevRatings.length > 0
+      ? prevRatings.reduce((s, r) => s + r, 0) / prevRatings.length
+      : null;
+  const compare = {
+    held: makeDelta(completed.length, prevCompleted.length),
+    minutes: makeDelta(totalMinutes, prevMinutes),
+    rating: avgRating !== null && prevAvgRating !== null
+      ? makeDelta(avgRating, prevAvgRating)
+      : null,
+  };
+
+  // Available years for the year picker — span first lesson year to current.
+  const { data: oldestLesson } = await supabase
+    .from("lessons")
+    .select("scheduled_at")
+    .eq("student_id", id)
+    .is("deleted_at", null)
+    .order("scheduled_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const firstYear = oldestLesson?.scheduled_at
+    ? new Date(oldestLesson.scheduled_at).getFullYear()
+    : yr;
+  const availableYears = Array.from(
+    { length: Math.max(1, new Date().getFullYear() - firstYear + 1) },
+    (_, i) => firstYear + i,
+  );
+
+  // Monthly bar chart data (completed lessons per month).
+  const monthlyCounts = monthBreakdown.map((m) => m.completedCount);
+  const monthLabels = monthBreakdown.map((m) =>
+    format(m.month, "LLL", { locale: srLatn })
+      .replace(".", "")
+      .slice(0, 3),
+  );
+
   // Homework u godini
   const { data: hwRaw } = await supabase
     .from("homework")
@@ -182,7 +277,7 @@ export default async function YearbookPage({
       <AutoPrint />
 
       {/* Toolbar (samo screen) */}
-      <div className="print:hidden mb-6 flex items-center justify-between gap-3 pb-4 border-b border-border">
+      <div className="print:hidden mb-6 flex items-center justify-between gap-3 pb-4 border-b border-border flex-wrap">
         <Link
           href={`/students/${id}`}
           className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5"
@@ -190,7 +285,14 @@ export default async function YearbookPage({
           <ArrowLeft className="size-3.5" strokeWidth={1.75} />
           Nazad na profil
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          <YearPicker
+            studentId={id}
+            current={yr}
+            availableYears={availableYears}
+          />
+          <PrintButton />
+        </div>
       </div>
 
       <article className="space-y-8">
@@ -211,16 +313,22 @@ export default async function YearbookPage({
 
         {/* Statistika summary */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Stat label="Časova održano" value={completed.length.toString()} />
+          <Stat
+            label="Časova održano"
+            value={completed.length.toString()}
+            delta={compare.held}
+          />
           <Stat
             label="Ukupno minuta"
             value={totalMinutes.toString()}
             sub={`${Math.round(totalMinutes / 60)}h`}
+            delta={compare.minutes}
           />
           <Stat
             label="Prosečna ocena"
             value={avgRating !== null ? avgRating.toFixed(2) : "—"}
             sub={ratings.length > 0 ? `iz ${ratings.length} časova` : ""}
+            delta={compare.rating}
           />
           <Stat
             label="Otkazanih / no-show"
@@ -232,6 +340,49 @@ export default async function YearbookPage({
             }
           />
         </section>
+
+        {/* Consistency / streak */}
+        {weeksActive > 0 && (
+          <section className="grid grid-cols-3 gap-3">
+            <Stat
+              label="Aktivnih nedelja"
+              value={`${weeksActive} / 52`}
+              sub={`${Math.round((weeksActive / 52) * 100)}% godine`}
+            />
+            <Stat
+              label="Najduži niz"
+              value={`${longestStreak}`}
+              sub={
+                longestStreak === 1
+                  ? "1 uzastopna nedelja"
+                  : `${longestStreak} uzastopnih nedelja`
+              }
+            />
+            <Stat
+              label="Najduža pauza"
+              value={`${longestGap}`}
+              sub={
+                longestGap === 0
+                  ? "bez pauza"
+                  : longestGap === 1
+                    ? "1 nedelja bez časa"
+                    : `${longestGap} nedelja bez časa`
+              }
+            />
+          </section>
+        )}
+
+        {/* Monthly bar chart */}
+        {completed.length > 0 && (
+          <section>
+            <h2 className="text-xs uppercase tracking-[0.12em] text-black/60 mb-3">
+              Časovi po mesecima
+            </h2>
+            <div className="rounded-lg border border-black/20 px-3 py-3">
+              <MonthlyChart values={monthlyCounts} labels={monthLabels} />
+            </div>
+          </section>
+        )}
 
         {/* Domaći + naplata */}
         <section className="grid sm:grid-cols-2 gap-3">
@@ -419,18 +570,63 @@ function Stat({
   label,
   value,
   sub,
+  delta,
 }: {
   label: string;
   value: string;
   sub?: string;
+  delta?: { pct: number; direction: "up" | "down" | "flat" } | null;
 }) {
   return (
     <div className="rounded-lg border border-black/20 p-3">
-      <div className="text-[10px] uppercase tracking-wider text-black/60">
-        {label}
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-wider text-black/60">
+          {label}
+        </div>
+        {delta && <DeltaBadge delta={delta} />}
       </div>
       <div className="text-2xl font-semibold tabular-nums mt-1">{value}</div>
       {sub && <div className="text-[11px] text-black/60 mt-0.5">{sub}</div>}
     </div>
   );
+}
+
+function DeltaBadge({
+  delta,
+}: {
+  delta: { pct: number; direction: "up" | "down" | "flat" };
+}) {
+  const Icon =
+    delta.direction === "up"
+      ? TrendingUp
+      : delta.direction === "down"
+        ? TrendingDown
+        : Minus;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+        delta.direction === "up" && "bg-emerald-100 text-emerald-900",
+        delta.direction === "down" && "bg-rose-100 text-rose-900",
+        delta.direction === "flat" && "bg-black/10 text-black/60",
+      )}
+      title="Promena u odnosu na prošlu godinu"
+    >
+      <Icon className="size-2.5" strokeWidth={2.5} />
+      {delta.direction === "flat"
+        ? "0%"
+        : `${delta.direction === "up" ? "+" : ""}${Math.round(delta.pct)}%`}
+    </span>
+  );
+}
+
+function makeDelta(
+  curr: number,
+  prev: number,
+): { pct: number; direction: "up" | "down" | "flat" } | null {
+  if (prev === 0 && curr === 0) return null;
+  if (prev === 0) return { pct: 100, direction: "up" };
+  const pct = ((curr - prev) / prev) * 100;
+  if (Math.abs(pct) < 1) return { pct: 0, direction: "flat" };
+  return { pct, direction: pct > 0 ? "up" : "down" };
 }
