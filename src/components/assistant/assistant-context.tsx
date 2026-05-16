@@ -10,6 +10,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import type { HistoryMessage } from "@/lib/assistant/chat";
 import type { UIMessage } from "./types";
 
 export type AssistantBubble = {
@@ -25,10 +26,12 @@ type AssistantCtx = {
   open: boolean;
   setOpen: (v: boolean) => void;
   toggle: () => void;
+  /** UI-facing message list for rendering the chat. */
   messages: UIMessage[];
   setMessages: Dispatch<SetStateAction<UIMessage[]>>;
-  conversationId: string | null;
-  setConversationId: (id: string | null) => void;
+  /** Raw Anthropic-format history sent back to the server on each turn. */
+  history: HistoryMessage[];
+  setHistory: Dispatch<SetStateAction<HistoryMessage[]>>;
   bubble: AssistantBubble | null;
   setBubble: (b: AssistantBubble | null) => void;
   clearConversation: () => void;
@@ -36,12 +39,14 @@ type AssistantCtx = {
 
 const Ctx = createContext<AssistantCtx | null>(null);
 
-const STORAGE_KEY = "profesori_assistant_v1";
+const STORAGE_KEY = "profesori_assistant_v2";
+// Cap to keep localStorage payload small. Older turns are dropped first.
 const MAX_PERSISTED_MESSAGES = 50;
+const MAX_PERSISTED_HISTORY = 60;
 
 type PersistShape = {
   messages: UIMessage[];
-  conversationId: string | null;
+  history: HistoryMessage[];
 };
 
 function loadPersisted(): PersistShape | null {
@@ -50,7 +55,9 @@ function loadPersisted(): PersistShape | null {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PersistShape;
-    if (!Array.isArray(parsed.messages)) return null;
+    if (!Array.isArray(parsed.messages) || !Array.isArray(parsed.history)) {
+      return null;
+    }
     return parsed;
   } catch {
     return null;
@@ -60,7 +67,7 @@ function loadPersisted(): PersistShape | null {
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [open, setOpenState] = useState(false);
   const [messages, setMessages] = useState<UIMessage[]>([]);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryMessage[]>([]);
   const [bubble, setBubble] = useState<AssistantBubble | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -69,25 +76,28 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     const persisted = loadPersisted();
     if (persisted) {
       setMessages(persisted.messages);
-      setConversationId(persisted.conversationId);
+      setHistory(persisted.history);
     }
     setHydrated(true);
   }, []);
 
-  // Persist conversation. Only after hydration so we don't wipe storage with
-  // the initial empty state.
+  // Persist after hydration so we don't wipe storage with the empty initial.
   useEffect(() => {
     if (!hydrated || typeof window === "undefined") return;
     try {
-      const trimmed = messages.slice(-MAX_PERSISTED_MESSAGES);
+      const trimmedMessages = messages.slice(-MAX_PERSISTED_MESSAGES);
+      const trimmedHistory = history.slice(-MAX_PERSISTED_HISTORY);
       window.localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ messages: trimmed, conversationId }),
+        JSON.stringify({
+          messages: trimmedMessages,
+          history: trimmedHistory,
+        }),
       );
     } catch {
       // Quota exceeded or storage disabled — silently ignore.
     }
-  }, [hydrated, messages, conversationId]);
+  }, [hydrated, messages, history]);
 
   const setOpen = useCallback((v: boolean) => {
     setOpenState(v);
@@ -101,7 +111,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
 
   const clearConversation = useCallback(() => {
     setMessages([]);
-    setConversationId(null);
+    setHistory([]);
     setBubble(null);
     if (typeof window !== "undefined") {
       try {
@@ -120,8 +130,8 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         toggle,
         messages,
         setMessages,
-        conversationId,
-        setConversationId,
+        history,
+        setHistory,
         bubble,
         setBubble,
         clearConversation,
@@ -145,7 +155,6 @@ export function useAssistant() {
  * Falls back to a generic "stranicu" prefix for unknown paths.
  */
 export function labelForPath(path: string): string {
-  // Strip query string and trailing slash.
   const clean = path.split("?")[0].replace(/\/$/, "");
 
   const exact: Record<string, string> = {
@@ -165,7 +174,6 @@ export function labelForPath(path: string): string {
   };
   if (clean in exact) return exact[clean];
 
-  // Dynamic patterns.
   if (/^\/students\/[^/]+\/edit$/.test(clean)) return "Izmenu učenika";
   if (/^\/students\/[^/]+\/bill$/.test(clean)) return "Mesečni račun učenika";
   if (/^\/students\/[^/]+\/yearbook$/.test(clean)) return "Godišnjak učenika";

@@ -87,82 +87,61 @@ BUDI EFIKASAN:
 - Ne ponavljaj poslednju poruku korisnika.
 - Ako ti nešto nedostaje, kratko pitaj. Ne pravi pretpostavke o važnim stvarima (datumi, iznosi).`;
 
-export type ChatMessage = {
-  role: "user" | "assistant" | "tool";
+/**
+ * Chat history is now owned entirely by the client (localStorage). The server
+ * is stateless w.r.t. conversations — it only receives the prior history,
+ * runs the model + tool loop, and returns the new turns to append.
+ */
+export type HistoryMessage = {
+  role: "user" | "assistant";
   content: Anthropic.MessageParam["content"];
 };
 
 export type ChatResult =
   | {
       ok: true;
-      conversationId: string;
+      /** Turns to append to the client history, in order: the new user
+       *  message, any intermediate tool-use rounds, and the final
+       *  assistant reply. */
+      newTurns: HistoryMessage[];
+      /** Convenience: the LAST assistant turn's content blocks. */
       assistantMessage: Array<Anthropic.ContentBlock>;
-      /** Ako poslednji tool poziv vraća proposal, ovo je ekstrahovan payload za UI. */
+      /** Extracted proposal payload, if the last tool was a propose_*. */
       proposal?: unknown;
-      /** Ako poslednji tool poziv je navigate_to. */
+      /** Extracted navigation, if the last tool was navigate_to. */
       navigation?: { path: string; reason?: string };
     }
   | { ok: false; error: string };
 
 export async function sendChatMessage(input: {
-  conversationId?: string;
+  history: HistoryMessage[];
   userMessage: string;
   pageContext?: { path: string; description?: string };
 }): Promise<ChatResult> {
   try {
     const { profile } = await requireUser();
+    // Supabase client still needed — tools (find_student, find_lessons_in_window,
+    // etc.) read live data scoped to the teacher's organization.
     const supabase = await createClient();
 
     if (!input.userMessage.trim()) {
       return { ok: false, error: "Poruka je prazna." };
     }
 
-    // Resolve ili kreiraj konverzaciju
-    let conversationId = input.conversationId;
-    if (!conversationId) {
-      const { data: conv, error: convErr } = await supabase
-        .from("assistant_conversations")
-        .insert({
-          organization_id: profile.organization_id,
-          user_id: profile.id,
-          title: input.userMessage.slice(0, 80),
-        })
-        .select("id")
-        .single();
-      if (convErr || !conv) {
-        return { ok: false, error: convErr?.message ?? "Greška." };
-      }
-      conversationId = conv.id as string;
-    }
+    const newTurns: HistoryMessage[] = [];
 
-    // Učitaj postojeće poruke
-    const { data: existingMessages } = await supabase
-      .from("assistant_messages")
-      .select("role, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    const history: Anthropic.MessageParam[] = ((existingMessages ?? []) as Array<{
-      role: "user" | "assistant" | "tool";
-      content: Anthropic.MessageParam["content"];
-    }>).map((m) => ({
-      role: m.role === "tool" ? "user" : (m.role as "user" | "assistant"),
-      content: m.content,
-    }));
-
-    // Dodaj novu user poruku
-    const userContent: Anthropic.MessageParam["content"] = input.userMessage;
-    history.push({ role: "user", content: userContent });
-
-    // Save user message
-    await supabase.from("assistant_messages").insert({
-      conversation_id: conversationId,
+    // Append the user's new message.
+    const userTurn: HistoryMessage = {
       role: "user",
-      content: userContent,
-    });
+      content: input.userMessage,
+    };
+    newTurns.push(userTurn);
 
-    // System prompt + trenutni datum + opciono page context.
-    // Datum mora biti u system prompt-u jer AI ne zna "today" inače.
+    // Working history for the Anthropic call — prior client history plus new
+    // user message plus any intermediate tool turns we accumulate below.
+    const apiHistory: Anthropic.MessageParam[] = [...input.history, userTurn];
+
+    // System prompt + current date + optional page context.
     const now = new Date();
     const dateContext = [
       ``,
@@ -179,47 +158,42 @@ export async function sendChatMessage(input: {
 
     if (input.pageContext) {
       system += `\n\nKONTEKST: Profesor je trenutno na stranici "${input.pageContext.path}"${
-        input.pageContext.description ? ` (${input.pageContext.description})` : ""
+        input.pageContext.description
+          ? ` (${input.pageContext.description})`
+          : ""
       }. Koristi to kao kontekst ako korisnik kaže "ovaj učenik" ili sl.`;
     }
 
     const client = getAnthropic();
 
     // ============================================================
-    // Tool-use loop
+    // Tool-use loop — stateless, no DB writes for chat
     // ============================================================
     let lastResponse: Anthropic.Message | null = null;
     let lastProposal: unknown = undefined;
-    let lastNavigation: { path: string; reason?: string } | undefined = undefined;
+    let lastNavigation: { path: string; reason?: string } | undefined =
+      undefined;
     const MAX_ITERATIONS = 6;
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       lastResponse = await callModelWithFallback(client, {
         system,
-        messages: history,
+        messages: apiHistory,
       });
 
-      // Save assistant message
-      await supabase.from("assistant_messages").insert({
-        conversation_id: conversationId,
+      const assistantTurn: HistoryMessage = {
         role: "assistant",
-        content: lastResponse.content as unknown,
-        input_tokens: lastResponse.usage.input_tokens,
-        output_tokens: lastResponse.usage.output_tokens,
-        cache_read_tokens: lastResponse.usage.cache_read_input_tokens ?? 0,
-        cache_creation_tokens: lastResponse.usage.cache_creation_input_tokens ?? 0,
-      });
+        content: lastResponse.content,
+      };
+      newTurns.push(assistantTurn);
+      apiHistory.push(assistantTurn);
 
-      history.push({ role: "assistant", content: lastResponse.content });
-
-      // Da li model poziva tool-ove?
       const toolUses = lastResponse.content.filter(
         (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
       );
 
-      if (toolUses.length === 0) break; // model je završio sa tekstom
+      if (toolUses.length === 0) break;
 
-      // Izvrši tool-ove
       const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
       for (const tu of toolUses) {
@@ -230,12 +204,9 @@ export async function sendChatMessage(input: {
           (tu.input as Record<string, unknown>) ?? {},
         );
 
-        // Ako je proposal, sačuvaj za UI
         if (result.ok && result.data && typeof result.data === "object") {
           const dataObj = result.data as Record<string, unknown>;
-          if (dataObj.proposal) {
-            lastProposal = dataObj.proposal;
-          }
+          if (dataObj.proposal) lastProposal = dataObj.proposal;
           if (dataObj.navigation) {
             lastNavigation = dataObj.navigation as {
               path: string;
@@ -252,15 +223,13 @@ export async function sendChatMessage(input: {
         });
       }
 
-      // Save tool result kao "tool" role poruka
-      await supabase.from("assistant_messages").insert({
-        conversation_id: conversationId,
-        role: "tool",
-        content: toolResults as unknown,
-      });
-
-      // Dodaj tool_results u history (kao user message — Anthropic format)
-      history.push({ role: "user", content: toolResults });
+      // Tool results are sent back as a "user" role turn in Anthropic format.
+      const toolTurn: HistoryMessage = {
+        role: "user",
+        content: toolResults,
+      };
+      newTurns.push(toolTurn);
+      apiHistory.push(toolTurn);
     }
 
     if (!lastResponse) {
@@ -269,7 +238,7 @@ export async function sendChatMessage(input: {
 
     return {
       ok: true,
-      conversationId,
+      newTurns,
       assistantMessage: lastResponse.content,
       proposal: lastProposal,
       navigation: lastNavigation,
@@ -311,8 +280,6 @@ async function callModelWithFallback(
   try {
     return await callWith(ASSISTANT_MODEL);
   } catch (err) {
-    // Haiku je već primary; ako pukne 529, fallback je isti — pa pokušaj Sonnet
-    // kao backup (sporiji ali drugi kapacitet).
     if (isOverloadedError(err)) return await callWith("claude-sonnet-4-6");
     throw err;
   }
@@ -323,7 +290,6 @@ async function callModelWithFallback(
 // ============================================================
 
 export type ExecuteProposalInput = {
-  conversationId: string;
   proposal: {
     type:
       | "create_lesson"
@@ -335,9 +301,19 @@ export type ExecuteProposalInput = {
   };
 };
 
+export type ExecuteProposalResult =
+  | {
+      ok: true;
+      message: string;
+      /** Synthetic turns the client should append to its history so the AI
+       *  knows the proposal was confirmed when the next message is sent. */
+      newTurns: HistoryMessage[];
+    }
+  | { ok: false; error: string };
+
 export async function executeProposalAction(
   input: ExecuteProposalInput,
-): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
+): Promise<ExecuteProposalResult> {
   try {
     const { profile } = await requireUser();
     const supabase = await createClient();
@@ -412,92 +388,20 @@ export async function executeProposalAction(
         return { ok: false, error: "Nepoznat tip proposal-a." };
     }
 
-    // Snimi confirmation u konverzaciju kao "user" poruku za istoriju
-    await supabase.from("assistant_messages").insert({
-      conversation_id: input.conversationId,
-      role: "user",
-      content: `[Korisnik je potvrdio: ${input.proposal.type}]`,
-    });
-    await supabase.from("assistant_messages").insert({
-      conversation_id: input.conversationId,
-      role: "assistant",
-      content: [{ type: "text", text: `✓ ${resultMessage}` }] as unknown,
-    });
+    // Synthetic turns the client appends to history so the AI is aware of
+    // the confirmation on subsequent turns.
+    const newTurns: HistoryMessage[] = [
+      {
+        role: "user",
+        content: `[Korisnik je potvrdio: ${input.proposal.type}]`,
+      },
+      {
+        role: "assistant",
+        content: [{ type: "text", text: `✓ ${resultMessage}` }],
+      },
+    ];
 
-    return { ok: true, message: resultMessage };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Greška.",
-    };
-  }
-}
-
-// ============================================================
-// Pomoćne queries za frontend
-// ============================================================
-
-export async function loadConversation(conversationId: string): Promise<
-  | {
-      ok: true;
-      messages: Array<{
-        id: string;
-        role: "user" | "assistant" | "tool";
-        content: unknown;
-      }>;
-    }
-  | { ok: false; error: string }
-> {
-  try {
-    await requireUser();
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("assistant_messages")
-      .select("id, role, content")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-    if (error) return { ok: false, error: error.message };
-    return {
-      ok: true,
-      messages: ((data ?? []) as Array<{
-        id: string;
-        role: "user" | "assistant" | "tool";
-        content: unknown;
-      }>),
-    };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "Greška.",
-    };
-  }
-}
-
-export async function listRecentConversations(limit = 10): Promise<
-  | {
-      ok: true;
-      conversations: Array<{ id: string; title: string | null; updated_at: string }>;
-    }
-  | { ok: false; error: string }
-> {
-  try {
-    const { profile } = await requireUser();
-    const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("assistant_conversations")
-      .select("id, title, updated_at")
-      .eq("user_id", profile.id)
-      .order("updated_at", { ascending: false })
-      .limit(limit);
-    if (error) return { ok: false, error: error.message };
-    return {
-      ok: true,
-      conversations: (data ?? []) as Array<{
-        id: string;
-        title: string | null;
-        updated_at: string;
-      }>,
-    };
+    return { ok: true, message: resultMessage, newTurns };
   } catch (err) {
     return {
       ok: false,

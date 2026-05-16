@@ -12,7 +12,10 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { executeProposalAction } from "@/lib/assistant/chat";
+import {
+  executeProposalAction,
+  type HistoryMessage,
+} from "@/lib/assistant/chat";
 import type { Proposal } from "./types";
 
 const ICONS: Record<Proposal["type"], typeof CalendarPlus> = {
@@ -33,17 +36,18 @@ const TITLES: Record<Proposal["type"], string> = {
 
 export function ProposalCard({
   proposal,
-  conversationId,
   state,
   onResolved,
 }: {
   proposal: Proposal;
-  conversationId: string;
   state: "pending" | "confirmed" | "rejected";
   onResolved: (
     state: "confirmed" | "rejected",
-    message?: string,
-    error?: string,
+    payload?: {
+      message?: string;
+      newTurns?: HistoryMessage[];
+      error?: string;
+    },
   ) => void;
 }) {
   const [pending, setPending] = useState(false);
@@ -51,10 +55,16 @@ export function ProposalCard({
 
   async function confirm() {
     setPending(true);
-    const res = await executeProposalAction({ conversationId, proposal });
+    const res = await executeProposalAction({ proposal });
     setPending(false);
-    if (res.ok) onResolved("confirmed", res.message);
-    else onResolved("rejected", undefined, res.error);
+    if (res.ok) {
+      onResolved("confirmed", {
+        message: res.message,
+        newTurns: res.newTurns,
+      });
+    } else {
+      onResolved("rejected", { error: res.error });
+    }
   }
 
   function reject() {

@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { sendChatMessage } from "@/lib/assistant/chat";
+import { sendChatMessage, type HistoryMessage } from "@/lib/assistant/chat";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProposalCard } from "./proposal-card";
@@ -110,8 +110,8 @@ export function ChatPanel({
   const {
     messages,
     setMessages,
-    conversationId,
-    setConversationId,
+    history,
+    setHistory,
     setOpen,
     setBubble,
   } = useAssistant();
@@ -144,7 +144,7 @@ export function ChatPanel({
 
     startTransition(async () => {
       const res = await sendChatMessage({
-        conversationId: conversationId ?? undefined,
+        history,
         userMessage: text,
         pageContext: { path: pathname },
       });
@@ -154,7 +154,9 @@ export function ChatPanel({
         return;
       }
 
-      if (!conversationId) setConversationId(res.conversationId);
+      // Append all new turns (user msg + tool rounds + final assistant) to
+      // the raw history so the next call sends the full context.
+      setHistory((prev) => [...prev, ...res.newTurns]);
 
       // Ekstrahuj plain text iz Anthropic content blokova
       const textBlocks = res.assistantMessage
@@ -194,25 +196,33 @@ export function ChatPanel({
   function resolveProposal(
     msgId: string,
     state: "confirmed" | "rejected",
-    message?: string,
-    err?: string,
+    payload?: {
+      message?: string;
+      newTurns?: HistoryMessage[];
+      error?: string;
+    },
   ) {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === msgId ? { ...m, proposalState: state } : m,
       ),
     );
-    if (state === "confirmed" && message) {
+    if (state === "confirmed" && payload?.message) {
       setMessages((prev) => [
         ...prev,
         {
           id: `s-${Date.now()}`,
           role: "assistant",
-          text: `✓ ${message}`,
+          text: `✓ ${payload.message}`,
         },
       ]);
+      // Mirror the confirmation into raw history so the AI is aware of it
+      // on the next turn.
+      if (payload.newTurns?.length) {
+        setHistory((prev) => [...prev, ...(payload.newTurns ?? [])]);
+      }
     }
-    if (err) setError(err);
+    if (payload?.error) setError(payload.error);
   }
 
   return (
@@ -285,13 +295,12 @@ export function ChatPanel({
                 )}
               </div>
             </div>
-            {m.proposal && conversationId && (
+            {m.proposal && (
               <ProposalCard
                 proposal={m.proposal}
-                conversationId={conversationId}
                 state={m.proposalState ?? "pending"}
-                onResolved={(state, message, err) =>
-                  resolveProposal(m.id, state, message, err)
+                onResolved={(state, payload) =>
+                  resolveProposal(m.id, state, payload)
                 }
               />
             )}
