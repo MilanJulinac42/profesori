@@ -143,7 +143,17 @@ function CreateForm({
   const [priceText, setPriceText] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [recurFreq, setRecurFreq] = useState<RecurrenceFrequency>("weekly");
+  const [recurEndMode, setRecurEndMode] = useState<"count" | "until">("count");
   const [recurCount, setRecurCount] = useState(8);
+  const [recurUntil, setRecurUntil] = useState<string>(() => {
+    // Default: 8 weeks from today.
+    const d = new Date();
+    d.setDate(d.getDate() + 8 * 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [skipRanges, setSkipRanges] = useState<{ from: string; to: string }[]>(
+    [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
@@ -172,7 +182,10 @@ function CreateForm({
           durationMinutes: duration,
           priceRaw: priceText,
           frequency: recurFreq,
-          count: recurCount,
+          endMode: recurEndMode,
+          count: recurEndMode === "count" ? recurCount : undefined,
+          untilDate: recurEndMode === "until" ? recurUntil : undefined,
+          skipRanges: skipRanges.filter((r) => r.from && r.to),
         });
         if (!res.ok) {
           if (res.fieldErrors) setFieldErrors(res.fieldErrors);
@@ -413,8 +426,38 @@ function CreateForm({
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label className="text-xs">Završetak</Label>
+                  <div className="inline-flex w-full rounded-md bg-secondary/50 p-0.5 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setRecurEndMode("count")}
+                      className={
+                        recurEndMode === "count"
+                          ? "flex-1 h-7 rounded bg-background font-semibold shadow-sm"
+                          : "flex-1 h-7 rounded text-muted-foreground"
+                      }
+                    >
+                      Broj časova
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRecurEndMode("until")}
+                      className={
+                        recurEndMode === "until"
+                          ? "flex-1 h-7 rounded bg-background font-semibold shadow-sm"
+                          : "flex-1 h-7 rounded text-muted-foreground"
+                      }
+                    >
+                      Do datuma
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {recurEndMode === "count" ? (
+                <div className="space-y-1.5">
                   <Label htmlFor="recur-count" className="text-xs">
-                    Broj časova
+                    Koliko časova ukupno?
                   </Label>
                   <Input
                     id="recur-count"
@@ -425,12 +468,110 @@ function CreateForm({
                     onChange={(e) => setRecurCount(Number(e.target.value) || 2)}
                   />
                 </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="recur-until" className="text-xs">
+                    Poslednji termin do (uključujući)
+                  </Label>
+                  <Input
+                    id="recur-until"
+                    type="date"
+                    min={date}
+                    value={recurUntil}
+                    onChange={(e) => setRecurUntil(e.target.value)}
+                  />
+                  {fieldErrors.until_date && (
+                    <p className="text-xs text-destructive">
+                      {fieldErrors.until_date}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Skip ranges (raspust, putovanje, itd.) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Preskoči periode (opciono)</Label>
+                {skipRanges.length > 0 && (
+                  <ul className="space-y-1.5">
+                    {skipRanges.map((r, i) => (
+                      <li
+                        key={i}
+                        className="grid grid-cols-[1fr_1fr_auto] gap-1.5 items-center"
+                      >
+                        <Input
+                          type="date"
+                          value={r.from}
+                          onChange={(e) =>
+                            setSkipRanges((prev) =>
+                              prev.map((x, j) =>
+                                j === i ? { ...x, from: e.target.value } : x,
+                              ),
+                            )
+                          }
+                          className="h-8 text-xs"
+                          aria-label="Od"
+                        />
+                        <Input
+                          type="date"
+                          value={r.to}
+                          onChange={(e) =>
+                            setSkipRanges((prev) =>
+                              prev.map((x, j) =>
+                                j === i ? { ...x, to: e.target.value } : x,
+                              ),
+                            )
+                          }
+                          className="h-8 text-xs"
+                          aria-label="Do"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSkipRanges((prev) => prev.filter((_, j) => j !== i))
+                          }
+                          aria-label="Ukloni period"
+                          className="size-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-secondary"
+                        >
+                          ×
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSkipRanges((prev) => [...prev, { from: "", to: "" }])
+                  }
+                  className="text-xs text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                >
+                  + Dodaj period (npr. raspust)
+                </button>
               </div>
+
               <RecurrencePreview
                 date={date}
                 time={time}
                 frequency={recurFreq}
-                count={recurCount}
+                count={
+                  recurEndMode === "count"
+                    ? recurCount
+                    : Math.max(
+                        2,
+                        Math.min(
+                          52,
+                          Math.floor(
+                            (new Date(`${recurUntil}T23:59:59`).getTime() -
+                              new Date(`${date}T${time}:00`).getTime()) /
+                              (1000 *
+                                60 *
+                                60 *
+                                24 *
+                                (recurFreq === "weekly" ? 7 : 14)),
+                          ) + 1,
+                        ),
+                      )
+                }
               />
             </div>
           )}

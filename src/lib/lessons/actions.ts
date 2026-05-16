@@ -186,7 +186,12 @@ export async function createRecurringLessons(input: {
   durationMinutes: number;
   priceRaw: string; // user input; ako prazno, koristi default učenika
   frequency: RecurrenceFrequency;
-  count: number; // ukupno časova (uključujući prvi)
+  /** Either: explicit count of lessons (incl. first), or an inclusive end date. */
+  endMode: "count" | "until";
+  count?: number; // ukupno časova (uključujući prvi) — kad endMode = "count"
+  untilDate?: string; // "YYYY-MM-DD" inkluzivno — kad endMode = "until"
+  /** Optional date ranges to skip (e.g. summer holiday). Format "YYYY-MM-DD". */
+  skipRanges?: { from: string; to: string }[];
 }): Promise<RecurringResult> {
   const fieldErrors: Record<string, string> = {};
   if (!input.studentId) fieldErrors.student_id = "Izaberi učenika.";
@@ -195,8 +200,18 @@ export async function createRecurringLessons(input: {
   if (!Number.isFinite(input.durationMinutes) || input.durationMinutes <= 0) {
     fieldErrors.duration_minutes = "Trajanje mora biti broj veći od 0.";
   }
-  if (!Number.isFinite(input.count) || input.count < 2 || input.count > 52) {
-    fieldErrors.count = "Broj časova mora biti između 2 i 52.";
+  if (input.endMode === "count") {
+    if (
+      !Number.isFinite(input.count ?? NaN) ||
+      (input.count as number) < 2 ||
+      (input.count as number) > 52
+    ) {
+      fieldErrors.count = "Broj časova mora biti između 2 i 52.";
+    }
+  } else {
+    if (!input.untilDate) {
+      fieldErrors.until_date = "Datum kraja je obavezan.";
+    }
   }
   if (Object.keys(fieldErrors).length) {
     return { ok: false, error: "Proveri polja.", fieldErrors };
@@ -210,6 +225,38 @@ export async function createRecurringLessons(input: {
       fieldErrors: { date: "Neispravan datum/vreme." },
     };
   }
+
+  // Resolve effective count from either explicit count or until-date.
+  const intervalDays = input.frequency === "weekly" ? 7 : 14;
+  let effectiveCount: number;
+  if (input.endMode === "count") {
+    effectiveCount = input.count as number;
+  } else {
+    const until = new Date(`${input.untilDate}T23:59:59`);
+    if (isNaN(until.getTime()) || until < baseDate) {
+      return {
+        ok: false,
+        error: "Datum kraja mora biti posle prvog časa.",
+        fieldErrors: { until_date: "Datum kraja mora biti posle prvog časa." },
+      };
+    }
+    const days = Math.floor(
+      (until.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    effectiveCount = Math.min(52, Math.floor(days / intervalDays) + 1);
+    if (effectiveCount < 2) {
+      return {
+        ok: false,
+        error: "Period je prekratak za seriju (treba bar 2 termina).",
+      };
+    }
+  }
+
+  // Parse skip ranges into UTC Date pairs.
+  const skipRanges = (input.skipRanges ?? []).map((r) => ({
+    from: new Date(`${r.from}T00:00:00`),
+    to: new Date(`${r.to}T23:59:59`),
+  }));
 
   const { supabase, orgId } = await getOrgId();
   if (!orgId) return { ok: false, error: "Niste prijavljeni." };
@@ -241,7 +288,6 @@ export async function createRecurringLessons(input: {
     pricePara = parsed;
   }
 
-  const intervalDays = input.frequency === "weekly" ? 7 : 14;
   const groupId = crypto.randomUUID();
 
   const toInsert: {
@@ -255,9 +301,22 @@ export async function createRecurringLessons(input: {
   }[] = [];
   const skipped: { date: string; reason: string }[] = [];
 
-  for (let i = 0; i < input.count; i++) {
+  for (let i = 0; i < effectiveCount; i++) {
     const candidate = new Date(baseDate.getTime());
     candidate.setDate(candidate.getDate() + i * intervalDays);
+
+    // Skip ranges first — cheaper than a conflict query.
+    const inSkipRange = skipRanges.find(
+      (r) => candidate >= r.from && candidate <= r.to,
+    );
+    if (inSkipRange) {
+      skipped.push({
+        date: candidate.toISOString(),
+        reason: "u preskočenom periodu",
+      });
+      continue;
+    }
+
     const conflict = await findConflict(
       supabase,
       candidate,
