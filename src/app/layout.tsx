@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin", "latin-ext"],
   display: "swap",
+  // Mono font is used sparingly (tabular nums, code blocks). System mono
+  // fallback via display: swap is good enough until it loads.
+  preload: false,
 });
 
 export const metadata: Metadata = {

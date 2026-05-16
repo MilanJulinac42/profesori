@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
   experimental: {
     serverActions: {
       // Audio uploads (voice notes) ~2.4 MB; homework images do 5 × 800 KB ≈ 4 MB.
