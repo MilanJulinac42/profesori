@@ -233,11 +233,26 @@ Sve gurnuto na `main`, Vercel auto-deploy. Šest commita:
 
 ### Tier 0 — kritično pre/posle launch-a
 
-- [x] **Error tracking (Sentry)** — instaliran, `instrumentation.ts` + `instrumentation-client.ts`, `withSentryConfig` u `next.config.ts`. Error boundaries: `app/global-error.tsx`, `app/(app)/error.tsx`, `app/p/[slug]/error.tsx`.
-   - **TODO:** otvori Sentry nalog, kreiraj projekat, postavi env:
-     - `SENTRY_DSN` (server) + `NEXT_PUBLIC_SENTRY_DSN` (client) → isti DSN
-     - `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` → opciono, samo za source-map upload pri buildu
-   - Bez DSN-a SDK no-op-uje, build prolazi.
+- [x] **Error tracking (Sentry)** — instaliran, `instrumentation.ts` + `instrumentation-client.ts`, `withSentryConfig` u `next.config.ts`. Error boundaries: `app/global-error.tsx`, `app/(app)/error.tsx`, `app/p/[slug]/error.tsx`. Bez DSN-a SDK no-op-uje, build prolazi.
+
+  **Manualni koraci da Sentry profunkcioniše u produkciji:**
+  - [ ] Otvori https://sentry.io, registruj nalog (free tier: 5K errors/mesec)
+  - [ ] Kreiraj projekat → izaberi **Next.js** template → daje ti DSN (`https://xxxx@yyyy.ingest.sentry.io/zzzz`)
+  - [ ] U **lokalni `.env.local`** dodaj:
+    ```
+    SENTRY_DSN=<isti DSN>
+    NEXT_PUBLIC_SENTRY_DSN=<isti DSN>
+    ```
+  - [ ] U **Vercel dashboard → Project → Settings → Environment Variables** dodaj iste dve varijable za **Production** + **Preview** environments
+  - [ ] Za source-map upload (preporučeno, daje čitljive stack trace-ove u Sentry UI):
+    - U Sentry → **Settings → Auth Tokens** → "Create New Token" → scope: `project:releases` + `org:read`
+    - Dodaj u `.env.local` i Vercel:
+      ```
+      SENTRY_ORG=<tvoj-org-slug>
+      SENTRY_PROJECT=<projekat-slug>
+      SENTRY_AUTH_TOKEN=<token>
+      ```
+  - [ ] Verifikuj — pošalji namerno grešku (npr. baci u nekoj komponenti) → vidi je u Sentry → Issues
 - [x] **Rate limit `/api/assistant/chat`** — migracija 0036, `lib/assistant/rate-limit.ts`. Limit: 60/h + 10/min per user. Spreman.
 - [ ] **Trial expiration UX** — `daysLeft` ide ka 0 i ništa se ne dešava. Treba:
    - Banner na vrhu (app) layout-a kad `daysLeft <= 3` ("Trial ističe za N dana — dodaj karticu")
