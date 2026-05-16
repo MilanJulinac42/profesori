@@ -9,6 +9,7 @@ import {
 } from "@/lib/ai/anthropic";
 import { createClient } from "@/lib/supabase/server";
 import { TOOLS, executeTool } from "@/lib/assistant/tools";
+import { checkAssistantRateLimit } from "@/lib/assistant/rate-limit";
 import type { HistoryMessage } from "@/lib/assistant/chat";
 
 export const runtime = "nodejs";
@@ -125,6 +126,19 @@ export async function POST(request: NextRequest) {
   }
   const organizationId = (profile as { organization_id: string })
     .organization_id;
+
+  // Rate-limit before doing any work. The Anthropic call is the expensive
+  // bit; we want to refuse before issuing it.
+  const rateCheck = await checkAssistantRateLimit(user.id);
+  if (!rateCheck.ok) {
+    return NextResponse.json(
+      { error: rateCheck.message },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateCheck.retryAfterSeconds) },
+      },
+    );
+  }
 
   // System prompt + date + page context.
   const now = new Date();

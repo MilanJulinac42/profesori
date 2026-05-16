@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
@@ -20,4 +21,17 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry wraps the config to add source-map upload + tunneling. If no DSN,
+// the runtime SDKs no-op so this remains zero-impact until you add envs:
+//   SENTRY_DSN, NEXT_PUBLIC_SENTRY_DSN, SENTRY_AUTH_TOKEN (for source maps).
+export default withSentryConfig(nextConfig, {
+  // Skip source-map upload when credentials aren't set; otherwise build fails
+  // on a fresh checkout without the auth token.
+  silent: !process.env.CI,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  // Don't ship source maps to the browser — they're uploaded to Sentry only.
+  sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
+  disableLogger: true,
+});

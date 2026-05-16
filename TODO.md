@@ -226,3 +226,46 @@ Sve gurnuto na `main`, Vercel auto-deploy. Šest commita:
 5. **Recurring časovi** — "Marko, ponedeljkom u 17h, do kraja semestra" → kreira sve odjednom. Pola dana posla, brutalno štedi vreme.
 6. **Google Calendar sync** — read-only u prvi mah, da ne mora dvaput da unosi.
 7. **Domaći zadaci sa tracking-om** — posle časa dodaj domaći, učenik/roditelj dobije link, profesor vidi ko je uradio.
+
+---
+
+## Sledeće — Tier 0 i Tier 1 iz performans/UX audit-a (2026-05-16)
+
+### Tier 0 — kritično pre/posle launch-a
+
+- [x] **Error tracking (Sentry)** — instaliran, `instrumentation.ts` + `instrumentation-client.ts`, `withSentryConfig` u `next.config.ts`. Error boundaries: `app/global-error.tsx`, `app/(app)/error.tsx`, `app/p/[slug]/error.tsx`.
+   - **TODO:** otvori Sentry nalog, kreiraj projekat, postavi env:
+     - `SENTRY_DSN` (server) + `NEXT_PUBLIC_SENTRY_DSN` (client) → isti DSN
+     - `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` → opciono, samo za source-map upload pri buildu
+   - Bez DSN-a SDK no-op-uje, build prolazi.
+- [x] **Rate limit `/api/assistant/chat`** — migracija 0036, `lib/assistant/rate-limit.ts`. Limit: 60/h + 10/min per user. Spreman.
+- [ ] **Trial expiration UX** — `daysLeft` ide ka 0 i ništa se ne dešava. Treba:
+   - Banner na vrhu (app) layout-a kad `daysLeft <= 3` ("Trial ističe za N dana — dodaj karticu")
+   - Hard paywall kad istekne (`daysLeft <= 0`): blokira sve osim `/settings/billing` i `/login`
+   - Email reminder T-7 / T-3 / T-1 dan pre isteka
+   - Subscription tier check za naplaćivane feature-e (AI asistent? exercises? — još nije definisano)
+
+### Tier 1 — veliki UX win za male napore
+
+- [ ] **CSV import učenika** — drop CSV → mapuj kolone → import. Najveći onboarding multiplier. Reuse postojeći `students.actions` flow za insert, dodaj parser.
+- [ ] **Pre-resize slika na upload** — homework + avatar. Canvas resize na 1200px / JPEG 80% → 800KB → ~150KB. U `photo-upload.tsx`.
+- [ ] **Glasovni unos za AI asistent** — `voice-recorder.tsx` već postoji za beleške. Wire Whisper → transkript → šalje u chat preko `/api/assistant/chat`. Mobile-killer feature.
+- [ ] **PWA install + offline shell** — `manifest.json` + service worker. Bar za read-only podatke (dashboard skraćen). Bitno za home-screen install na mobilnom.
+- [ ] **Public profile "Preview"** — dugme u editor-u koje otvara `/p/[slug]?preview=1` u novom tab-u. Sad korisnik objavi pa vidi.
+
+### Tier 2 — power features (kad neko zatraži)
+
+- [ ] **Schedule drag-and-drop** — pomeranje časa povlačenjem. Kolizija checks treba.
+- [ ] **Bulk akcije rasporeda** — "Otkaži sve sutra", "Pomeri sve za sat".
+- [ ] **Search palette (Cmd+K)** — odvojen od AI (Cmd+J ili `/` ostaje AI). Brza navigacija "Marko → kartica".
+- [ ] **Avatar crop** — 1:1 cropper pri upload-u profile slike.
+- [ ] **Onboarding wizard** — pravi step-by-step umesto setup-card.
+
+### Tier 3 — nice to have
+
+- [ ] A11y audit (skip links, focus rings, ARIA)
+- [ ] Email template editor (sad samo `reminder_template` u settings)
+- [ ] Verifikuj cron `/api/cron/reports` u produkciji (radi li, šta šalje)
+- [ ] Bidirectional Google Calendar sync (sad samo push)
+- [ ] Subscription tier matrix — koji feature je na kom planu
+
