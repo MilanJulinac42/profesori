@@ -3,7 +3,15 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { Send, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  Mic,
+  Square,
+  X,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { HistoryMessage } from "@/lib/assistant/chat";
@@ -11,6 +19,7 @@ import {
   getAssistantSuggestions,
   type AssistantSuggestion,
 } from "@/lib/assistant/suggestions";
+import { transcribeAssistantVoice } from "@/lib/assistant/voice";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProposalCard } from "./proposal-card";
@@ -23,6 +32,36 @@ function truncateForBubble(text: string): string {
   const trimmed = text.trim().replace(/\s+/g, " ");
   if (trimmed.length <= BUBBLE_MAX_LEN) return trimmed;
   return trimmed.slice(0, BUBBLE_MAX_LEN - 1).trimEnd() + "…";
+}
+
+type VoiceState =
+  | { kind: "idle" }
+  | { kind: "requesting" }
+  | { kind: "recording" }
+  | { kind: "transcribing" };
+
+const MAX_RECORDING_SEC = 120;
+
+function pickAudioMime(): string | null {
+  if (typeof MediaRecorder === "undefined") return null;
+  const candidates = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4;codecs=mp4a.40.2",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+  ];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return null;
+}
+
+function mimeToExt(mime: string): string {
+  if (mime.startsWith("audio/webm")) return "webm";
+  if (mime.startsWith("audio/mp4")) return "m4a";
+  if (mime.startsWith("audio/ogg")) return "ogg";
+  return "audio";
 }
 
 const MD_COMPONENTS = {
@@ -126,6 +165,12 @@ export function ChatPanel({
     FALLBACK_SUGGESTIONS,
   );
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const [voiceState, setVoiceState] = useState<VoiceState>({ kind: "idle" });
+  const [recordingSec, setRecordingSec] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const recordingStartRef = useRef<number>(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const pathname = usePathname();
@@ -299,6 +344,123 @@ export function ChatPanel({
     });
   }
 
+  // Recording timer tick while voiceState is "recording".
+  useEffect(() => {
+    if (voiceState.kind !== "recording") return;
+    const id = window.setInterval(() => {
+      const sec = Math.floor((Date.now() - recordingStartRef.current) / 1000);
+      setRecordingSec(sec);
+      if (sec >= MAX_RECORDING_SEC) {
+        stopRecording();
+      }
+    }, 250);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceState.kind]);
+
+  // Clean up the mic stream on unmount.
+  useEffect(() => {
+    return () => {
+      try {
+        mediaRecorderRef.current?.stop();
+      } catch {
+        // ignore
+      }
+      mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  async function startRecording() {
+    if (voiceState.kind !== "idle") return;
+    setError(null);
+    setVoiceState({ kind: "requesting" });
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
+      const mime = pickAudioMime();
+      const recorder = new MediaRecorder(
+        stream,
+        mime ? { mimeType: mime } : undefined,
+      );
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
+      recorder.onstop = () => {
+        const type = recorder.mimeType || "audio/webm";
+        const blob = new Blob(chunksRef.current, { type });
+        mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current = null;
+        void transcribeBlob(blob, type);
+      };
+
+      recordingStartRef.current = Date.now();
+      setRecordingSec(0);
+      recorder.start();
+      setVoiceState({ kind: "recording" });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.name === "NotAllowedError"
+            ? "Mikrofon nije dozvoljen. Dozvoli pristup u podešavanjima browser-a."
+            : err.message
+          : "Greška pri pristupu mikrofonu.";
+      setError(msg);
+      setVoiceState({ kind: "idle" });
+    }
+  }
+
+  function stopRecording() {
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      // ignore
+    }
+    setVoiceState({ kind: "transcribing" });
+  }
+
+  function cancelRecording() {
+    const rec = mediaRecorderRef.current;
+    if (rec) {
+      // Drop the data handler so onstop doesn't fire transcribe.
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      try {
+        rec.stop();
+      } catch {
+        // ignore
+      }
+    }
+    chunksRef.current = [];
+    mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+    mediaStreamRef.current = null;
+    setVoiceState({ kind: "idle" });
+  }
+
+  async function transcribeBlob(blob: Blob, type: string) {
+    const ext = mimeToExt(type);
+    const file = new File([blob], `assistant-voice.${ext}`, { type });
+    const fd = new FormData();
+    fd.set("audio", file);
+    try {
+      const res = await transcribeAssistantVoice(fd);
+      if (!res.ok) {
+        setError(res.error);
+        setVoiceState({ kind: "idle" });
+        return;
+      }
+      // Drop transcript into the textarea so the user can review/edit before
+      // sending. Append to whatever they had typed if anything.
+      setInput((prev) => (prev ? `${prev} ${res.transcript}` : res.transcript));
+      setVoiceState({ kind: "idle" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Greška pri transkripciji.");
+      setVoiceState({ kind: "idle" });
+    }
+  }
+
   function resolveProposal(
     msgId: string,
     state: "confirmed" | "rejected",
@@ -445,34 +607,96 @@ export function ChatPanel({
             : "border-t border-border p-3 pb-5"
         }
       >
-        <div className="flex gap-2 items-end">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
-              }
-            }}
-            rows={2}
-            placeholder="Napiši pitanje ili komandu... (Enter za slanje)"
-            className="text-sm min-h-[40px] resize-none"
-            disabled={pending}
-          />
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => send()}
-            disabled={pending || !input.trim()}
-            className="h-10"
-          >
-            <Send className="size-3.5" strokeWidth={2} />
-          </Button>
-        </div>
+        {voiceState.kind === "recording" ? (
+          <div className="flex items-center justify-between gap-2 h-[64px] rounded-md border border-destructive/40 bg-destructive/5 px-3">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="size-2.5 rounded-full bg-destructive animate-pulse shrink-0" />
+              <div className="min-w-0">
+                <p className="text-sm font-medium leading-tight">Slušam te…</p>
+                <p className="text-[11px] text-muted-foreground tabular-nums">
+                  {formatRecordingTime(recordingSec)} / {formatRecordingTime(MAX_RECORDING_SEC)}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={cancelRecording}
+                aria-label="Otkaži"
+                title="Otkaži"
+                className="inline-flex items-center justify-center size-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                <X className="size-4" strokeWidth={2} />
+              </button>
+              <Button
+                type="button"
+                size="sm"
+                variant="destructive"
+                onClick={stopRecording}
+                className="h-9"
+              >
+                <Square className="size-3.5 fill-current" strokeWidth={2} />
+                Završi
+              </Button>
+            </div>
+          </div>
+        ) : voiceState.kind === "transcribing" ? (
+          <div className="flex items-center gap-2 h-[64px] rounded-md border border-border bg-secondary/40 px-3">
+            <Loader2 className="size-4 animate-spin" strokeWidth={2} />
+            <p className="text-sm text-muted-foreground">Pretvaram glas u tekst…</p>
+          </div>
+        ) : (
+          <div className="flex gap-2 items-end">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              rows={2}
+              placeholder="Napiši pitanje ili komandu... (Enter za slanje)"
+              className="text-sm min-h-[40px] resize-none"
+              disabled={pending || voiceState.kind !== "idle"}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={startRecording}
+              disabled={pending || voiceState.kind !== "idle"}
+              aria-label="Diktiraj glasom"
+              title="Diktiraj glasom"
+              className="h-10 px-2.5"
+            >
+              {voiceState.kind === "requesting" ? (
+                <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
+              ) : (
+                <Mic className="size-3.5" strokeWidth={2} />
+              )}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => send()}
+              disabled={pending || !input.trim()}
+              className="h-10"
+            >
+              <Send className="size-3.5" strokeWidth={2} />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function formatRecordingTime(totalSec: number): string {
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
 }
 
 const THINKING_LABELS = [
