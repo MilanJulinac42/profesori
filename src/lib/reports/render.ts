@@ -108,6 +108,9 @@ ${
     : ""
 }
 
+<!-- Plan učenja (curriculum progress) -->
+${renderCurriculumBlock(data)}
+
 <!-- Plan napred -->
 ${
   data.nextLessonPlan
@@ -172,6 +175,55 @@ function renderLessonRow(l: {
     <div style="font-size:12px;color:#888;">${escapeHtml(dateLabel)} · ${timeLabel} · ${l.duration_minutes} min${l.rating !== null ? ` · ${l.rating}/5` : ""}</div>
     ${l.topics.length > 0 ? `<div style="font-size:12px;color:#666;margin-top:2px;">${escapeHtml(l.topics.join(", "))}</div>` : ""}
     ${l.progress_summary ? `<div style="font-size:14px;color:#1a1a1a;margin-top:4px;line-height:1.5;">${escapeHtml(l.progress_summary)}</div>` : ""}
+  </td></tr>`;
+}
+
+function renderCurriculumBlock(data: ReportData): string {
+  const block = data.curriculumProgress;
+  if (!block || block.curricula.length === 0) return "";
+
+  // Show block only if something interesting happened this period —
+  // either newly mastered units, in-progress activity, OR if it's the
+  // first report (heuristic: any mastered total > 0 we still show).
+  const interesting = block.curricula.some(
+    (c) =>
+      c.newlyMastered.length > 0 ||
+      c.inProgressNow.length > 0 ||
+      c.masteredTotal > 0,
+  );
+  if (!interesting) return "";
+
+  const rows = block.curricula
+    .map((c) => {
+      const headline = escapeHtml(
+        [c.subject, c.gradeLabel].filter(Boolean).join(" · ") || c.name,
+      );
+      const newlyLine =
+        c.newlyMastered.length > 0
+          ? `<p style="margin:6px 0 0 0;font-size:13px;line-height:1.5;color:#1a1a1a;"><span style="color:#057a55;font-weight:600;">Savladano u periodu:</span> ${escapeHtml(c.newlyMastered.join(", "))}</p>`
+          : "";
+      const ipLine =
+        c.inProgressNow.length > 0
+          ? `<p style="margin:4px 0 0 0;font-size:13px;line-height:1.5;color:#1a1a1a;"><span style="color:#0369a1;font-weight:600;">U toku:</span> ${escapeHtml(c.inProgressNow.join(", "))}</p>`
+          : "";
+      return `<div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+          <p style="margin:0;font-size:14px;font-weight:600;color:#1a1a1a;">${escapeHtml(c.name)}</p>
+          <p style="margin:0;font-size:13px;color:#666;font-variant-numeric:tabular-nums;">${c.masteredTotal}/${c.totalUnits} · ${c.progressPct}%</p>
+        </div>
+        <p style="margin:2px 0 0 0;font-size:12px;color:#888;">${headline}</p>
+        <div style="margin-top:8px;height:6px;border-radius:3px;background:#eef0ea;overflow:hidden;">
+          <div style="width:${c.progressPct}%;height:100%;background:#0ea5b7;"></div>
+        </div>
+        ${newlyLine}
+        ${ipLine}
+      </div>`;
+    })
+    .join("");
+
+  return `<tr><td style="padding:16px 32px 8px 32px;">
+    <p style="margin:0 0 12px 0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#888;">Plan učenja</p>
+    ${rows}
   </td></tr>`;
 }
 
@@ -291,6 +343,28 @@ export function renderReportPlainText(data: ReportData): string {
       lines.push(
         `- ${format(dt, "d. MMM", { locale: srLatn })}: ${l.progress_summary}`,
       );
+    }
+  }
+
+  if (data.curriculumProgress && data.curriculumProgress.curricula.length > 0) {
+    for (const c of data.curriculumProgress.curricula) {
+      if (
+        c.newlyMastered.length === 0 &&
+        c.inProgressNow.length === 0 &&
+        c.masteredTotal === 0
+      ) {
+        continue;
+      }
+      lines.push("");
+      lines.push(
+        `${c.name}: ${c.masteredTotal}/${c.totalUnits} (${c.progressPct}%)`,
+      );
+      if (c.newlyMastered.length > 0) {
+        lines.push(`  Savladano u periodu: ${c.newlyMastered.join(", ")}`);
+      }
+      if (c.inProgressNow.length > 0) {
+        lines.push(`  U toku: ${c.inProgressNow.join(", ")}`);
+      }
     }
   }
 

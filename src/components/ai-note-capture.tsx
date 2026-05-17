@@ -13,6 +13,7 @@ type Tab = "voice" | "type";
 
 export type FilledDraft = LessonDraft & {
   transcript_raw: string | null;
+  suggested_unit_ids?: string[];
 };
 
 type Props = {
@@ -58,7 +59,11 @@ export function AINoteCapture({ lessonId, onDraft }: Props) {
         setError(res.error);
         return;
       }
-      onDraft({ ...res.draft, transcript_raw: res.transcript });
+      onDraft({
+        ...res.draft,
+        transcript_raw: res.transcript,
+        suggested_unit_ids: res.suggested_unit_ids,
+      });
       setSuccess(true);
       setTyped("");
     });

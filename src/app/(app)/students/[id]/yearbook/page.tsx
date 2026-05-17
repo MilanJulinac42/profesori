@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import type { Student } from "@/lib/students/types";
 import { YearPicker } from "./_components/year-picker";
 import { MonthlyChart } from "./_components/monthly-chart";
+import { getStudentPlan } from "@/lib/curriculum/queries";
 
 type Search = { year?: string };
 
@@ -272,6 +273,51 @@ export default async function YearbookPage({
     .filter((l) => (billableStatuses as readonly string[]).includes(l.status))
     .reduce((s, l) => s + l.price, 0);
 
+  // Plan učenja (curriculum) — godišnji presek aktivnih kurikuluma.
+  const plan = await getStudentPlan(supabase, id);
+  const startIso = periodStart.toISOString();
+  const endIso = periodEnd.toISOString();
+  const curriculumSummary = plan.active.map((a) => {
+    const leaves = a.units.filter(
+      (u) =>
+        u.parent_unit_id !== null ||
+        !a.units.some((c) => c.parent_unit_id === u.id),
+    );
+    const titleById = new Map(leaves.map((u) => [u.id, u.title]));
+    const progressByUnit = new Map(a.progress.map((p) => [p.unit_id, p]));
+    let mastered = 0;
+    const masteredThisYear: string[] = [];
+    const inProgressNow: string[] = [];
+    for (const u of leaves) {
+      const p = progressByUnit.get(u.id);
+      if (!p) continue;
+      if (p.status === "mastered") {
+        mastered++;
+        if (
+          p.mastered_at &&
+          p.mastered_at >= startIso &&
+          p.mastered_at <= endIso
+        ) {
+          masteredThisYear.push(titleById.get(u.id) ?? u.title);
+        }
+      } else if (p.status === "in_progress") {
+        inProgressNow.push(titleById.get(u.id) ?? u.title);
+      }
+    }
+    const pct = leaves.length === 0 ? 0 : Math.round((mastered / leaves.length) * 100);
+    return {
+      id: a.curriculum.id,
+      name: a.curriculum.name,
+      subject: a.curriculum.subject,
+      gradeLabel: a.curriculum.grade_label,
+      pct,
+      total: leaves.length,
+      mastered,
+      masteredThisYear,
+      inProgressNow,
+    };
+  });
+
   return (
     <div className="bg-white text-black max-w-4xl mx-auto px-8 py-8 print:px-0 print:py-0 print:max-w-none">
       <AutoPrint />
@@ -405,6 +451,55 @@ export default async function YearbookPage({
             }
           />
         </section>
+
+        {/* Plan učenja (curriculum) */}
+        {curriculumSummary.length > 0 && (
+          <section className="break-inside-avoid">
+            <h2 className="text-xs uppercase tracking-[0.12em] text-black/60 mb-3">
+              Plan učenja
+            </h2>
+            <div className="space-y-3">
+              {curriculumSummary.map((c) => (
+                <div
+                  key={c.id}
+                  className="rounded-lg border border-black/20 px-4 py-3"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-semibold">{c.name}</p>
+                      <p className="text-[11px] text-black/60">
+                        {[c.subject, c.gradeLabel].filter(Boolean).join(" · ")}
+                      </p>
+                    </div>
+                    <p className="text-sm tabular-nums">
+                      <strong>{c.mastered}</strong>
+                      <span className="text-black/50">/{c.total}</span>
+                      <span className="text-black/50"> · {c.pct}%</span>
+                    </p>
+                  </div>
+                  <div className="mt-2 h-1.5 rounded-full bg-black/10 overflow-hidden">
+                    <div
+                      className="h-full bg-black/70"
+                      style={{ width: `${c.pct}%` }}
+                    />
+                  </div>
+                  {c.masteredThisYear.length > 0 && (
+                    <p className="mt-2 text-[12px] leading-relaxed">
+                      <span className="font-semibold">Savladano u godini:</span>{" "}
+                      {c.masteredThisYear.join(", ")}
+                    </p>
+                  )}
+                  {c.inProgressNow.length > 0 && (
+                    <p className="mt-1 text-[12px] leading-relaxed text-black/70">
+                      <span className="font-semibold">U toku:</span>{" "}
+                      {c.inProgressNow.join(", ")}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Top teme */}
         {topTopics.length > 0 && (

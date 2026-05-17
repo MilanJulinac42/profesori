@@ -43,4 +43,6 @@ next-env.d.ts
 
 # claude code worktrees + local docs (out of repo scope)
 .claude/worktrees/
-docs/
+docs/*
+# But check in design / planning docs we want versioned:
+!docs/curriculum-plan.md

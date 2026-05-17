@@ -15,7 +15,13 @@ import { getOrgSettings } from "@/lib/settings/queries";
 import { getHomeworkStatsForPeriod } from "@/lib/homework/queries";
 import type { Student, ReportAudience } from "@/lib/students/types";
 import { getReportPeriod } from "./period";
-import type { LessonInReport, ReportData, ReportKind } from "./types";
+import type {
+  CurriculumProgressBlock,
+  LessonInReport,
+  ReportData,
+  ReportKind,
+} from "./types";
+import { getStudentPlan } from "@/lib/curriculum/queries";
 
 const IntroSchema = z.object({
   intro: z
@@ -245,6 +251,15 @@ export async function generateReport(
     homeworkSubmitted: homeworkStats.submitted,
   });
 
+  // Curriculum progress — best-effort. If no curricula assigned, returns null.
+  const curriculumProgress = await computeCurriculumProgress(
+    supabase,
+    input.student.id,
+    lessonsRaw.map((l) => l.id),
+    period.start,
+    period.end,
+  );
+
   // Pull the org's custom closing line (for the audience), if set.
   const customClosing =
     input.student.report_audience === "parent"
@@ -273,10 +288,74 @@ export async function generateReport(
     totalDebtNow: billing.debt,
     homeworkAssigned: homeworkStats.assigned,
     homeworkSubmitted: homeworkStats.submitted,
+    curriculumProgress,
     aiIntro: ai.intro,
     aiInputTokens: ai.inputTokens,
     aiOutputTokens: ai.outputTokens,
   };
+}
+
+async function computeCurriculumProgress(
+  supabase: SupabaseClient,
+  studentId: string,
+  lessonIdsInPeriod: string[],
+  periodStart: Date,
+  periodEnd: Date,
+): Promise<CurriculumProgressBlock | null> {
+  const plan = await getStudentPlan(supabase, studentId);
+  if (plan.active.length === 0) return null;
+
+  const lessonIdSet = new Set(lessonIdsInPeriod);
+  const startIso = periodStart.toISOString();
+  const endIso = periodEnd.toISOString();
+
+  const curricula = plan.active.map((a) => {
+    // Leaves = subtopics + sections without children.
+    const leaves = a.units.filter(
+      (u) =>
+        u.parent_unit_id !== null ||
+        !a.units.some((c) => c.parent_unit_id === u.id),
+    );
+    const titleById = new Map(leaves.map((u) => [u.id, u.title]));
+    const progressByUnit = new Map(a.progress.map((p) => [p.unit_id, p]));
+
+    let masteredTotal = 0;
+    const newlyMastered: string[] = [];
+    const inProgressNow: string[] = [];
+    for (const u of leaves) {
+      const p = progressByUnit.get(u.id);
+      if (!p) continue;
+      if (p.status === "mastered") {
+        masteredTotal++;
+        if (
+          p.mastered_at &&
+          p.mastered_at >= startIso &&
+          p.mastered_at <= endIso
+        ) {
+          newlyMastered.push(titleById.get(u.id) ?? u.title);
+        }
+      } else if (p.status === "in_progress") {
+        // Touched this period iff last_lesson_id ∈ period lessons.
+        if (p.last_lesson_id && lessonIdSet.has(p.last_lesson_id)) {
+          inProgressNow.push(titleById.get(u.id) ?? u.title);
+        }
+      }
+    }
+    const totalUnits = leaves.length;
+    const pct = totalUnits === 0 ? 0 : Math.round((masteredTotal / totalUnits) * 100);
+    return {
+      name: a.curriculum.name,
+      subject: a.curriculum.subject,
+      gradeLabel: a.curriculum.grade_label,
+      progressPct: pct,
+      totalUnits,
+      masteredTotal,
+      newlyMastered,
+      inProgressNow,
+    };
+  });
+
+  return { curricula };
 }
 
 type IntroInput = {

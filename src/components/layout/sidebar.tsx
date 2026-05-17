@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Bot,
   ArrowUpRight,
+  Compass,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ const SECTIONS: NavSection[] = [
       { href: "/schedule", label: "Raspored", icon: CalendarDays },
       { href: "/billing", label: "Naplata", icon: Banknote },
       { href: "/exercises", label: "Zadaci", icon: Sparkles },
+      { href: "/curricula", label: "Kurikulumi", icon: Compass },
     ],
   },
   {

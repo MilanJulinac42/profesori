@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   ClipboardList,
   FileText,
+  Compass,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -48,6 +49,8 @@ import { BillingSection } from "./_components/billing-section";
 import { ReportsPanel } from "./_components/reports-panel";
 import { HomeworkPanel } from "./_components/homework-panel";
 import { ParentLinkButton } from "./_components/parent-link-button";
+import { PlanTab } from "./_components/plan-tab";
+import { getStudentPlan, listOrgCurricula } from "@/lib/curriculum/queries";
 import {
   getSupabase,
   getTeacherCtx,
@@ -57,7 +60,13 @@ import {
   getReportsCount,
 } from "./_data";
 
-type TabValue = "pregled" | "naplata" | "casovi" | "domaci" | "izvestaji";
+type TabValue =
+  | "pregled"
+  | "naplata"
+  | "casovi"
+  | "domaci"
+  | "izvestaji"
+  | "plan";
 
 const ALLOWED_TABS: TabValue[] = [
   "pregled",
@@ -65,6 +74,7 @@ const ALLOWED_TABS: TabValue[] = [
   "casovi",
   "domaci",
   "izvestaji",
+  "plan",
 ];
 
 export default async function StudentPage({
@@ -388,6 +398,7 @@ async function TabNavBlock({
       icon: FileText,
       badge: reportsCount,
     },
+    { value: "plan", label: "Plan", icon: Compass },
   ];
   return (
     <TabNav
@@ -413,6 +424,7 @@ function TabNavSkeleton({
     { value: "casovi", label: "Časovi", icon: CalendarDays },
     { value: "domaci", label: "Domaći", icon: ClipboardList },
     { value: "izvestaji", label: "Izveštaji", icon: FileText },
+    { value: "plan", label: "Plan", icon: Compass },
   ];
   return (
     <TabNav
@@ -445,7 +457,25 @@ async function TabContentBlock({
       return <HomeworkTabBlock student={s} appBaseUrl={appBaseUrl} />;
     case "izvestaji":
       return <ReportsTabBlock student={s} />;
+    case "plan":
+      return <PlanTabBlock student={s} />;
   }
+}
+
+async function PlanTabBlock({ student: s }: { student: Student }) {
+  const supabase = await getSupabase();
+  const [plan, orgCurricula] = await Promise.all([
+    getStudentPlan(supabase, s.id),
+    listOrgCurricula(supabase),
+  ]);
+  return (
+    <PlanTab
+      studentId={s.id}
+      studentName={s.full_name}
+      plan={plan}
+      availableCurricula={orgCurricula.filter((c) => c.is_active)}
+    />
+  );
 }
 
 async function OverviewTabBlock({ student: s }: { student: Student }) {

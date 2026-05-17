@@ -12,6 +12,10 @@ import {
   type LessonDraft,
 } from "./transcribe";
 import { syncLessonAfterChange } from "@/lib/google/sync";
+import {
+  autoProgressLinkedUnits,
+  setLessonUnitsAction,
+} from "@/lib/curriculum/actions";
 
 export type LessonFormState = {
   error?: string;
@@ -378,6 +382,7 @@ export async function updateLesson(
   const nextPlan = String(formData.get("next_lesson_plan") ?? "").trim() || null;
   const ratingRaw = String(formData.get("lesson_rating") ?? "").trim();
   const topicsJson = String(formData.get("topics_covered") ?? "").trim();
+  const unitIdsJson = String(formData.get("unit_ids") ?? "").trim();
   const progressSummary =
     String(formData.get("progress_summary") ?? "").trim() || null;
   const voiceTranscriptRaw =
@@ -398,6 +403,20 @@ export async function updateLesson(
           .map((t) => String(t).trim())
           .filter((t) => t.length > 0)
           .slice(0, 30);
+    } catch {
+      // ignore
+    }
+  }
+
+  let unitIds: string[] | null = null;
+  if (unitIdsJson) {
+    try {
+      const parsed = JSON.parse(unitIdsJson);
+      if (Array.isArray(parsed)) {
+        unitIds = parsed
+          .map((id) => String(id))
+          .filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+      }
     } catch {
       // ignore
     }
@@ -432,7 +451,7 @@ export async function updateLesson(
 
   const { data: existing } = await supabase
     .from("lessons")
-    .select("student_id")
+    .select("student_id, status")
     .eq("id", lessonId)
     .single();
 
@@ -450,6 +469,13 @@ export async function updateLesson(
 
   const { error } = await supabase.from("lessons").update(update).eq("id", lessonId);
   if (error) return { error: error.message };
+
+  if (unitIds !== null) {
+    await setLessonUnitsAction(lessonId, unitIds);
+    if (existing?.status === "completed" && existing.student_id) {
+      await autoProgressLinkedUnits(lessonId, existing.student_id);
+    }
+  }
 
   // Sync u Google Calendar (fail-safe)
   const { data: orgRow } = await supabase
@@ -487,6 +513,10 @@ export async function setLessonStatus(lessonId: string, status: LessonStatus) {
   if (error) throw new Error(error.message);
 
   if (orgId) await syncLessonAfterChange(supabase, orgId, lessonId);
+
+  if (status === "completed" && existing?.student_id) {
+    await autoProgressLinkedUnits(lessonId, existing.student_id);
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");
@@ -543,7 +573,12 @@ async function fetchLessonContext(
 }
 
 export type DraftResult =
-  | { ok: true; draft: LessonDraft; transcript: string | null }
+  | {
+      ok: true;
+      draft: LessonDraft;
+      transcript: string | null;
+      suggested_unit_ids: string[];
+    }
   | { ok: false; error: string };
 
 /**
@@ -564,17 +599,48 @@ export async function generateLessonDraft(
     const audioField = formData.get("audio");
     const typedField = String(formData.get("typed_text") ?? "").trim();
 
+    let draft: LessonDraft;
+    let transcript: string | null = null;
     if (audioField instanceof File && audioField.size > 0) {
-      const { draft, transcript } = await transcribeAndProcess(audioField, ctx);
-      return { ok: true, draft, transcript };
+      const res = await transcribeAndProcess(audioField, ctx);
+      draft = res.draft;
+      transcript = res.transcript;
+    } else if (typedField) {
+      draft = await processNoteText(typedField, ctx);
+    } else {
+      return { ok: false, error: "Nema ni audija ni teksta." };
     }
 
-    if (typedField) {
-      const draft = await processNoteText(typedField, ctx);
-      return { ok: true, draft, transcript: null };
+    // Fuzzy match topics_covered against student's pickable curriculum
+    // units, so the dialog can show "AI predlaže: …, potvrdi?" pills.
+    let suggested_unit_ids: string[] = [];
+    try {
+      const { listStudentPickableUnits } = await import(
+        "@/lib/curriculum/queries"
+      );
+      const { suggestUnitsFromTopics } = await import(
+        "@/lib/curriculum/match"
+      );
+      const { data: lessonRow } = await supabase
+        .from("lessons")
+        .select("student_id")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (lessonRow?.student_id) {
+        const units = await listStudentPickableUnits(
+          supabase,
+          lessonRow.student_id,
+        );
+        suggested_unit_ids = suggestUnitsFromTopics(
+          draft.topics_covered ?? [],
+          units.map((u) => ({ unit_id: u.unit_id, unit_title: u.unit_title })),
+        );
+      }
+    } catch {
+      // Curriculum lookup is best-effort — never block the draft.
     }
 
-    return { ok: false, error: "Nema ni audija ni teksta." };
+    return { ok: true, draft, transcript, suggested_unit_ids };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Greška u obradi.";
     return { ok: false, error: msg };
@@ -608,7 +674,8 @@ export async function saveLessonNotesFromDraft(
     voice_transcript_raw: draft.transcript_raw ?? null,
   };
 
-  if (existing.status === "scheduled") {
+  const willComplete = existing.status === "scheduled";
+  if (willComplete) {
     update.status = "completed";
   }
 
@@ -618,6 +685,13 @@ export async function saveLessonNotesFromDraft(
     .eq("id", lessonId);
 
   if (error) return { error: error.message };
+
+  if (
+    (willComplete || existing.status === "completed") &&
+    existing.student_id
+  ) {
+    await autoProgressLinkedUnits(lessonId, existing.student_id);
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/dashboard");

@@ -16,6 +16,7 @@ import {
   HelpCircle,
   Repeat,
   CalendarClock,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -39,6 +40,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { TopicInput } from "@/components/topic-input";
+import { UnitPicker, MasterPills } from "./unit-picker";
+import { getLessonUnitIdsAction } from "@/lib/curriculum/actions";
+import type { StudentPickableUnit } from "@/lib/curriculum/queries";
 import { StarRating } from "@/components/star-rating";
 import { AINoteCapture, type FilledDraft } from "@/components/ai-note-capture";
 import { HomeworkSection } from "./homework-section";
@@ -693,6 +697,22 @@ function EditForm({
   const [transcriptRaw, setTranscriptRaw] = useState<string | null>(
     lesson.voice_transcript_raw ?? null,
   );
+  // Curriculum unit linking state.
+  const [linkedUnitIds, setLinkedUnitIds] = useState<string[]>([]);
+  const [pickableUnits, setPickableUnits] = useState<StudentPickableUnit[]>([]);
+  // AI-suggested unit IDs from the latest draft (not yet confirmed).
+  const [suggestedUnitIds, setSuggestedUnitIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const ids = await getLessonUnitIdsAction(lesson.id);
+      if (!cancelled) setLinkedUnitIds(ids);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lesson.id]);
 
   function applyDraft(draft: FilledDraft) {
     setNotesAfter(draft.notes_after_lesson || "");
@@ -703,6 +723,15 @@ function EditForm({
       setRating(draft.suggested_rating);
     }
     setTranscriptRaw(draft.transcript_raw ?? null);
+    // Soft suggestion — show pills above the picker, never auto-apply.
+    if (draft.suggested_unit_ids && draft.suggested_unit_ids.length > 0) {
+      const newOnes = draft.suggested_unit_ids.filter(
+        (id) => !linkedUnitIds.includes(id),
+      );
+      setSuggestedUnitIds(newOnes);
+    } else {
+      setSuggestedUnitIds([]);
+    }
   }
 
   const [error, setError] = useState<string | null>(null);
@@ -724,6 +753,7 @@ function EditForm({
     fd.set("notes_after_lesson", notesAfter);
     fd.set("next_lesson_plan", nextPlan);
     fd.set("topics_covered", JSON.stringify(topics));
+    fd.set("unit_ids", JSON.stringify(linkedUnitIds));
     if (rating !== null) fd.set("lesson_rating", String(rating));
     fd.set("progress_summary", progressSummary);
     if (transcriptRaw) fd.set("voice_transcript_raw", transcriptRaw);
@@ -957,6 +987,41 @@ function EditForm({
           </div>
 
           <div className="space-y-1.5">
+            <Label className="text-xs">Koje teme iz kurikuluma si pokrio?</Label>
+            {suggestedUnitIds.length > 0 && (
+              <AIProposalBar
+                ids={suggestedUnitIds}
+                units={pickableUnits}
+                onAccept={() => {
+                  setLinkedUnitIds((prev) =>
+                    Array.from(new Set([...prev, ...suggestedUnitIds])),
+                  );
+                  setSuggestedUnitIds([]);
+                }}
+                onDismiss={() => setSuggestedUnitIds([])}
+              />
+            )}
+            <UnitPicker
+              studentId={lesson.student_id}
+              selected={linkedUnitIds}
+              onChange={setLinkedUnitIds}
+              onUnitsLoaded={setPickableUnits}
+            />
+            <MasterPills
+              studentId={lesson.student_id}
+              selectedUnitIds={linkedUnitIds}
+              units={pickableUnits}
+              onMastered={(unitId) => {
+                setPickableUnits((prev) =>
+                  prev.map((u) =>
+                    u.unit_id === unitId ? { ...u, status: "mastered" } : u,
+                  ),
+                );
+              }}
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label className="text-xs">Kako je išlo</Label>
             <StarRating value={rating} onChange={setRating} />
           </div>
@@ -1085,6 +1150,52 @@ function EditForm({
           </Button>
         </div>
       </DialogFooter>
+    </div>
+  );
+}
+
+function AIProposalBar({
+  ids,
+  units,
+  onAccept,
+  onDismiss,
+}: {
+  ids: string[];
+  units: StudentPickableUnit[];
+  onAccept: () => void;
+  onDismiss: () => void;
+}) {
+  const titles = ids
+    .map((id) => units.find((u) => u.unit_id === id)?.unit_title)
+    .filter((t): t is string => !!t);
+  if (titles.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-brand/30 bg-brand/5 px-3 py-2.5 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[11px] uppercase tracking-[0.14em] font-semibold text-brand inline-flex items-center gap-1.5">
+          <Sparkles className="size-3" strokeWidth={2} />
+          AI predlaže
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Odbaci
+        </button>
+      </div>
+      <p className="text-xs text-foreground">
+        Iz beleške je AI prepoznao da odgovaraju ove teme iz kurikuluma:{" "}
+        <span className="font-medium">{titles.join(", ")}</span>
+      </p>
+      <button
+        type="button"
+        onClick={onAccept}
+        className="inline-flex items-center gap-1.5 h-7 px-3 rounded-lg bg-brand text-brand-foreground text-xs font-semibold hover:opacity-90 transition-all"
+      >
+        <Check className="size-3" strokeWidth={2.5} />
+        Potvrdi i dodaj
+      </button>
     </div>
   );
 }

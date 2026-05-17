@@ -7,6 +7,25 @@ export const REPORT_KIND_LABELS: Record<ReportKind, string> = {
   monthly: "Mesečni izveštaj",
 };
 
+export type CurriculumProgressBlock = {
+  /** Per-curriculum summary. Only includes curricula that are currently
+   *  assigned to the student (active). */
+  curricula: Array<{
+    name: string;
+    subject: string;
+    gradeLabel: string | null;
+    /** Overall % savladano / total leaves. */
+    progressPct: number;
+    totalUnits: number;
+    masteredTotal: number;
+    /** Unit titles newly mastered within the report period. */
+    newlyMastered: string[];
+    /** Unit titles still in_progress, touched within the period (last lesson
+     *  linked to one of the lessons in the period). */
+    inProgressNow: string[];
+  }>;
+};
+
 export type LessonInReport = {
   id: string;
   scheduled_at: string;
@@ -51,6 +70,9 @@ export type ReportData = {
   // Domaći u periodu.
   homeworkAssigned: number;
   homeworkSubmitted: number;
+
+  // Napredak kroz kurikulum(e) — null ako učenik nema dodeljenih.
+  curriculumProgress: CurriculumProgressBlock | null;
 
   // AI uvodni paragraf — kratak, prirodan, lice prilagođeno publici.
   aiIntro: string;

@@ -142,6 +142,18 @@ export const TOOLS: ToolDef[] = [
     },
   },
   {
+    name: "get_student_curriculum_progress",
+    description:
+      "Vraća napredak učenika po dodeljenim kurikulumima: ukupan procenat, brojači savladano/u toku/nije počeo, naslovi onoga što je trenutno u toku i sledeća tri zadatka koje treba da se urade. Koristi kad korisnik pita 'gde je Marko sa gradivom', 'šta je sledeće za Anu', 'koliko je savladao u maju' i sl.",
+    input_schema: {
+      type: "object",
+      properties: {
+        student_id: { type: "string", description: "UUID učenika." },
+      },
+      required: ["student_id"],
+    },
+  },
+  {
     name: "navigate_to",
     description:
       "Šalje frontend-u zahtev da preusmeri profesora na drugu stranicu app-a. Path mora biti relativan (npr. '/students/abc-123' ili '/schedule').",
@@ -319,6 +331,12 @@ export async function executeTool(
           typeof input.min_debt_para === "number" ? input.min_debt_para : 0,
         );
 
+      case "get_student_curriculum_progress":
+        return await getStudentCurriculumProgress(
+          supabase,
+          String(input.student_id ?? ""),
+        );
+
       case "navigate_to":
         return {
           ok: true,
@@ -357,6 +375,114 @@ export async function executeTool(
 // =====================================================================
 // IMPLEMENTACIJE READ TOOL-OVA
 // =====================================================================
+
+async function getStudentCurriculumProgress(
+  supabase: SupabaseClient,
+  studentId: string,
+): Promise<ToolResult> {
+  if (!studentId) return { ok: false, error: "Nedostaje student_id." };
+
+  const { getStudentPlan } = await import("@/lib/curriculum/queries");
+  const plan = await getStudentPlan(supabase, studentId);
+
+  if (plan.active.length === 0) {
+    return {
+      ok: true,
+      data: {
+        active_curricula: 0,
+        message: "Učenik nema aktivnih kurikuluma. Dodeli mu jedan u Plan tabu.",
+      },
+    };
+  }
+
+  const summary = plan.active.map((a) => {
+    // Leaves: subtopics + sections without children.
+    const leaves = a.units.filter(
+      (u) =>
+        u.parent_unit_id !== null ||
+        !a.units.some((c) => c.parent_unit_id === u.id),
+    );
+    const progressByUnit = new Map(a.progress.map((p) => [p.unit_id, p]));
+    let mastered = 0;
+    let inProgress = 0;
+    let notStarted = 0;
+    let skipped = 0;
+    const inProgressTitles: string[] = [];
+    const recentlyMastered: { title: string; mastered_at: string }[] = [];
+
+    for (const u of leaves) {
+      const p = progressByUnit.get(u.id);
+      const status = p?.status ?? "not_started";
+      if (status === "mastered") {
+        mastered++;
+        if (p?.mastered_at) {
+          recentlyMastered.push({
+            title: u.title,
+            mastered_at: p.mastered_at,
+          });
+        }
+      } else if (status === "in_progress") {
+        inProgress++;
+        inProgressTitles.push(u.title);
+      } else if (status === "skipped") {
+        skipped++;
+      } else {
+        notStarted++;
+      }
+    }
+
+    // Next 3 not-started units in order: walk units in (parent_order, order_index).
+    const sectionsById = new Map(
+      a.units.filter((u) => u.parent_unit_id === null).map((s) => [s.id, s]),
+    );
+    const orderedLeaves = [...leaves].sort((x, y) => {
+      const xSec = x.parent_unit_id
+        ? (sectionsById.get(x.parent_unit_id)?.order_index ?? 0)
+        : x.order_index;
+      const ySec = y.parent_unit_id
+        ? (sectionsById.get(y.parent_unit_id)?.order_index ?? 0)
+        : y.order_index;
+      if (xSec !== ySec) return xSec - ySec;
+      return x.order_index - y.order_index;
+    });
+    const nextUp: string[] = [];
+    for (const u of orderedLeaves) {
+      const status = progressByUnit.get(u.id)?.status ?? "not_started";
+      if (status === "not_started" && nextUp.length < 3) nextUp.push(u.title);
+    }
+
+    recentlyMastered.sort((x, y) =>
+      x.mastered_at < y.mastered_at ? 1 : -1,
+    );
+
+    const total = leaves.length;
+    const pct = total === 0 ? 0 : Math.round((mastered / total) * 100);
+
+    return {
+      curriculum: {
+        name: a.curriculum.name,
+        subject: a.curriculum.subject,
+        grade: a.curriculum.grade_label,
+      },
+      progress_pct: pct,
+      counts: {
+        total,
+        mastered,
+        in_progress: inProgress,
+        not_started: notStarted,
+        skipped,
+      },
+      in_progress_titles: inProgressTitles,
+      next_up: nextUp,
+      recently_mastered: recentlyMastered.slice(0, 5).map((r) => ({
+        title: r.title,
+        mastered_at: fmt(r.mastered_at, "d. MMM yyyy"),
+      })),
+    };
+  });
+
+  return { ok: true, data: { active_curricula: summary.length, curricula: summary } };
+}
 
 async function findStudent(
   supabase: SupabaseClient,
